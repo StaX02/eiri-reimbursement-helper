@@ -168,9 +168,9 @@
                                                                Text="{Binding OriginalFileName}"
                                                                TextTrimming="CharacterEllipsis" />
                                                     <TextBlock Margin="0,4,0,0" Foreground="#667085">
-                                                        <Run Text="{Binding RoleDisplay}" />
+                                                        <Run Text="{Binding RoleDisplay, Mode=OneWay}" />
                                                         <Run Text=" · " />
-                                                        <Run Text="{Binding SizeDisplay}" />
+                                                        <Run Text="{Binding SizeDisplay, Mode=OneWay}" />
                                                     </TextBlock>
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="1"
