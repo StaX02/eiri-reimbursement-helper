@@ -23,11 +23,21 @@ dotnet test Eiri.ReimbursementHelper.sln --no-build
 dotnet run --project src/Eiri.Reimbursement.Desktop/Eiri.Reimbursement.Desktop.csproj
 ```
 
-首次使用发票提取前初始化 worker：
+开发模式会使用仓库内已有的 worker 虚拟环境。只在修改或测试 Python worker 时创建它：
 
 ```powershell
 python -m venv worker/document-worker/.venv
 worker/document-worker/.venv/Scripts/python.exe -m pip install -e worker/document-worker
 ```
+
+## Publish
+
+发布会自动把 Python 运行时、PDFium、OCR 依赖和模型打包到应用目录。最终用户无需安装 Python 或执行初始化命令：
+
+```powershell
+dotnet publish src/Eiri.Reimbursement.Desktop/Eiri.Reimbursement.Desktop.csproj -c Release -r win-x64 --self-contained true
+```
+
+完整产物位于 `src/Eiri.Reimbursement.Desktop/bin/Release/net10.0-windows/win-x64/publish`。
 
 开发前先阅读 [领域词汇](./CONTEXT.md) 和 [架构规划](./docs/architecture.md)。

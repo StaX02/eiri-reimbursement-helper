@@ -8,6 +8,9 @@ The worker extracts the native text layer with `pypdfium2`. When a PDF has no te
 each page at 300 DPI and runs the models bundled with RapidOCR 3.9.2 through ONNX Runtime 1.29.0.
 Both paths return invoice number, sales-merchant name and price-tax total candidates.
 
+The desktop publish target builds this worker with PyInstaller and copies the complete standalone
+worker directory into the application. End users do not need Python or a virtual environment.
+
 Bundled model SHA-256 values:
 
 - `PP-OCRv6_det_small.onnx`: `090F04ABCD9D9A7498BC4EBF677E4CB9BDCE1FE4197DDB7E529F1EF44E1FF94F`
@@ -18,4 +21,10 @@ Bundled model SHA-256 values:
 python -m venv .venv
 .venv\Scripts\python -m pip install -e .
 .venv\Scripts\python -m unittest discover -s tests -v
+```
+
+To build only the standalone worker:
+
+```powershell
+.\build-worker.ps1 -OutputDirectory ..\..\artifacts\document-worker
 ```

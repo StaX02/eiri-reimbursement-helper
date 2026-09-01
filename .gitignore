@@ -483,6 +483,7 @@ $RECYCLE.BIN/
 
 # Python worker development environments and caches
 .venv/
+/worker/document-worker/build/
 __pycache__/
 *.egg-info/
 .pytest_cache/
