@@ -14,13 +14,16 @@ public sealed class ThemeManagerTests
 
         ThemeManager.Toggle(resources);
 
-        Assert.Equal(Color.FromRgb(0x11, 0x18, 0x27), BrushColor(resources, "SurfaceBrush"));
-        Assert.Equal(Color.FromRgb(0xF9, 0xFA, 0xFB), BrushColor(resources, "PrimaryTextBrush"));
+        Assert.Equal(Color.FromRgb(0x11, 0x17, 0x15), BrushColor(resources, "SurfaceBrush"));
+        Assert.Equal(Color.FromRgb(0xF1, 0xF6, 0xF4), BrushColor(resources, "PrimaryTextBrush"));
+        Assert.Equal(Color.FromRgb(0x58, 0xB2, 0x9D), BrushColor(resources, "PrimaryBrush"));
+        Assert.Equal(Color.FromRgb(0x72, 0xC3, 0xB0), BrushColor(resources, "FocusBrush"));
 
         ThemeManager.Toggle(resources);
 
-        Assert.Equal(Color.FromRgb(0xF6, 0xF7, 0xF9), BrushColor(resources, "SurfaceBrush"));
-        Assert.Equal(Color.FromRgb(0x10, 0x18, 0x28), BrushColor(resources, "PrimaryTextBrush"));
+        Assert.Equal(Color.FromRgb(0xF3, 0xF6, 0xF5), BrushColor(resources, "SurfaceBrush"));
+        Assert.Equal(Color.FromRgb(0x17, 0x22, 0x1F), BrushColor(resources, "PrimaryTextBrush"));
+        Assert.Equal(Color.FromRgb(0x17, 0x6B, 0x5B), BrushColor(resources, "PrimaryBrush"));
     }
 
     private static Color BrushColor(ResourceDictionary resources, string key) =>

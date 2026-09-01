@@ -4,6 +4,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Eiri.Reimbursement.Core.Materials;
 using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Desktop;
@@ -50,11 +51,11 @@ public sealed class MainWindowRenderingTests
                         OrderId.New(),
                         OrderPlatform.Other,
                         null,
-                        [],
-                        [],
-                        0,
+                        ["商家甲", "商家乙"],
                         [],
                         0,
+                        ["1001", "10000002"],
+                        2,
                         DateTimeOffset.UtcNow,
                         DateTimeOffset.UtcNow,
                         DateTimeOffset.UtcNow,
@@ -93,7 +94,8 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal("批量导入发票", batchImportButton.Content);
                 Assert.Equal("导出报销资料", exportButton.Content);
                 Assert.Equal(Dock.Top, DockPanel.GetDock(topToolBar));
-                Assert.Same(topMenuBar, topToolBar.Child);
+                Grid topToolBarContent = Assert.IsType<Grid>(topToolBar.Child);
+                Assert.Contains(topMenuBar, topToolBarContent.Children.OfType<Menu>());
                 Assert.Equal(
                     [optionsMenu, aboutMenu],
                     topMenuBar.Items.OfType<MenuItem>());
@@ -109,17 +111,36 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(DataGridLengthUnitType.Pixel, ordersGrid.Columns[1].Width.UnitType);
                 Assert.All(
                     ordersGrid.Columns.Skip(6).Take(3),
-                    column => Assert.Equal(DataGridLengthUnitType.Auto, column.Width.UnitType));
+                    column =>
+                    {
+                        Assert.Equal(104, column.Width.Value);
+                        Assert.Equal(DataGridLengthUnitType.Pixel, column.Width.UnitType);
+                    });
                 Assert.Equal(ordersGrid.Columns[6].ActualWidth, ordersGrid.Columns[8].ActualWidth);
                 DataGridRow loadedRow = Assert.IsType<DataGridRow>(
                     ordersGrid.ItemContainerGenerator.ContainerFromIndex(0));
+                DataGridCell[] loadedCells = FindVisualChildren<DataGridCell>(loadedRow).ToArray();
+                Assert.All(
+                    loadedCells,
+                    cell => Assert.Equal(HorizontalAlignment.Center, cell.HorizontalContentAlignment));
+                DataGridCell merchantCell = loadedCells.Single(cell => cell.Column.DisplayIndex == 2);
+                Assert.Empty(FindVisualChildren<ComboBox>(merchantCell));
+                Assert.Equal(
+                    "商家甲等",
+                    Assert.Single(FindVisualChildren<TextBlock>(merchantCell)).Text);
+                DataGridCell invoiceNumberCell = loadedCells.Single(
+                    cell => cell.Column.DisplayIndex == 5);
+                Assert.All(
+                    FindVisualChildren<TextBlock>(invoiceNumberCell),
+                    text => Assert.Equal(TextAlignment.Center, text.TextAlignment));
                 DataGridCell refundedCell = FindVisualChildren<DataGridCell>(loadedRow)
                     .Single(cell => cell.Column.DisplayIndex == 8);
-                TextBlock refundedText = Assert.IsType<TextBlock>(refundedCell.Content);
+                TextBlock refundedText = Assert.Single(FindVisualChildren<TextBlock>(refundedCell));
                 Assert.True(
                     refundedCell.ActualWidth >= refundedText.DesiredSize.Width,
                     $"返款日期被截断：列宽 {refundedCell.ActualWidth}，内容需要 {refundedText.DesiredSize.Width}。");
-                Assert.Equal(DataGridLengthUnitType.Auto, ordersGrid.Columns[0].Width.UnitType);
+                Assert.Equal(72, ordersGrid.Columns[0].Width.Value);
+                Assert.Equal(DataGridLengthUnitType.Pixel, ordersGrid.Columns[0].Width.UnitType);
                 Assert.Equal(
                     ["设为已提交", "设为已返款", "清空提交及返款状态", "删除订单"],
                     Assert.IsType<ContextMenu>(ordersGrid.ContextMenu).Items
@@ -152,6 +173,14 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(Visibility.Visible, detailPanel.Visibility);
                 Assert.Equal("订单详情", detailHeading.Text);
                 Assert.Equal(Visibility.Visible, detailActions.Visibility);
+                CaptureIfRequested(window);
+                toggleThemeMenuItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                window.UpdateLayout();
+                Assert.Equal(
+                    Color.FromRgb(0x11, 0x17, 0x15),
+                    Assert.IsType<SolidColorBrush>(window.Background).Color);
+                CaptureIfRequested(window, "-dark");
+                toggleThemeMenuItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 detailTabs.SelectedItem = statusTab;
                 window.UpdateLayout();
                 Assert.DoesNotContain(
@@ -164,13 +193,6 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(Visibility.Collapsed, detailActions.Visibility);
                 Assert.Equal(Visibility.Collapsed, materialDropZones.Visibility);
                 Assert.Equal(Visibility.Collapsed, detailTabs.Visibility);
-
-                toggleThemeMenuItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-                window.UpdateLayout();
-                Assert.Equal(
-                    Color.FromRgb(0x11, 0x18, 0x27),
-                    Assert.IsType<SolidColorBrush>(window.Background).Color);
-                toggleThemeMenuItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
 
                 BatchInvoiceImportWindow batchWindow = new(viewModel);
                 Border batchDropZone = Assert.IsType<Border>(
@@ -208,5 +230,32 @@ public sealed class MainWindowRenderingTests
                 yield return descendant;
             }
         }
+    }
+
+    private static void CaptureIfRequested(Window window, string suffix = "")
+    {
+        string? capturePath = Environment.GetEnvironmentVariable("EIRI_UI_CAPTURE_PATH");
+        if (string.IsNullOrWhiteSpace(capturePath))
+        {
+            return;
+        }
+
+        if (suffix.Length > 0)
+        {
+            string extension = Path.GetExtension(capturePath);
+            capturePath = Path.Combine(
+                Path.GetDirectoryName(capturePath)!,
+                $"{Path.GetFileNameWithoutExtension(capturePath)}{suffix}{extension}");
+        }
+
+        int width = Math.Max(1, (int)Math.Ceiling(window.ActualWidth));
+        int height = Math.Max(1, (int)Math.Ceiling(window.ActualHeight));
+        RenderTargetBitmap bitmap = new(width, height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(window);
+        PngBitmapEncoder encoder = new();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        Directory.CreateDirectory(Path.GetDirectoryName(capturePath)!);
+        using FileStream stream = File.Create(capturePath);
+        encoder.Save(stream);
     }
 }

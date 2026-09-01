@@ -5,470 +5,752 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="发票报销助手"
-        Width="1180"
-        Height="720"
-        MinWidth="900"
-        MinHeight="540"
+        Width="1240"
+        Height="760"
+        MinWidth="980"
+        MinHeight="600"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource SurfaceBrush}">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,0,0,5" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style x:Key="DataTextStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Cascadia Mono, Microsoft YaHei UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="DetailTabControlStyle"
+               TargetType="TabControl"
+               BasedOn="{StaticResource {x:Type TabControl}}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TabPanel Grid.Row="0"
+                                      IsItemsHost="True"
+                                      Background="Transparent"
+                                      KeyboardNavigation.TabIndex="1" />
+                            <Border Grid.Row="1"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="0,1,0,0">
+                                <ContentPresenter ContentSource="SelectedContent" />
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DetailTabItemStyle"
+               TargetType="TabItem"
+               BasedOn="{StaticResource {x:Type TabItem}}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder"
+                                Padding="{TemplateBinding Padding}"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="0,0,0,2">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              ContentSource="Header"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder"
+                                        Property="Background"
+                                        Value="{DynamicResource HoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder"
+                                        Property="BorderBrush"
+                                        Value="{DynamicResource PrimaryBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
+
     <DockPanel>
         <Border x:Name="TopToolBar"
                 DockPanel.Dock="Top"
+                Height="44"
                 Background="{DynamicResource PanelBrush}"
                 BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="0,0,0,1">
-            <Menu x:Name="TopMenuBar"
-                  Padding="16,2"
-                  HorizontalAlignment="Stretch"
-                  Background="{DynamicResource PanelBrush}">
-                <MenuItem x:Name="OptionsMenu" Header="选项">
-                    <MenuItem x:Name="ToggleThemeMenuItem"
-                              Header="切换深色/浅色模式"
-                              Click="ToggleThemeMenuItem_OnClick" />
-                </MenuItem>
-                <MenuItem x:Name="AboutMenu" Header="关于">
-                    <MenuItem Header="作者信息"
-                              Click="AboutAuthorMenuItem_OnClick" />
-                </MenuItem>
-            </Menu>
+            <Grid Margin="24,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="22"
+                            Height="22"
+                            Margin="0,0,9,0"
+                            Background="{DynamicResource PrimaryBrush}"
+                            CornerRadius="5">
+                        <TextBlock HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontFamily="Segoe UI Variable Display"
+                                   FontSize="12"
+                                   FontWeight="Bold"
+                                   Foreground="White"
+                                   Text="E" />
+                    </Border>
+                    <TextBlock VerticalAlignment="Center"
+                               FontFamily="Segoe UI Variable Display, Microsoft YaHei UI"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Text="发票报销助手" />
+                    <Border Width="1"
+                            Height="14"
+                            Margin="12,0"
+                            Background="{DynamicResource BorderBrush}" />
+                    <TextBlock VerticalAlignment="Center"
+                               FontSize="12"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Text="本地资料库" />
+                </StackPanel>
+
+                <Menu x:Name="TopMenuBar"
+                      Grid.Column="1"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Center">
+                    <MenuItem x:Name="OptionsMenu" Header="选项">
+                        <MenuItem x:Name="ToggleThemeMenuItem"
+                                  Header="切换深色/浅色模式"
+                                  Click="ToggleThemeMenuItem_OnClick" />
+                    </MenuItem>
+                    <MenuItem x:Name="AboutMenu" Header="关于">
+                        <MenuItem Header="作者信息"
+                                  Click="AboutAuthorMenuItem_OnClick" />
+                    </MenuItem>
+                </Menu>
+            </Grid>
         </Border>
 
-        <Grid Margin="28">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+        <Grid Margin="24,22,24,18">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,20">
-            <StackPanel DockPanel.Dock="Left">
-                <TextBlock x:Name="ManagementHeading"
-                           FontSize="26"
-                           FontWeight="SemiBold"
-                           Text="报销管理" />
-                <TextBlock Margin="0,5,0,0"
-                           Foreground="{DynamicResource SecondaryTextBrush}"
-                           Text="集中管理订单截图、电子发票和报销进度" />
-            </StackPanel>
-            <StackPanel DockPanel.Dock="Right"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right">
-                <Button x:Name="ExportReimbursementFilesButton"
-                        Width="126"
-                        Height="36"
-                        Margin="0,0,10,0"
-                        IsEnabled="{Binding CanExport}"
-                        Click="ExportReimbursementFilesButton_OnClick"
-                        Content="导出报销资料" />
-                <Button Width="90"
-                        Height="36"
-                        Margin="0,0,10,0"
-                        Command="{Binding RefreshCommand}"
-                        Content="刷新" />
-                <Button x:Name="BatchImportInvoicesButton"
-                        Width="120"
-                        Height="36"
-                        Margin="0,0,10,0"
-                        IsEnabled="{Binding CanBatchImportInvoices}"
-                        Click="BatchImportInvoicesButton_OnClick"
-                        Content="批量导入发票" />
-                <Button Width="110"
-                        Height="36"
-                        Padding="14,0"
-                        Background="{DynamicResource PrimaryBrush}"
-                        Foreground="White"
-                        Command="{Binding CreateOrderCommand}"
-                        Content="新建订单" />
-            </StackPanel>
-        </DockPanel>
+            <Grid Grid.Row="0" Margin="0,0,0,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-        <Border Grid.Row="1"
-                Margin="0,0,0,14"
-                Padding="14,10"
-                Background="{DynamicResource PanelBrush}"
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="7">
-            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding StatusMessage}" />
-        </Border>
-
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Column="0"
-                    Background="{DynamicResource PanelBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8">
                 <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <StackPanel Margin="14,12" Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center"
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="4" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="2" />
+                    <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                        <TextBlock x:Name="ManagementHeading"
+                                   FontFamily="Segoe UI Variable Display, Microsoft YaHei UI"
+                                   FontSize="28"
+                                   FontWeight="SemiBold"
+                                   Text="报销管理" />
+                        <TextBlock Margin="0,4,0,0"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   Text="平台选择" />
-                        <ComboBox x:Name="PlatformSelector"
-                                  Width="150"
-                                  Margin="10,0,0,0"
-                                  ItemsSource="{Binding PlatformOptions}"
-                                  SelectedItem="{Binding SelectedPlatform, Mode=TwoWay}"
-                                  DisplayMemberPath="DisplayName" />
+                                   Text="整理订单材料，校正发票信息，推进报销里程碑" />
                     </StackPanel>
-
-                    <DataGrid x:Name="OrdersGrid"
-                              Grid.Row="1"
-                              ItemsSource="{Binding Orders}"
-                              SelectedItem="{Binding SelectedOrder, Mode=TwoWay}"
-                              SelectionMode="Extended"
-                              SelectionUnit="FullRow"
-                              AutoGenerateColumns="False"
-                              CanUserAddRows="False"
-                              IsReadOnly="True"
-                              HeadersVisibility="Column"
-                              GridLinesVisibility="Horizontal"
-                              BorderThickness="0"
-                              RowHeaderWidth="0"
-                              SelectionChanged="OrdersGrid_OnSelectionChanged"
-                              PreviewMouseRightButtonDown="OrdersGrid_OnPreviewMouseRightButtonDown"
-                              AlternatingRowBackground="{DynamicResource AlternatingRowBrush}">
-                        <DataGrid.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="设为已提交"
-                                          Click="SetOrdersSubmittedMenuItem_OnClick" />
-                                <MenuItem Header="设为已返款"
-                                          Click="SetOrdersRefundedMenuItem_OnClick" />
-                                <MenuItem Header="清空提交及返款状态"
-                                          Click="ClearOrdersSubmissionAndRefundMenuItem_OnClick" />
-                                <Separator />
-                                <MenuItem Header="删除订单"
-                                          Click="DeleteOrdersMenuItem_OnClick" />
-                            </ContextMenu>
-                        </DataGrid.ContextMenu>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Width="Auto" Header="平台" Binding="{Binding PlatformDisplay}" />
-                        <DataGridTextColumn Width="100" Header="创建日期" Binding="{Binding CreatedDateDisplay}" />
-                        <DataGridTemplateColumn Width="1.2*" Header="商家名">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <ComboBox Margin="4,2"
-                                              IsEditable="True"
-                                              IsReadOnly="True"
-                                              ItemsSource="{Binding MerchantOptions}"
-                                              Text="{Binding MerchantDisplay, Mode=OneWay}" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTextColumn Width="1.4*" Header="商品名" Binding="{Binding ProductDisplay}" />
-                        <DataGridTextColumn Width="100" Header="金额" Binding="{Binding TotalAmount, StringFormat=¥{0:N2}}" />
-                        <DataGridTemplateColumn Width="1.1*" Header="发票号">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="4,2">
-                                        <TextBlock Text="待提取">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding InvoiceNumbers.Count}" Value="0">
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                        <ItemsControl ItemsSource="{Binding InvoiceNumbers}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <TextBlock Text="{Binding}" TextWrapping="NoWrap" />
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </Grid>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTextColumn Width="Auto" Header="已导出" Binding="{Binding ExportedAt, TargetNullValue=未导出, StringFormat={}{0:yyyy-MM-dd}}" />
-                        <DataGridTextColumn Width="Auto" Header="已提交" Binding="{Binding SubmittedAt, TargetNullValue=未提交, StringFormat={}{0:yyyy-MM-dd}}" />
-                        <DataGridTextColumn Width="Auto" Header="已返款" Binding="{Binding RefundedAt, TargetNullValue=未返款, StringFormat={}{0:yyyy-MM-dd}}" />
-                    </DataGrid.Columns>
-                    </DataGrid>
                 </Grid>
-            </Border>
 
-            <Border x:Name="OrderDetailPanel"
-                    Grid.Column="1"
-                    Width="350"
-                    Margin="14,0,0,0"
-                    Background="{DynamicResource PanelBrush}"
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <Button Width="74"
+                            Margin="0,0,8,0"
+                            Style="{StaticResource GhostButtonStyle}"
+                            Command="{Binding RefreshCommand}"
+                            Content="刷新" />
+                    <Button x:Name="ExportReimbursementFilesButton"
+                            Width="126"
+                            Margin="0,0,8,0"
+                            IsEnabled="{Binding CanExport}"
+                            Click="ExportReimbursementFilesButton_OnClick"
+                            Content="导出报销资料" />
+                    <Button x:Name="BatchImportInvoicesButton"
+                            Width="120"
+                            Margin="0,0,8,0"
+                            IsEnabled="{Binding CanBatchImportInvoices}"
+                            Click="BatchImportInvoicesButton_OnClick"
+                            Content="批量导入发票" />
+                    <Button Width="108"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Command="{Binding CreateOrderCommand}"
+                            Content="新建订单" />
+                </StackPanel>
+            </Grid>
+
+            <Border Grid.Row="1"
+                    MinHeight="38"
+                    Margin="0,0,0,14"
+                    Padding="12,8"
+                    Background="{DynamicResource PrimarySoftBrush}"
                     BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Visibility" Value="Visible" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SelectedOrder}" Value="{x:Null}">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <Grid Margin="18">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <StackPanel Grid.Row="0" Margin="0,0,0,14">
-                        <TextBlock x:Name="OrderDetailHeading"
-                                   FontSize="17"
-                                   FontWeight="SemiBold"
-                                   TextWrapping="Wrap"
-                                   Text="{Binding SelectedOrderHeading}" />
-                    </StackPanel>
-
-                    <StackPanel x:Name="OrderDetailActions"
-                                Grid.Row="1"
-                                Margin="0,0,0,14"
-                                HorizontalAlignment="Right"
-                                Visibility="{Binding IsSingleOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Orientation="Horizontal">
-                        <Button Width="62"
-                                Height="32"
-                                Margin="0,0,8,0"
-                                Foreground="#B42318"
-                                IsEnabled="{Binding CanDeleteOrder}"
-                                Click="DeleteOrderButton_OnClick"
-                                Content="删除" />
-                        <Button Width="72"
-                                Height="32"
-                                Margin="0,0,8,0"
-                                IsEnabled="{Binding CanImport}"
-                                Click="SelectInvoiceFilesButton_OnClick"
-                                Content="添加发票" />
-                        <Button Width="100"
-                                Height="32"
-                                IsEnabled="{Binding CanImport}"
-                                Click="SelectSupportingFilesButton_OnClick"
-                                Content="添加辅助材料" />
-                    </StackPanel>
-
-                    <Grid x:Name="MaterialDropZones"
-                          Grid.Row="2"
-                          Margin="0,0,0,14"
-                          Visibility="{Binding IsSingleOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="10" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Border x:Name="InvoiceDropZone"
-                                Padding="10"
-                                AllowDrop="True"
-                                Background="{DynamicResource InvoiceDropBrush}"
-                                BorderBrush="#1570EF"
-                                BorderThickness="1"
-                                CornerRadius="7"
-                                DragOver="DropZone_OnDragOver"
-                                Drop="InvoiceDropZone_OnDrop">
-                            <StackPanel HorizontalAlignment="Center">
-                                <TextBlock HorizontalAlignment="Center"
-                                           FontWeight="SemiBold"
-                                           Text="发票" />
-                                <TextBlock Margin="0,5,0,0"
-                                           HorizontalAlignment="Center"
-                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                           Text="拖入 PDF，自动解析" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border x:Name="SupportingDropZone"
-                                Grid.Column="2"
-                                Padding="10"
-                                AllowDrop="True"
-                                Background="{DynamicResource SupportingDropBrush}"
-                                BorderBrush="#98A2B3"
-                                BorderThickness="1"
-                                CornerRadius="7"
-                                DragOver="DropZone_OnDragOver"
-                                Drop="SupportingDropZone_OnDrop">
-                            <StackPanel HorizontalAlignment="Center">
-                                <TextBlock HorizontalAlignment="Center"
-                                           FontWeight="SemiBold"
-                                           Text="订单截图等辅助材料" />
-                                <TextBlock Margin="0,5,0,0"
-                                           HorizontalAlignment="Center"
-                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                           Text="仅保存，不解析" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-
-                    <TabControl x:Name="OrderDetailTabs"
-                                Grid.Row="3"
-                                Visibility="{Binding IsSingleOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <TabItem Header="材料">
-                            <ListBox ItemsSource="{Binding Materials}"
-                                     BorderThickness="0"
-                                     HorizontalContentAlignment="Stretch">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Margin="0,0,0,8"
-                                                Padding="10"
-                                                Background="{DynamicResource SubtlePanelBrush}"
-                                                CornerRadius="6">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel>
-                                                    <TextBlock FontWeight="SemiBold"
-                                                               Text="{Binding OriginalFileName}"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}">
-                                                        <Run Text="{Binding RoleDisplay, Mode=OneWay}" />
-                                                        <Run Text=" · " />
-                                                        <Run Text="{Binding SizeDisplay, Mode=OneWay}" />
-                                                    </TextBlock>
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="1"
-                                                           Margin="10,0,0,0"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource PrimaryBrush}"
-                                                           Text="{Binding ProcessingStateDisplay}" />
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </TabItem>
-
-                        <TabItem Header="发票">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <StackPanel Margin="8">
-                                    <TextBlock Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" Text="平台" />
-                                    <ComboBox x:Name="InvoicePlatformSelector"
-                                              Margin="0,0,0,10"
-                                              ItemsSource="{Binding PlatformOptions}"
-                                              SelectedItem="{Binding SelectedOrderPlatform, Mode=TwoWay}"
-                                              DisplayMemberPath="DisplayName" />
-
-                                    <TextBlock Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" Text="发票文件" />
-                                    <ComboBox Margin="0,0,0,10"
-                                              ItemsSource="{Binding Invoices}"
-                                              SelectedItem="{Binding SelectedInvoice, Mode=TwoWay}"
-                                              DisplayMemberPath="OriginalFileName" />
-
-                                    <TextBlock Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" Text="商家名称" />
-                                    <TextBox Margin="0,0,0,10"
-                                             Text="{Binding SelectedInvoice.MerchantName, UpdateSourceTrigger=PropertyChanged}" />
-
-                                    <TextBlock Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" Text="发票号" />
-                                    <TextBox Margin="0,0,0,10"
-                                             Text="{Binding SelectedInvoice.InvoiceNumber, UpdateSourceTrigger=PropertyChanged}" />
-
-                                    <TextBlock Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" Text="发票金额（元）" />
-                                    <TextBox Margin="0,0,0,10"
-                                             Text="{Binding SelectedInvoice.AmountText, UpdateSourceTrigger=PropertyChanged}" />
-
-                                    <TextBlock Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" Text="商品名 / 项目名称（每行一条）" />
-                                    <TextBox x:Name="ProductNamesEditor"
-                                             Height="62"
-                                             Margin="0,0,0,10"
-                                             AcceptsReturn="True"
-                                             VerticalScrollBarVisibility="Auto"
-                                             Text="{Binding SelectedInvoice.ProductNamesText, UpdateSourceTrigger=PropertyChanged}" />
-
-                                    <StackPanel Margin="0,0,0,10" Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button Width="100"
-                                                Height="32"
-                                                Margin="0,0,8,0"
-                                                Command="{Binding AnalyzeInvoiceCommand}"
-                                                Content="提取 PDF 文本" />
-                                        <Button Width="76"
-                                                Height="32"
-                                                Background="{DynamicResource PrimaryBrush}"
-                                                Foreground="White"
-                                                Command="{Binding SaveInvoiceCommand}"
-                                                Content="保存" />
-                                    </StackPanel>
-
-                                    <TextBlock Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" Text="提取文本（PoC）" />
-                                    <TextBox MinHeight="90"
-                                             IsReadOnly="True"
-                                             AcceptsReturn="True"
-                                             TextWrapping="Wrap"
-                                             VerticalScrollBarVisibility="Auto"
-                                             Text="{Binding ExtractedText}" />
-                                </StackPanel>
-                            </ScrollViewer>
-                        </TabItem>
-
-                        <TabItem Header="提交/返款状态">
-                            <StackPanel Margin="12">
-                                <TextBlock Margin="0,0,0,6"
-                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                           Text="提交状态" />
-                                <Border Margin="0,0,0,14"
-                                        Padding="12"
-                                        Background="{DynamicResource SubtlePanelBrush}"
-                                        CornerRadius="6">
-                                    <StackPanel>
-                                        <TextBlock FontWeight="SemiBold"
-                                                   Text="{Binding SelectedOrderSubmissionStatusDisplay}" />
-                                        <CheckBox x:Name="SubmittedStatusCheckBox"
-                                                  Margin="0,8,0,0"
-                                                  IsEnabled="{Binding CanEditOrderMilestones}"
-                                                  IsChecked="{Binding IsSelectedOrderSubmitted, Mode=TwoWay}"
-                                                  Click="SubmittedStatusCheckBox_OnClick"
-                                                  Content="订单已提交" />
-                                    </StackPanel>
-                                </Border>
-
-                                <TextBlock Margin="0,0,0,6"
-                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                           Text="返款状态" />
-                                <Border Margin="0,0,0,14"
-                                        Padding="12"
-                                        Background="{DynamicResource SubtlePanelBrush}"
-                                        CornerRadius="6">
-                                    <StackPanel>
-                                        <TextBlock FontWeight="SemiBold"
-                                                   Text="{Binding SelectedOrderRefundStatusDisplay}" />
-                                        <CheckBox x:Name="RefundedStatusCheckBox"
-                                                  Margin="0,8,0,0"
-                                                  IsEnabled="{Binding CanEditOrderMilestones}"
-                                                  IsChecked="{Binding IsSelectedOrderRefunded, Mode=TwoWay}"
-                                                  Click="RefundedStatusCheckBox_OnClick"
-                                                  Content="订单已返款" />
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                        </TabItem>
-                    </TabControl>
-                </Grid>
+                    CornerRadius="6">
+                <DockPanel LastChildFill="True">
+                    <Ellipse DockPanel.Dock="Left"
+                             Width="7"
+                             Height="7"
+                             Margin="0,0,10,0"
+                             VerticalAlignment="Center"
+                             Fill="{DynamicResource PrimaryBrush}" />
+                    <TextBlock VerticalAlignment="Center"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Text="{Binding StatusMessage}" />
+                </DockPanel>
             </Border>
-        </Grid>
 
-        <TextBlock Grid.Row="3"
-                   Margin="0,14,0,0"
-                   HorizontalAlignment="Right"
-                   Foreground="{DynamicResource SecondaryTextBrush}"
-                   Text="{Binding OrderCountText}" />
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Background="{DynamicResource PanelBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Margin="16,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock VerticalAlignment="Center"
+                                           FontFamily="Segoe UI Variable Display, Microsoft YaHei UI"
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           Text="订单" />
+                                <TextBlock Margin="10,0,0,0"
+                                           VerticalAlignment="Center"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           Text="右键可批量更新里程碑" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBlock Margin="0,0,8,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           Text="新订单平台" />
+                                <ComboBox x:Name="PlatformSelector"
+                                          Width="142"
+                                          ItemsSource="{Binding PlatformOptions}"
+                                          SelectedItem="{Binding SelectedPlatform, Mode=TwoWay}"
+                                          DisplayMemberPath="DisplayName" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Grid.Row="1">
+                            <DataGrid x:Name="OrdersGrid"
+                                      ItemsSource="{Binding Orders}"
+                                      SelectedItem="{Binding SelectedOrder, Mode=TwoWay}"
+                                      SelectionMode="Extended"
+                                      SelectionUnit="FullRow"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      IsReadOnly="True"
+                                      EnableColumnVirtualization="False"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                      BorderThickness="0"
+                                      RowHeaderWidth="0"
+                                      SelectionChanged="OrdersGrid_OnSelectionChanged"
+                                      PreviewMouseRightButtonDown="OrdersGrid_OnPreviewMouseRightButtonDown"
+                                      AlternatingRowBackground="{DynamicResource AlternatingRowBrush}">
+                                <DataGrid.CellStyle>
+                                    <Style TargetType="DataGridCell"
+                                           BasedOn="{StaticResource {x:Type DataGridCell}}">
+                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                    </Style>
+                                </DataGrid.CellStyle>
+                                <DataGrid.ColumnHeaderStyle>
+                                    <Style TargetType="DataGridColumnHeader"
+                                           BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                    </Style>
+                                </DataGrid.ColumnHeaderStyle>
+                                <DataGrid.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="设为已提交"
+                                                  Click="SetOrdersSubmittedMenuItem_OnClick" />
+                                        <MenuItem Header="设为已返款"
+                                                  Click="SetOrdersRefundedMenuItem_OnClick" />
+                                        <MenuItem Header="清空提交及返款状态"
+                                                  Click="ClearOrdersSubmissionAndRefundMenuItem_OnClick" />
+                                        <Separator />
+                                        <MenuItem Header="删除订单"
+                                                  Foreground="{DynamicResource DangerBrush}"
+                                                  Click="DeleteOrdersMenuItem_OnClick" />
+                                    </ContextMenu>
+                                </DataGrid.ContextMenu>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Width="72" Header="平台" Binding="{Binding PlatformDisplay}" />
+                                    <DataGridTemplateColumn Width="100" Header="创建日期">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Style="{StaticResource DataTextStyle}"
+                                                           Text="{Binding CreatedDateDisplay}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Width="150" Header="商家名">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock VerticalAlignment="Center"
+                                                           TextAlignment="Center"
+                                                           Text="{Binding MerchantDisplay}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Width="180" Header="发票明细" Binding="{Binding ProductDisplay}" />
+                                    <DataGridTemplateColumn Width="96" Header="金额">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Style="{StaticResource DataTextStyle}"
+                                                           Text="{Binding TotalAmount, StringFormat=¥{0:N2}}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Width="170" Header="发票号">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <TextBlock VerticalAlignment="Center"
+                                                               HorizontalAlignment="Center"
+                                                               TextAlignment="Center"
+                                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               Text="待提取">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding InvoiceNumbers.Count}" Value="0">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <ItemsControl ItemsSource="{Binding InvoiceNumbers}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Style="{StaticResource DataTextStyle}"
+                                                                           TextAlignment="Center"
+                                                                           Text="{Binding}"
+                                                                           TextWrapping="NoWrap" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Width="104" Header="已导出">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Style="{StaticResource DataTextStyle}"
+                                                           Text="{Binding ExportedAt, TargetNullValue=未导出, StringFormat={}{0:yyyy-MM-dd}}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Width="104" Header="已提交">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Style="{StaticResource DataTextStyle}"
+                                                           Text="{Binding SubmittedAt, TargetNullValue=未提交, StringFormat={}{0:yyyy-MM-dd}}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Width="104" Header="已返款">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Style="{StaticResource DataTextStyle}"
+                                                           Text="{Binding RefundedAt, TargetNullValue=未返款, StringFormat={}{0:yyyy-MM-dd}}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        IsHitTestVisible="False">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasItems, ElementName=OrdersGrid}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock HorizontalAlignment="Center"
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           Text="还没有订单" />
+                                <TextBlock Margin="0,6,0,0"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           Text="新建订单，或批量导入已有发票。" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border x:Name="OrderDetailPanel"
+                        Grid.Column="1"
+                        Width="380"
+                        Margin="14,0,0,0"
+                        Background="{DynamicResource PanelBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedOrder}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Margin="18,16,18,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="2" />
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock x:Name="OrderDetailHeading"
+                                           FontFamily="Segoe UI Variable Display, Microsoft YaHei UI"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap"
+                                           Text="{Binding SelectedOrderHeading}" />
+                                <TextBlock Margin="0,3,0,0"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           Text="材料、发票与报销进度" />
+                            </StackPanel>
+                            <Button Grid.Column="2"
+                                    Width="58"
+                                    Height="32"
+                                    Style="{StaticResource DangerButtonStyle}"
+                                    IsEnabled="{Binding CanDeleteOrder}"
+                                    Click="DeleteOrderButton_OnClick"
+                                    Content="删除" />
+                        </Grid>
+
+                        <StackPanel x:Name="OrderDetailActions"
+                                    Grid.Row="1"
+                                    Margin="18,0,18,12"
+                                    HorizontalAlignment="Right"
+                                    Visibility="{Binding IsSingleOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Orientation="Horizontal">
+                            <Button Width="84"
+                                    Height="32"
+                                    Margin="0,0,8,0"
+                                    IsEnabled="{Binding CanImport}"
+                                    Click="SelectInvoiceFilesButton_OnClick"
+                                    Content="添加发票" />
+                            <Button Width="110"
+                                    Height="32"
+                                    IsEnabled="{Binding CanImport}"
+                                    Click="SelectSupportingFilesButton_OnClick"
+                                    Content="添加辅助材料" />
+                        </StackPanel>
+
+                        <Grid x:Name="MaterialDropZones"
+                              Grid.Row="2"
+                              Margin="18,0,18,14"
+                              Visibility="{Binding IsSingleOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border x:Name="InvoiceDropZone"
+                                    MinHeight="70"
+                                    Padding="10"
+                                    AllowDrop="True"
+                                    Background="{DynamicResource InvoiceDropBrush}"
+                                    BorderBrush="{DynamicResource PrimaryBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    DragOver="DropZone_OnDragOver"
+                                    Drop="InvoiceDropZone_OnDrop">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock HorizontalAlignment="Center"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryBrush}"
+                                               Text="发票 PDF" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               HorizontalAlignment="Center"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               Text="拖入后自动解析" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border x:Name="SupportingDropZone"
+                                    Grid.Column="2"
+                                    MinHeight="70"
+                                    Padding="10"
+                                    AllowDrop="True"
+                                    Background="{DynamicResource SupportingDropBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    DragOver="DropZone_OnDragOver"
+                                    Drop="SupportingDropZone_OnDrop">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock HorizontalAlignment="Center"
+                                               FontWeight="SemiBold"
+                                               Text="辅助材料" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               HorizontalAlignment="Center"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               Text="仅保存，不解析" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <TabControl x:Name="OrderDetailTabs"
+                                    Grid.Row="3"
+                                    Margin="12,0,12,12"
+                                    Style="{StaticResource DetailTabControlStyle}"
+                                    ItemContainerStyle="{StaticResource DetailTabItemStyle}"
+                                    Visibility="{Binding IsSingleOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TabItem Header="材料">
+                                <ListBox Margin="6,10,6,0"
+                                         ItemsSource="{Binding Materials}"
+                                         BorderThickness="0"
+                                         HorizontalContentAlignment="Stretch">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,8"
+                                                    Padding="11"
+                                                    Background="{DynamicResource SubtlePanelBrush}"
+                                                    BorderBrush="{DynamicResource BorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock FontWeight="SemiBold"
+                                                                   Text="{Binding OriginalFileName}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Margin="0,4,0,0"
+                                                                   FontSize="12"
+                                                                   Foreground="{DynamicResource SecondaryTextBrush}">
+                                                            <Run Text="{Binding RoleDisplay, Mode=OneWay}" />
+                                                            <Run Text=" · " />
+                                                            <Run Text="{Binding SizeDisplay, Mode=OneWay}" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1"
+                                                               Margin="10,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               FontSize="12"
+                                                               Foreground="{DynamicResource PrimaryBrush}"
+                                                               Text="{Binding ProcessingStateDisplay}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </TabItem>
+
+                            <TabItem Header="发票">
+                                <ScrollViewer Margin="6,8,6,0"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="4">
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="平台" />
+                                        <ComboBox x:Name="InvoicePlatformSelector"
+                                                  Margin="0,0,0,12"
+                                                  ItemsSource="{Binding PlatformOptions}"
+                                                  SelectedItem="{Binding SelectedOrderPlatform, Mode=TwoWay}"
+                                                  DisplayMemberPath="DisplayName" />
+
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="发票文件" />
+                                        <ComboBox Margin="0,0,0,12"
+                                                  ItemsSource="{Binding Invoices}"
+                                                  SelectedItem="{Binding SelectedInvoice, Mode=TwoWay}"
+                                                  DisplayMemberPath="OriginalFileName" />
+
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="商家名称" />
+                                        <TextBox Margin="0,0,0,12"
+                                                 Text="{Binding SelectedInvoice.MerchantName, UpdateSourceTrigger=PropertyChanged}" />
+
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="发票号" />
+                                        <TextBox Margin="0,0,0,12"
+                                                 FontFamily="Cascadia Mono, Microsoft YaHei UI"
+                                                 Text="{Binding SelectedInvoice.InvoiceNumber, UpdateSourceTrigger=PropertyChanged}" />
+
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="发票金额（元）" />
+                                        <TextBox Margin="0,0,0,12"
+                                                 FontFamily="Cascadia Mono, Microsoft YaHei UI"
+                                                 Text="{Binding SelectedInvoice.AmountText, UpdateSourceTrigger=PropertyChanged}" />
+
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}"
+                                                   Text="发票明细（每行一条）" />
+                                        <TextBox x:Name="ProductNamesEditor"
+                                                 Height="72"
+                                                 Margin="0,0,0,12"
+                                                 AcceptsReturn="True"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 Text="{Binding SelectedInvoice.ProductNamesText, UpdateSourceTrigger=PropertyChanged}" />
+
+                                        <StackPanel Margin="0,0,0,14"
+                                                    Orientation="Horizontal"
+                                                    HorizontalAlignment="Right">
+                                            <Button Width="110"
+                                                    Margin="0,0,8,0"
+                                                    Command="{Binding AnalyzeInvoiceCommand}"
+                                                    Content="重新提取文本" />
+                                            <Button Width="76"
+                                                    Style="{StaticResource PrimaryButtonStyle}"
+                                                    Command="{Binding SaveInvoiceCommand}"
+                                                    Content="保存" />
+                                        </StackPanel>
+
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="提取文本（PoC）" />
+                                        <TextBox MinHeight="100"
+                                                 IsReadOnly="True"
+                                                 AcceptsReturn="True"
+                                                 TextWrapping="Wrap"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 Text="{Binding ExtractedText}" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <TabItem Header="提交/返款状态">
+                                <StackPanel Margin="10,12,10,0">
+                                    <TextBlock Margin="0,0,0,10"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               Text="勾选后立即保存当前订单的里程碑。" />
+                                    <Border Margin="0,0,0,10"
+                                            Padding="14"
+                                            Background="{DynamicResource SubtlePanelBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold" Text="提交" />
+                                                <TextBlock Margin="0,4,0,0"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                                           Text="{Binding SelectedOrderSubmissionStatusDisplay}" />
+                                            </StackPanel>
+                                            <CheckBox x:Name="SubmittedStatusCheckBox"
+                                                      Grid.Column="1"
+                                                      VerticalAlignment="Center"
+                                                      IsEnabled="{Binding CanEditOrderMilestones}"
+                                                      IsChecked="{Binding IsSelectedOrderSubmitted, Mode=TwoWay}"
+                                                      Click="SubmittedStatusCheckBox_OnClick"
+                                                      Content="已提交" />
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Padding="14"
+                                            Background="{DynamicResource SubtlePanelBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold" Text="返款" />
+                                                <TextBlock Margin="0,4,0,0"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                                           Text="{Binding SelectedOrderRefundStatusDisplay}" />
+                                            </StackPanel>
+                                            <CheckBox x:Name="RefundedStatusCheckBox"
+                                                      Grid.Column="1"
+                                                      VerticalAlignment="Center"
+                                                      IsEnabled="{Binding CanEditOrderMilestones}"
+                                                      IsChecked="{Binding IsSelectedOrderRefunded, Mode=TwoWay}"
+                                                      Click="RefundedStatusCheckBox_OnClick"
+                                                      Content="已返款" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </TabItem>
+                        </TabControl>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <TextBlock Grid.Row="3"
+                       Margin="0,12,2,0"
+                       HorizontalAlignment="Right"
+                       FontSize="12"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       Text="{Binding OrderCountText}" />
         </Grid>
     </DockPanel>
 </Window>

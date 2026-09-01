@@ -203,7 +203,7 @@ public sealed class MainWindowViewModelTests : IDisposable
             ManagedFileRole.InvoicePdf);
 
         OrderListItem order = Assert.Single(viewModel.Orders);
-        Assert.Equal("多个商家", order.MerchantDisplay);
+        Assert.Equal("商家甲", order.MerchantDisplay);
         Assert.Equal(["商家甲"], order.MerchantOptions);
         Assert.Equal(323.45m, order.TotalAmount);
         Assert.Equal(
