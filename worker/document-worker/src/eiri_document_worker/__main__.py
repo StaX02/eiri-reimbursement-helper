@@ -11,17 +11,65 @@ from eiri_document_worker import __version__
 
 
 PROTOCOL_VERSION = 1
-PARSER_VERSION = "cn-einvoice-ocr-0.3"
+PARSER_VERSION = "cn-einvoice-semantic-0.4"
 INVOICE_NUMBER_PATTERN = re.compile(r"(?<!\d)\d{20}(?!\d)")
+LABELED_INVOICE_NUMBER_PATTERN = re.compile(
+    r"发\s*票\s*号\s*码\s*[:：]?\s*(\d{20})(?!\d)"
+)
 TAXPAYER_CODE_PATTERN = re.compile(r"^[0-9A-Z]{18}$")
 PRICE_TAX_TOTAL_PATTERN = re.compile(
-    r"^[零壹贰叁肆伍陆柒捌玖拾佰仟万亿圆元角分整]+\s*[¥￥]\s*(-?[\d,]+\.\d{2})$"
+    r"[零壹贰叁肆伍陆柒捌玖拾佰仟万亿圆元角分整]+"
+    r"\s*(?:[（(]\s*小\s*写\s*[)）]\s*)?[¥￥]\s*(-?[\d,]+\.\d{2})"
 )
 SMALL_PRICE_TAX_TOTAL_PATTERN = re.compile(
-    r"^\(?小写\)?\s*[¥￥]\s*(-?[\d,]+\.\d{2})$"
+    r"[（(]?\s*小\s*写\s*[)）]?\s*[:：]?\s*[¥￥]\s*(-?[\d,]+\.\d{2})"
 )
 MERCHANT_NAME_PATTERN = re.compile(r"^名称\s*[:：]\s*(.+)$")
 OCR_RENDER_SCALE = 300 / 72
+
+
+def build_semantic_pages(text_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    pages: list[dict[str, Any]] = []
+    for page_number in sorted({int(block["page"]) for block in text_blocks}):
+        blocks = [block for block in text_blocks if block["page"] == page_number]
+        blocks.sort(
+            key=lambda block: (
+                block["bounds"]["y"],
+                block["bounds"]["x"],
+            )
+        )
+        left = min(block["bounds"]["x"] for block in blocks)
+        top = min(block["bounds"]["y"] for block in blocks)
+        right = max(
+            block["bounds"]["x"] + block["bounds"]["width"] for block in blocks
+        )
+        bottom = max(
+            block["bounds"]["y"] + block["bounds"]["height"] for block in blocks
+        )
+        pages.append(
+            {
+                "text": "\n".join(block["text"] for block in blocks),
+                "page": page_number,
+                "bounds": {
+                    "x": left,
+                    "y": top,
+                    "width": right - left,
+                    "height": bottom - top,
+                },
+                "source": (
+                    "ocr" if any(block["source"] == "ocr" for block in blocks) else "pdf-text"
+                ),
+            }
+        )
+    return pages
+
+
+def find_total_amount(text: str) -> Decimal | None:
+    for pattern in (PRICE_TAX_TOTAL_PATTERN, SMALL_PRICE_TAX_TOTAL_PATTERN):
+        match = pattern.search(text)
+        if match:
+            return Decimal(match.group(1).replace(",", ""))
+    return None
 
 
 def extract_ocr_text_blocks(file_path: Path) -> tuple[list[dict[str, Any]], dict[int, tuple[float, float]]]:
@@ -161,18 +209,21 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
         text_blocks, page_sizes = extract_ocr_text_blocks(file_path)
         seller_regions = build_ocr_seller_regions(text_blocks, page_sizes)
 
+    semantic_pages = build_semantic_pages(text_blocks)
     candidates: list[dict[str, Any]] = []
-    for region in seller_regions:
-        match = INVOICE_NUMBER_PATTERN.search(region["text"])
+    for page in semantic_pages:
+        match = LABELED_INVOICE_NUMBER_PATTERN.search(page["text"])
+        if not match:
+            match = INVOICE_NUMBER_PATTERN.search(page["text"])
         if match:
             candidates.append(
                 {
                     "field": "invoice_number",
-                    "value": match.group(0),
-                    "confidence": 0.99,
+                    "value": match.group(1) if match.lastindex else match.group(0),
+                    "confidence": 0.99 if match.lastindex else 0.98,
                     "source": "invoice-profile",
-                    "page": region["page"],
-                    "bounds": region["bounds"],
+                    "page": page["page"],
+                    "bounds": page["bounds"],
                 }
             )
             break
@@ -213,36 +264,40 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
                 )
                 break
 
-    for block in text_blocks:
-        for line in (line.strip() for line in block["text"].splitlines()):
-            match = PRICE_TAX_TOTAL_PATTERN.fullmatch(line)
-            if not match:
-                match = SMALL_PRICE_TAX_TOTAL_PATTERN.fullmatch(line)
-            if not match:
-                continue
-            amount = Decimal(match.group(1).replace(",", ""))
-            candidate_bounds = next(
-                (
-                    region["bounds"]
-                    for region in seller_regions
-                    if region["page"] == block["page"]
-                ),
-                block["bounds"],
+    if not any(candidate["field"] == "merchant_name" for candidate in candidates):
+        for page in semantic_pages:
+            lines = [line.strip() for line in page["text"].splitlines() if line.strip()]
+            merchant_match = next(
+                (match for line in lines if (match := MERCHANT_NAME_PATTERN.fullmatch(line))),
+                None,
             )
+            if merchant_match:
+                candidates.append(
+                    {
+                        "field": "merchant_name",
+                        "value": merchant_match.group(1).strip(),
+                        "confidence": 0.90,
+                        "source": "invoice-profile",
+                        "page": page["page"],
+                        "bounds": page["bounds"],
+                    }
+                )
+                break
+
+    for page in semantic_pages:
+        amount = find_total_amount(page["text"])
+        if amount is not None:
             candidates.append(
                 {
                     "field": "total_minor_units",
                     "value": str(int(amount * 100)),
-                    "confidence": 0.95 if block["source"] == "ocr" else 0.99,
+                    "confidence": 0.95 if page["source"] == "ocr" else 0.99,
                     "source": "invoice-profile",
-                    "page": block["page"],
-                    "bounds": candidate_bounds,
+                    "page": page["page"],
+                    "bounds": page["bounds"],
                 }
             )
             break
-        else:
-            continue
-        break
 
     required_fields = {"merchant_name", "invoice_number", "total_minor_units"}
     candidates_by_field = {candidate["field"]: candidate for candidate in candidates}

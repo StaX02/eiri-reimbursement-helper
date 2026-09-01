@@ -4,9 +4,11 @@ import sys
 import tempfile
 import unittest
 import uuid
+from decimal import Decimal
 from pathlib import Path
 
 import pypdfium2 as pdfium
+from eiri_document_worker.__main__ import find_total_amount
 
 
 WORKER_ROOT = Path(__file__).resolve().parents[1]
@@ -86,6 +88,18 @@ def create_image_only_pdf(source_path: Path, destination_path: Path) -> None:
 
 
 class WorkerProtocolTests(unittest.TestCase):
+    def test_total_amount_parser_accepts_common_semantic_layouts(self) -> None:
+        examples = {
+            "价税合计(大写) 壹仟贰佰叁拾肆圆伍角陆分 (小写) ¥1,234.56": Decimal("1234.56"),
+            "（小写）： ￥ 98.00": Decimal("98.00"),
+            "价税合计（大写）\n负贰拾圆整\n(小写) ¥-20.00": Decimal("-20.00"),
+            "陆佰捌拾圆整 ￥680.00": Decimal("680.00"),
+        }
+
+        for text, expected in examples.items():
+            with self.subTest(text=text):
+                self.assertEqual(expected, find_total_amount(text))
+
     def test_machine_generated_pdf_returns_text_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             pdf_path = Path(temporary_directory) / "invoice.pdf"
@@ -149,6 +163,18 @@ class WorkerProtocolTests(unittest.TestCase):
                     self.assertEqual(1, candidate["page"])
                     self.assertGreater(candidate["bounds"]["width"], 0)
                 self.assertFalse(analysis["needsReview"])
+
+    def test_semantic_labels_extract_example4_without_coordinate_profile(self) -> None:
+        analysis = analyze_document(INVOICE_EXAMPLES / "example4.pdf")
+        candidates = {
+            candidate["field"]: candidate["value"]
+            for candidate in analysis["candidates"]
+        }
+
+        self.assertEqual("深圳嘉立创科技集团股份有限公司", candidates["merchant_name"])
+        self.assertEqual("26957000000051824928", candidates["invoice_number"])
+        self.assertEqual("507874", candidates["total_minor_units"])
+        self.assertFalse(analysis["needsReview"])
 
     def test_image_only_invoice_uses_ocr_to_extract_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
