@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eiri-document-worker"
+version = "0.1.0"
+description = "Isolated PDF text and OCR worker for Eiri Reimbursement Helper"
+requires-python = ">=3.12"
+dependencies = [
+    "pypdfium2==5.13.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

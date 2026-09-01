@@ -1,0 +1,251 @@
+<Window x:Class="Eiri.Reimbursement.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="发票报销助手"
+        Width="1180"
+        Height="720"
+        MinWidth="900"
+        MinHeight="540"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource SurfaceBrush}">
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock FontSize="26" FontWeight="SemiBold" Text="订单" />
+                <TextBlock Margin="0,5,0,0"
+                           Foreground="#667085"
+                           Text="集中管理订单截图、电子发票和报销进度" />
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Right"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                <Button Width="90"
+                        Height="36"
+                        Margin="0,0,10,0"
+                        Command="{Binding RefreshCommand}"
+                        Content="刷新" />
+                <Button Width="110"
+                        Height="36"
+                        Padding="14,0"
+                        Background="{StaticResource PrimaryBrush}"
+                        Foreground="White"
+                        Command="{Binding CreateOrderCommand}"
+                        Content="新建订单" />
+            </StackPanel>
+        </DockPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,0,0,14"
+                Padding="14,10"
+                Background="White"
+                BorderBrush="#E4E7EC"
+                BorderThickness="1"
+                CornerRadius="7">
+            <TextBlock Foreground="#475467" Text="{Binding StatusMessage}" />
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="350" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Margin="0,0,14,0"
+                    Background="White"
+                    BorderBrush="#E4E7EC"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <DataGrid ItemsSource="{Binding Orders}"
+                          SelectedItem="{Binding SelectedOrder, Mode=TwoWay}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          BorderThickness="0"
+                          RowHeaderWidth="0"
+                          AlternatingRowBackground="#FAFAFA">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Width="80" Header="平台" Binding="{Binding Platform}" />
+                        <DataGridTextColumn Width="1.2*" Header="商家名" Binding="{Binding MerchantDisplay}" />
+                        <DataGridTextColumn Width="1.4*" Header="商品名" Binding="{Binding ProductDisplay}" />
+                        <DataGridTextColumn Width="100" Header="金额" Binding="{Binding TotalAmount, StringFormat=¥{0:N2}}" />
+                        <DataGridTextColumn Width="1.1*" Header="发票号" Binding="{Binding InvoiceNumberDisplay}" />
+                        <DataGridTextColumn Width="110" Header="已导出" Binding="{Binding ExportedAt, TargetNullValue=未导出, StringFormat={}{0:yyyy-MM-dd}}" />
+                        <DataGridTextColumn Width="110" Header="已提交" Binding="{Binding SubmittedAt, TargetNullValue=未提交, StringFormat={}{0:yyyy-MM-dd}}" />
+                        <DataGridTextColumn Width="110" Header="已返款" Binding="{Binding RefundedAt, TargetNullValue=未返款, StringFormat={}{0:yyyy-MM-dd}}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Background="White"
+                    BorderBrush="#E4E7EC"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <Grid Margin="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="0,0,0,14">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Width="62"
+                                    Height="32"
+                                    Margin="0,0,8,0"
+                                    Foreground="#B42318"
+                                    IsEnabled="{Binding CanDeleteOrder}"
+                                    Click="DeleteOrderButton_OnClick"
+                                    Content="删除" />
+                            <Button Width="82"
+                                    Height="32"
+                                    IsEnabled="{Binding CanImport}"
+                                    Click="SelectFilesButton_OnClick"
+                                    Content="选择文件" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock FontSize="17"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding SelectedOrderHeading}" />
+                            <TextBlock Margin="0,4,0,0"
+                                       Foreground="#667085"
+                                       Text="订单详情与材料" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <Border Grid.Row="1"
+                            Margin="0,0,0,14"
+                            Padding="18"
+                            AllowDrop="True"
+                            Background="#F8FAFC"
+                            BorderBrush="#98A2B3"
+                            BorderThickness="1"
+                            CornerRadius="7"
+                            DragOver="DropZone_OnDragOver"
+                            Drop="DropZone_OnDrop">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock HorizontalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="拖放文件到这里" />
+                            <TextBlock Margin="0,5,0,0"
+                                       HorizontalAlignment="Center"
+                                       Foreground="#667085"
+                                       Text="PDF、PNG、JPG、JPEG" />
+                        </StackPanel>
+                    </Border>
+
+                    <TabControl Grid.Row="2">
+                        <TabItem Header="材料">
+                            <ListBox ItemsSource="{Binding Materials}"
+                                     BorderThickness="0"
+                                     HorizontalContentAlignment="Stretch">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,8"
+                                                Padding="10"
+                                                Background="#F9FAFB"
+                                                CornerRadius="6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock FontWeight="SemiBold"
+                                                               Text="{Binding OriginalFileName}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Margin="0,4,0,0" Foreground="#667085">
+                                                        <Run Text="{Binding RoleDisplay}" />
+                                                        <Run Text=" · " />
+                                                        <Run Text="{Binding SizeDisplay}" />
+                                                    </TextBlock>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1"
+                                                           Margin="10,0,0,0"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="#315B7D"
+                                                           Text="{Binding ProcessingStateDisplay}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </TabItem>
+
+                        <TabItem Header="发票">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="8">
+                                    <TextBlock Margin="0,0,0,4" Foreground="#475467" Text="发票文件" />
+                                    <ComboBox Margin="0,0,0,10"
+                                              ItemsSource="{Binding Invoices}"
+                                              SelectedItem="{Binding SelectedInvoice, Mode=TwoWay}"
+                                              DisplayMemberPath="OriginalFileName" />
+
+                                    <TextBlock Margin="0,0,0,4" Foreground="#475467" Text="商家名称" />
+                                    <TextBox Margin="0,0,0,10"
+                                             Text="{Binding SelectedInvoice.MerchantName, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <TextBlock Margin="0,0,0,4" Foreground="#475467" Text="发票号" />
+                                    <TextBox Margin="0,0,0,10"
+                                             Text="{Binding SelectedInvoice.InvoiceNumber, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <TextBlock Margin="0,0,0,4" Foreground="#475467" Text="发票金额（元）" />
+                                    <TextBox Margin="0,0,0,10"
+                                             Text="{Binding SelectedInvoice.AmountText, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <TextBlock Margin="0,0,0,4" Foreground="#475467" Text="商品名称（每行一项）" />
+                                    <TextBox Height="62"
+                                             Margin="0,0,0,10"
+                                             AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Text="{Binding SelectedInvoice.ProductNamesText, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <StackPanel Margin="0,0,0,10" Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Width="100"
+                                                Height="32"
+                                                Margin="0,0,8,0"
+                                                Command="{Binding AnalyzeInvoiceCommand}"
+                                                Content="提取 PDF 文本" />
+                                        <Button Width="76"
+                                                Height="32"
+                                                Background="{StaticResource PrimaryBrush}"
+                                                Foreground="White"
+                                                Command="{Binding SaveInvoiceCommand}"
+                                                Content="保存" />
+                                    </StackPanel>
+
+                                    <TextBlock Margin="0,0,0,4" Foreground="#475467" Text="提取文本（PoC）" />
+                                    <TextBox MinHeight="90"
+                                             IsReadOnly="True"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Text="{Binding ExtractedText}" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="3"
+                   Margin="0,14,0,0"
+                   HorizontalAlignment="Right"
+                   Foreground="#667085"
+                   Text="{Binding OrderCountText}" />
+    </Grid>
+</Window>

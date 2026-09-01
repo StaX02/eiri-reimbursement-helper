@@ -1,0 +1,439 @@
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.IO;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Eiri.Reimbursement.Core;
+using Eiri.Reimbursement.Core.Documents;
+using Eiri.Reimbursement.Core.Invoices;
+using Eiri.Reimbursement.Core.Materials;
+using Eiri.Reimbursement.Core.Orders;
+
+namespace Eiri.Reimbursement.Desktop.ViewModels;
+
+public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : ObservableObject
+{
+    private readonly IReimbursementWorkspace _workspace = workspace;
+    private int _selectionVersion;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OrderCountText))]
+    private ObservableCollection<OrderListItem> _orders = [];
+
+    [ObservableProperty]
+    private ObservableCollection<MaterialItemViewModel> _materials = [];
+
+    [ObservableProperty]
+    private ObservableCollection<InvoiceEditorViewModel> _invoices = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedOrderHeading))]
+    [NotifyPropertyChangedFor(nameof(CanImport))]
+    [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
+    private OrderListItem? _selectedOrder;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveInvoiceCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AnalyzeInvoiceCommand))]
+    private InvoiceEditorViewModel? _selectedInvoice;
+
+    [ObservableProperty]
+    private string _extractedText = string.Empty;
+
+    [ObservableProperty]
+    private string _statusMessage = "正在加载订单…";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CreateOrderCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveInvoiceCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AnalyzeInvoiceCommand))]
+    [NotifyPropertyChangedFor(nameof(CanImport))]
+    [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
+    private bool _isBusy;
+
+    public string OrderCountText => $"共 {Orders.Count} 个订单";
+
+    public bool CanImport => SelectedOrder is not null && !IsBusy;
+
+    public bool CanDeleteOrder => SelectedOrder is not null && !IsBusy;
+
+    public string SelectedOrderHeading => SelectedOrder switch
+    {
+        null => "选择一个订单",
+        { ExternalOrderNumber: { Length: > 0 } number } => number,
+        { } order => $"订单 {order.Id.ToString()[..8]}",
+    };
+
+    public Task LoadAsync() => RefreshAsync();
+
+    public async Task ImportFilesAsync(IReadOnlyList<string> sourcePaths)
+    {
+        if (SelectedOrder is null || sourcePaths.Count == 0 || IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        StatusMessage = $"正在导入 {sourcePaths.Count} 个文件…";
+        OrderId orderId = SelectedOrder.Id;
+
+        try
+        {
+            ImportMaterialsResult result = await _workspace.ImportMaterialsAsync(
+                new ImportMaterialsCommand(orderId, sourcePaths));
+            await LoadOrderDetailAsync(orderId, ++_selectionVersion);
+            await ReloadOrdersAsync(orderId);
+
+            int duplicateCount = result.Items.Count(item => item.Outcome == MaterialImportOutcome.Duplicate);
+            int rejectedCount = result.Items.Count(item => item.Outcome == MaterialImportOutcome.Rejected);
+            StatusMessage = $"导入完成：新增 {result.ImportedCount}，重复 {duplicateCount}，拒绝 {rejectedCount}。";
+            AppendImportIssues(result);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"导入失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public async Task DeleteSelectedOrderAsync()
+    {
+        if (SelectedOrder is null || IsBusy)
+        {
+            return;
+        }
+
+        OrderId orderId = SelectedOrder.Id;
+        IsBusy = true;
+        StatusMessage = "正在删除订单及其受管材料…";
+
+        try
+        {
+            await _workspace.DeleteOrderAsync(orderId);
+            SelectedOrder = null;
+            Materials = [];
+            Invoices = [];
+            SelectedInvoice = null;
+            await ReloadOrdersAsync(null);
+            StatusMessage = "订单及其受管材料已永久删除。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"删除订单失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRunCommand))]
+    private async Task CreateOrderAsync()
+    {
+        IsBusy = true;
+        StatusMessage = "正在创建订单…";
+
+        try
+        {
+            OrderId orderId = await _workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
+            await ReloadOrdersAsync(orderId);
+            StatusMessage = "订单已创建。可以拖放订单截图和发票 PDF。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"创建订单失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRunCommand))]
+    private async Task RefreshAsync()
+    {
+        IsBusy = true;
+        StatusMessage = "正在加载订单…";
+
+        try
+        {
+            await ReloadOrdersAsync(SelectedOrder?.Id);
+            StatusMessage = Orders.Count == 0
+                ? "还没有订单。点击“新建订单”开始整理报销材料。"
+                : "订单列表已更新。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"加载订单失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEditInvoice))]
+    private async Task SaveInvoiceAsync()
+    {
+        if (SelectedInvoice is null)
+        {
+            return;
+        }
+
+        if (!TryParseMinorUnits(SelectedInvoice.AmountText, out long totalMinorUnits))
+        {
+            StatusMessage = "发票金额格式无效，请输入例如 159.90 或 -20.00。";
+            return;
+        }
+
+        IsBusy = true;
+        StatusMessage = "正在保存发票字段…";
+        try
+        {
+            InvoiceLineCorrection[] lines = SelectedInvoice.ProductNamesText
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(name => new InvoiceLineCorrection(name))
+                .ToArray();
+            await _workspace.UpdateInvoiceAsync(new UpdateInvoiceCommand(
+                SelectedInvoice.Id,
+                SelectedInvoice.MerchantName,
+                SelectedInvoice.InvoiceNumber,
+                totalMinorUnits,
+                lines));
+
+            OrderId? orderId = SelectedOrder?.Id;
+            if (orderId is not null)
+            {
+                await LoadOrderDetailAsync(orderId.Value, ++_selectionVersion, SelectedInvoice.Id);
+                await ReloadOrdersAsync(orderId.Value);
+            }
+
+            StatusMessage = "发票字段已保存。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"保存发票失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEditInvoice))]
+    private async Task AnalyzeInvoiceAsync()
+    {
+        if (SelectedInvoice is null)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        ExtractedText = string.Empty;
+        StatusMessage = "正在隔离进程中提取 PDF 文本…";
+        try
+        {
+            InvoiceId invoiceId = SelectedInvoice.Id;
+            DocumentAnalysis analysis = await _workspace.AnalyzeInvoiceAsync(invoiceId);
+            ExtractedText = string.Join(
+                Environment.NewLine + Environment.NewLine,
+                analysis.TextBlocks.Select(block => block.Text));
+
+            if (SelectedOrder is { } order)
+            {
+                await LoadOrderDetailAsync(order.Id, ++_selectionVersion, invoiceId);
+            }
+
+            StatusMessage = analysis.TextBlocks.Count == 0
+                ? "PDF 没有可读取的文本层，后续需要 OCR 回退。"
+                : $"已提取 {analysis.TextBlocks.Count} 个文本块。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"PDF 文本提取失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    partial void OnSelectedOrderChanged(OrderListItem? value)
+    {
+        int version = ++_selectionVersion;
+        ExtractedText = string.Empty;
+        if (value is null)
+        {
+            Materials = [];
+            Invoices = [];
+            SelectedInvoice = null;
+            return;
+        }
+
+        _ = LoadOrderDetailSafelyAsync(value.Id, version);
+    }
+
+    partial void OnSelectedInvoiceChanged(InvoiceEditorViewModel? value)
+    {
+        ExtractedText = string.Empty;
+    }
+
+    private bool CanRunCommand() => !IsBusy;
+
+    private bool CanEditInvoice() => SelectedInvoice is not null && !IsBusy;
+
+    private async Task ReloadOrdersAsync(OrderId? selectedOrderId)
+    {
+        IReadOnlyList<OrderListItem> items = await _workspace.SearchOrdersAsync(new OrderQuery());
+        Orders = new ObservableCollection<OrderListItem>(items);
+        OnPropertyChanged(nameof(OrderCountText));
+
+        SelectedOrder = selectedOrderId is null
+            ? Orders.FirstOrDefault()
+            : Orders.FirstOrDefault(order => order.Id == selectedOrderId.Value);
+    }
+
+    private async Task LoadOrderDetailSafelyAsync(OrderId orderId, int version)
+    {
+        try
+        {
+            await LoadOrderDetailAsync(orderId, version);
+        }
+        catch (Exception exception)
+        {
+            if (version == _selectionVersion)
+            {
+                StatusMessage = $"加载订单详情失败：{exception.Message}";
+            }
+        }
+    }
+
+    private async Task LoadOrderDetailAsync(
+        OrderId orderId,
+        int version,
+        InvoiceId? selectedInvoiceId = null)
+    {
+        selectedInvoiceId ??= SelectedInvoice?.Id;
+        OrderDetail? detail = await _workspace.GetOrderAsync(orderId);
+        if (version != _selectionVersion)
+        {
+            return;
+        }
+
+        Materials = detail is null
+            ? []
+            : new ObservableCollection<MaterialItemViewModel>(
+                detail.Materials.Select(material => new MaterialItemViewModel(material)));
+        Invoices = detail is null
+            ? []
+            : new ObservableCollection<InvoiceEditorViewModel>(
+                detail.Invoices.Select(invoice => new InvoiceEditorViewModel(invoice)));
+        SelectedInvoice = selectedInvoiceId is null
+            ? Invoices.FirstOrDefault()
+            : Invoices.FirstOrDefault(invoice => invoice.Id == selectedInvoiceId.Value);
+    }
+
+    private void AppendImportIssues(ImportMaterialsResult result)
+    {
+        string[] issues = result.Items
+            .Where(item => item.Outcome != MaterialImportOutcome.Imported)
+            .Take(2)
+            .Select(item => $"{Path.GetFileName(item.SourcePath)}：{item.Message}")
+            .ToArray();
+        if (issues.Length > 0)
+        {
+            StatusMessage += $" {string.Join("；", issues)}";
+        }
+    }
+
+    private static bool TryParseMinorUnits(string text, out long minorUnits)
+    {
+        bool parsed = decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out decimal amount)
+            || decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
+        if (!parsed)
+        {
+            minorUnits = 0;
+            return false;
+        }
+
+        try
+        {
+            minorUnits = decimal.ToInt64(decimal.Round(amount * 100m, 0, MidpointRounding.AwayFromZero));
+            return true;
+        }
+        catch (OverflowException)
+        {
+            minorUnits = 0;
+            return false;
+        }
+    }
+}
+
+public sealed record MaterialItemViewModel(ManagedMaterial Material)
+{
+    public string OriginalFileName => Material.OriginalFileName;
+
+    public string RoleDisplay => Material.Role switch
+    {
+        ManagedFileRole.InvoicePdf => "发票 PDF",
+        ManagedFileRole.OrderScreenshot => "订单截图",
+        _ => Material.Role.ToString(),
+    };
+
+    public string SizeDisplay => Material.ByteLength switch
+    {
+        >= 1_048_576 => $"{Material.ByteLength / 1_048_576d:N1} MB",
+        >= 1_024 => $"{Material.ByteLength / 1_024d:N1} KB",
+        _ => $"{Material.ByteLength} B",
+    };
+
+    public string ProcessingStateDisplay => Material.ProcessingState switch
+    {
+        "Pending" => "待处理",
+        "Processing" => "处理中",
+        "Processed" => "已处理",
+        "Failed" => "处理失败",
+        _ => Material.ProcessingState,
+    };
+}
+
+public partial class InvoiceEditorViewModel : ObservableObject
+{
+    public InvoiceEditorViewModel(InvoiceDetail invoice)
+    {
+        Id = invoice.Id;
+        ManagedFileId = invoice.ManagedFileId;
+        OriginalFileName = invoice.OriginalFileName;
+        NeedsReview = invoice.NeedsReview;
+        MerchantName = invoice.MerchantName;
+        InvoiceNumber = invoice.InvoiceNumber;
+        AmountText = invoice.TotalAmount.ToString("0.00", CultureInfo.CurrentCulture);
+        ProductNamesText = string.Join(
+            Environment.NewLine,
+            invoice.Lines.Where(line => line.IsEffective).OrderBy(line => line.Sequence).Select(line => line.Name));
+    }
+
+    public InvoiceId Id { get; }
+
+    public ManagedFileId ManagedFileId { get; }
+
+    public string OriginalFileName { get; }
+
+    public bool NeedsReview { get; }
+
+    [ObservableProperty]
+    private string _merchantName;
+
+    [ObservableProperty]
+    private string _invoiceNumber;
+
+    [ObservableProperty]
+    private string _amountText;
+
+    [ObservableProperty]
+    private string _productNamesText;
+}
