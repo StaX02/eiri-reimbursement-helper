@@ -5,6 +5,7 @@ description: "面向个人本地报销整理的克制型 Windows 工作台，以
 colors:
   primary: "#176B5B"
   primary-hover: "#125749"
+  primary-button-text: "#FFFFFF"
   canvas: "#F3F6F5"
   surface: "#FFFFFF"
   surface-subtle: "#F7F9F8"
@@ -14,6 +15,9 @@ colors:
   focus: "#238671"
   danger: "#B4473B"
   danger-hover: "#F7DDD9"
+  scrollbar-track: "#F7F9F8"
+  scrollbar-thumb: "#9AA8A3"
+  scrollbar-thumb-hover: "#63716D"
 typography:
   display:
     fontFamily: "Segoe UI Variable Display, Microsoft YaHei UI, sans-serif"
@@ -90,11 +94,13 @@ components:
 
 ### Buttons and actions
 
-主按钮为实心 `primary`，普通操作为描边表面按钮，低优先级操作使用透明按钮。危险操作使用 `danger` 文本和浅色危险底，只在确认步骤提高强调。常规高度为 36px。
+主按钮为实心 `primary` 并固定使用纯白文字，普通操作为描边表面按钮，低优先级操作使用透明按钮。危险操作使用 `danger` 文本和浅色危险底，只在确认步骤提高强调。常规高度为 36px。
 
 ### Navigation and data display
 
 顶栏只承载应用身份和低频菜单。订单清单是主导航面，行高 48px，表头和单元格内容统一居中；商家列使用只读文本，多商家以“第一个商家等”收束。详情选项卡使用底边指示当前页，不做独立卡片。金额、日期和发票号保持易扫描。
+
+滚动条由应用统一管理：轨道与所在表面保持同一明度层级，滑块使用中性对比色，悬停与拖动时增强对比。浅色、深色主题均不得回退到系统灰白轨道。
 
 ### Forms and overlays
 

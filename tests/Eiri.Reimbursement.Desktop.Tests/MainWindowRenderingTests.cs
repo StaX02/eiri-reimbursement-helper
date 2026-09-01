@@ -3,6 +3,8 @@ using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Eiri.Reimbursement.Core.Materials;
@@ -69,6 +71,8 @@ public sealed class MainWindowRenderingTests
                     window.FindName("BatchImportInvoicesButton"));
                 Button exportButton = Assert.IsType<Button>(
                     window.FindName("ExportReimbursementFilesButton"));
+                Button createOrderButton = Assert.IsType<Button>(
+                    window.FindName("CreateOrderButton"));
                 Border topToolBar = Assert.IsType<Border>(window.FindName("TopToolBar"));
                 Menu topMenuBar = Assert.IsType<Menu>(window.FindName("TopMenuBar"));
                 MenuItem optionsMenu = Assert.IsType<MenuItem>(window.FindName("OptionsMenu"));
@@ -93,6 +97,21 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal("报销管理", managementHeading.Text);
                 Assert.Equal("批量导入发票", batchImportButton.Content);
                 Assert.Equal("导出报销资料", exportButton.Content);
+                Assert.Equal(
+                    Colors.White,
+                    Assert.IsType<SolidColorBrush>(createOrderButton.Foreground).Color);
+                TextBlock createOrderText = Assert.IsType<TextBlock>(createOrderButton.Content);
+                Assert.Equal("新建订单", createOrderText.Text);
+                Assert.Equal(
+                    Colors.White,
+                    Assert.IsType<SolidColorBrush>(createOrderText.Foreground).Color);
+                ContentPresenter createOrderContent = FindVisualChildren<ContentPresenter>(
+                    createOrderButton).Single(
+                        presenter => ReferenceEquals(presenter.Content, createOrderText));
+                Assert.Equal(
+                    Colors.White,
+                    Assert.IsType<SolidColorBrush>(
+                        TextElement.GetForeground(createOrderContent)).Color);
                 Assert.Equal(Dock.Top, DockPanel.GetDock(topToolBar));
                 Grid topToolBarContent = Assert.IsType<Grid>(topToolBar.Child);
                 Assert.Contains(topMenuBar, topToolBarContent.Children.OfType<Menu>());
@@ -179,6 +198,18 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(
                     Color.FromRgb(0x11, 0x17, 0x15),
                     Assert.IsType<SolidColorBrush>(window.Background).Color);
+                ScrollBar ordersHorizontalScrollBar = FindVisualChildren<ScrollBar>(ordersGrid)
+                    .Single(scrollBar => scrollBar.Orientation == Orientation.Horizontal);
+                Assert.Equal(
+                    Color.FromRgb(0x11, 0x17, 0x15),
+                    Assert.IsType<SolidColorBrush>(ordersHorizontalScrollBar.Background).Color);
+                Thumb ordersScrollThumb = Assert.Single(
+                    FindVisualChildren<Thumb>(ordersHorizontalScrollBar));
+                Border ordersScrollThumbSurface = Assert.Single(
+                    FindVisualChildren<Border>(ordersScrollThumb));
+                Assert.Equal(
+                    Color.FromRgb(0x52, 0x62, 0x5C),
+                    Assert.IsType<SolidColorBrush>(ordersScrollThumbSurface.Background).Color);
                 CaptureIfRequested(window, "-dark");
                 toggleThemeMenuItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 detailTabs.SelectedItem = statusTab;

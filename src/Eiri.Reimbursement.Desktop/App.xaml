@@ -10,6 +10,7 @@
         <SolidColorBrush x:Key="PanelBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="BorderBrush" Color="#DDE5E2" />
         <SolidColorBrush x:Key="PrimaryTextBrush" Color="#17221F" />
+        <SolidColorBrush x:Key="PrimaryButtonTextBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="SecondaryTextBrush" Color="#63716D" />
         <SolidColorBrush x:Key="AlternatingRowBrush" Color="#F9FBFA" />
         <SolidColorBrush x:Key="SubtlePanelBrush" Color="#F7F9F8" />
@@ -22,6 +23,9 @@
         <SolidColorBrush x:Key="DangerSoftBrush" Color="#FCF0EE" />
         <SolidColorBrush x:Key="DangerHoverBrush" Color="#F7DDD9" />
         <SolidColorBrush x:Key="FocusBrush" Color="#238671" />
+        <SolidColorBrush x:Key="ScrollBarTrackBrush" Color="#F7F9F8" />
+        <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#9AA8A3" />
+        <SolidColorBrush x:Key="ScrollBarThumbHoverBrush" Color="#63716D" />
         <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FFFFFF" />
         <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#17221F" />
         <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FFFFFF" />
@@ -81,6 +85,7 @@
                             <ContentPresenter Margin="{TemplateBinding Padding}"
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
                                               RecognizesAccessKey="True" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -109,7 +114,7 @@
         <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryButtonTextBrush}" />
             <Setter Property="local:ButtonVisualStates.HoverBackground"
                     Value="{DynamicResource PrimaryHoverBrush}" />
             <Setter Property="local:ButtonVisualStates.PressedBackground"
@@ -356,9 +361,95 @@
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="Padding" Value="10,7" />
         </Style>
+        <Style x:Key="ScrollBarPageButtonStyle" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ScrollBarThumbStyle" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="ThumbSurface"
+                                Margin="2"
+                                Background="{DynamicResource ScrollBarThumbBrush}"
+                                CornerRadius="4" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbSurface"
+                                        Property="Background"
+                                        Value="{DynamicResource ScrollBarThumbHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbSurface"
+                                        Property="Background"
+                                        Value="{DynamicResource PrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style TargetType="ScrollBar">
-            <Setter Property="Background" Value="{DynamicResource SubtlePanelBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="Width" Value="12" />
+            <Setter Property="MinWidth" Value="12" />
+            <Setter Property="Background" Value="{DynamicResource ScrollBarTrackBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ScrollBarThumbBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}"
+                                                  Style="{StaticResource ScrollBarPageButtonStyle}" />
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb MinHeight="24" Style="{StaticResource ScrollBarThumbStyle}" />
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}"
+                                                  Style="{StaticResource ScrollBarPageButtonStyle}" />
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="MinWidth" Value="0" />
+                    <Setter Property="Height" Value="12" />
+                    <Setter Property="MinHeight" Value="12" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ScrollBar">
+                                <Grid Background="{TemplateBinding Background}">
+                                    <Track x:Name="PART_Track">
+                                        <Track.DecreaseRepeatButton>
+                                            <RepeatButton Command="{x:Static ScrollBar.PageLeftCommand}"
+                                                          Style="{StaticResource ScrollBarPageButtonStyle}" />
+                                        </Track.DecreaseRepeatButton>
+                                        <Track.Thumb>
+                                            <Thumb MinWidth="24" Style="{StaticResource ScrollBarThumbStyle}" />
+                                        </Track.Thumb>
+                                        <Track.IncreaseRepeatButton>
+                                            <RepeatButton Command="{x:Static ScrollBar.PageRightCommand}"
+                                                          Style="{StaticResource ScrollBarPageButtonStyle}" />
+                                        </Track.IncreaseRepeatButton>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </Application.Resources>
 </Application>
