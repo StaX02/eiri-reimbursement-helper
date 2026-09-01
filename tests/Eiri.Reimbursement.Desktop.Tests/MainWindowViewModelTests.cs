@@ -151,7 +151,7 @@ public sealed class MainWindowViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task SavingSelectedOrderStatusUsesEditedValues()
+    public async Task UpdatingSelectedOrderStatusPersistsEachEditedValueImmediately()
     {
         SqliteReimbursementWorkspace workspace = new(_libraryRoot);
         await workspace.InitializeAsync();
@@ -162,17 +162,22 @@ public sealed class MainWindowViewModelTests : IDisposable
         MainWindowViewModel viewModel = new(workspace);
         await viewModel.LoadAsync();
         viewModel.SelectedOrder = Assert.Single(viewModel.Orders);
-        viewModel.IsSelectedOrderSubmitted = false;
-        viewModel.IsSelectedOrderRefunded = true;
 
-        await viewModel.SaveSelectedOrderMilestonesCommand.ExecuteAsync(null);
+        await viewModel.SetOrdersMilestoneAsync(
+            [orderId],
+            Milestone.Submitted,
+            isReached: false);
+        await viewModel.SetOrdersMilestoneAsync(
+            [orderId],
+            Milestone.Refunded,
+            isReached: true);
 
         OrderListItem updatedOrder = Assert.Single(viewModel.Orders);
         Assert.Null(updatedOrder.SubmittedAt);
         Assert.NotNull(updatedOrder.RefundedAt);
         Assert.False(viewModel.IsSelectedOrderSubmitted);
         Assert.True(viewModel.IsSelectedOrderRefunded);
-        Assert.Equal("提交/返款状态已保存。", viewModel.StatusMessage);
+        Assert.Equal("已将 1 个订单设为已返款。", viewModel.StatusMessage);
     }
 
     [Fact]

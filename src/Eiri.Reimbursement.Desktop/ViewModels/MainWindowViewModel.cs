@@ -40,7 +40,7 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     [NotifyPropertyChangedFor(nameof(SelectedOrderRefundStatusDisplay))]
     [NotifyPropertyChangedFor(nameof(CanImport))]
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
-    [NotifyCanExecuteChangedFor(nameof(SaveSelectedOrderMilestonesCommand))]
+    [NotifyPropertyChangedFor(nameof(CanEditOrderMilestones))]
     private OrderListItem? _selectedOrder;
 
     [ObservableProperty]
@@ -68,9 +68,9 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveInvoiceCommand))]
     [NotifyCanExecuteChangedFor(nameof(AnalyzeInvoiceCommand))]
-    [NotifyCanExecuteChangedFor(nameof(SaveSelectedOrderMilestonesCommand))]
     [NotifyPropertyChangedFor(nameof(CanImport))]
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
+    [NotifyPropertyChangedFor(nameof(CanEditOrderMilestones))]
     private bool _isBusy;
 
     public string OrderCountText => $"共 {Orders.Count} 个订单";
@@ -80,6 +80,8 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     public bool CanImport => SelectedOrder is not null && !IsBusy;
 
     public bool CanDeleteOrder => SelectedOrder is not null && !IsBusy;
+
+    public bool CanEditOrderMilestones => SelectedOrder is not null && !IsBusy;
 
     public string SelectedOrderHeading => SelectedOrder switch
     {
@@ -223,6 +225,8 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         }
         catch (Exception exception)
         {
+            IsSelectedOrderSubmitted = SelectedOrder?.SubmittedAt is not null;
+            IsSelectedOrderRefunded = SelectedOrder?.RefundedAt is not null;
             StatusMessage = $"更新订单状态失败：{exception.Message}";
         }
         finally
@@ -258,40 +262,6 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         catch (Exception exception)
         {
             StatusMessage = $"清空订单状态失败：{exception.Message}";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    [RelayCommand(CanExecute = nameof(CanEditOrderMilestones))]
-    private async Task SaveSelectedOrderMilestonesAsync()
-    {
-        if (SelectedOrder is not { } selectedOrder)
-        {
-            return;
-        }
-
-        IsBusy = true;
-        StatusMessage = "正在保存提交/返款状态…";
-        try
-        {
-            DateTimeOffset now = DateTimeOffset.UtcNow;
-            await _workspace.SetMilestoneAsync(new SetMilestoneCommand(
-                selectedOrder.Id,
-                Milestone.Submitted,
-                IsSelectedOrderSubmitted ? selectedOrder.SubmittedAt ?? now : null));
-            await _workspace.SetMilestoneAsync(new SetMilestoneCommand(
-                selectedOrder.Id,
-                Milestone.Refunded,
-                IsSelectedOrderRefunded ? selectedOrder.RefundedAt ?? now : null));
-            await ReloadOrdersAsync(selectedOrder.Id);
-            StatusMessage = "提交/返款状态已保存。";
-        }
-        catch (Exception exception)
-        {
-            StatusMessage = $"保存提交/返款状态失败：{exception.Message}";
         }
         finally
         {
@@ -455,8 +425,6 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     private bool CanRunCommand() => !IsBusy;
 
     private bool CanEditInvoice() => SelectedInvoice is not null && !IsBusy;
-
-    private bool CanEditOrderMilestones() => SelectedOrder is not null && !IsBusy;
 
     private async Task ReloadOrdersAsync(OrderId? selectedOrderId)
     {

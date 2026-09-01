@@ -179,6 +179,30 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void SubmittedStatusCheckBox_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox checkBox
+            && DataContext is MainWindowViewModel { SelectedOrder: { } order } viewModel)
+        {
+            await viewModel.SetOrdersMilestoneAsync(
+                [order.Id],
+                Milestone.Submitted,
+                checkBox.IsChecked == true);
+        }
+    }
+
+    private async void RefundedStatusCheckBox_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox checkBox
+            && DataContext is MainWindowViewModel { SelectedOrder: { } order } viewModel)
+        {
+            await viewModel.SetOrdersMilestoneAsync(
+                [order.Id],
+                Milestone.Refunded,
+                checkBox.IsChecked == true);
+        }
+    }
+
     private OrderId[] GetSelectedOrderIds() => OrdersGrid.SelectedItems
         .OfType<OrderListItem>()
         .Select(order => order.Id)

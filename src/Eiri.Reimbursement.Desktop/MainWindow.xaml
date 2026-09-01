@@ -370,8 +370,11 @@
                                     <StackPanel>
                                         <TextBlock FontWeight="SemiBold"
                                                    Text="{Binding SelectedOrderSubmissionStatusDisplay}" />
-                                        <CheckBox Margin="0,8,0,0"
+                                        <CheckBox x:Name="SubmittedStatusCheckBox"
+                                                  Margin="0,8,0,0"
+                                                  IsEnabled="{Binding CanEditOrderMilestones}"
                                                   IsChecked="{Binding IsSelectedOrderSubmitted, Mode=TwoWay}"
+                                                  Click="SubmittedStatusCheckBox_OnClick"
                                                   Content="订单已提交" />
                                     </StackPanel>
                                 </Border>
@@ -386,19 +389,14 @@
                                     <StackPanel>
                                         <TextBlock FontWeight="SemiBold"
                                                    Text="{Binding SelectedOrderRefundStatusDisplay}" />
-                                        <CheckBox Margin="0,8,0,0"
+                                        <CheckBox x:Name="RefundedStatusCheckBox"
+                                                  Margin="0,8,0,0"
+                                                  IsEnabled="{Binding CanEditOrderMilestones}"
                                                   IsChecked="{Binding IsSelectedOrderRefunded, Mode=TwoWay}"
+                                                  Click="RefundedStatusCheckBox_OnClick"
                                                   Content="订单已返款" />
                                     </StackPanel>
                                 </Border>
-
-                                <Button Width="88"
-                                        Height="32"
-                                        HorizontalAlignment="Right"
-                                        Background="{StaticResource PrimaryBrush}"
-                                        Foreground="White"
-                                        Command="{Binding SaveSelectedOrderMilestonesCommand}"
-                                        Content="保存状态" />
                             </StackPanel>
                         </TabItem>
                     </TabControl>

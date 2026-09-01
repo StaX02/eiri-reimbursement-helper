@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Eiri.Reimbursement.Core.Materials;
 using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Desktop;
@@ -62,6 +63,9 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(
                     ["材料", "发票", "提交/返款状态"],
                     detailTabs.Items.OfType<TabItem>().Select(tab => tab.Header));
+                TabItem statusTab = detailTabs.Items.OfType<TabItem>().Last();
+                Assert.NotNull(window.FindName("SubmittedStatusCheckBox"));
+                Assert.NotNull(window.FindName("RefundedStatusCheckBox"));
                 Assert.Equal(Visibility.Collapsed, detailPanel.Visibility);
 
                 viewModel.SelectedOrder = new OrderListItem(
@@ -80,6 +84,11 @@ public sealed class MainWindowRenderingTests
                 window.UpdateLayout();
 
                 Assert.Equal(Visibility.Visible, detailPanel.Visibility);
+                detailTabs.SelectedItem = statusTab;
+                window.UpdateLayout();
+                Assert.DoesNotContain(
+                    FindVisualChildren<Button>(statusTab),
+                    button => Equals(button.Content, "保存状态"));
                 window.Close();
             }
             catch (Exception exception)
@@ -93,5 +102,23 @@ public sealed class MainWindowRenderingTests
 
         Assert.True(uiThread.Join(TimeSpan.FromSeconds(5)), "UI rendering did not complete in time.");
         Assert.Null(renderingException);
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject root)
+        where T : DependencyObject
+    {
+        for (int index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, index);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (T descendant in FindVisualChildren<T>(child))
+            {
+                yield return descendant;
+            }
+        }
     }
 }
