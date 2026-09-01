@@ -14,7 +14,29 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     </Window.Resources>
-    <Grid Margin="28">
+    <DockPanel>
+        <Border x:Name="TopToolBar"
+                DockPanel.Dock="Top"
+                Background="{DynamicResource PanelBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,0,0,1">
+            <Menu x:Name="TopMenuBar"
+                  Padding="16,2"
+                  HorizontalAlignment="Stretch"
+                  Background="{DynamicResource PanelBrush}">
+                <MenuItem x:Name="OptionsMenu" Header="选项">
+                    <MenuItem x:Name="ToggleThemeMenuItem"
+                              Header="切换深色/浅色模式"
+                              Click="ToggleThemeMenuItem_OnClick" />
+                </MenuItem>
+                <MenuItem x:Name="AboutMenu" Header="关于">
+                    <MenuItem Header="作者信息"
+                              Click="AboutAuthorMenuItem_OnClick" />
+                </MenuItem>
+            </Menu>
+        </Border>
+
+        <Grid Margin="28">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -35,19 +57,6 @@
             <StackPanel DockPanel.Dock="Right"
                         Orientation="Horizontal"
                         HorizontalAlignment="Right">
-                <Menu Height="36"
-                      Margin="0,0,10,0"
-                      VerticalContentAlignment="Center">
-                    <MenuItem x:Name="OptionsMenu" Header="选项">
-                        <MenuItem x:Name="ToggleThemeMenuItem"
-                                  Header="切换深色/浅色模式"
-                                  Click="ToggleThemeMenuItem_OnClick" />
-                    </MenuItem>
-                    <MenuItem x:Name="AboutMenu" Header="关于">
-                        <MenuItem Header="作者信息"
-                                  Click="AboutAuthorMenuItem_OnClick" />
-                    </MenuItem>
-                </Menu>
                 <Button Width="90"
                         Height="36"
                         Margin="0,0,10,0"
@@ -453,5 +462,6 @@
                    HorizontalAlignment="Right"
                    Foreground="{DynamicResource SecondaryTextBrush}"
                    Text="{Binding OrderCountText}" />
-    </Grid>
+        </Grid>
+    </DockPanel>
 </Window>

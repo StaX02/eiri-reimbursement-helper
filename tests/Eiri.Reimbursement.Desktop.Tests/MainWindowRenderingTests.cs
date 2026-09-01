@@ -48,6 +48,8 @@ public sealed class MainWindowRenderingTests
                     window.FindName("ManagementHeading"));
                 Button batchImportButton = Assert.IsType<Button>(
                     window.FindName("BatchImportInvoicesButton"));
+                Border topToolBar = Assert.IsType<Border>(window.FindName("TopToolBar"));
+                Menu topMenuBar = Assert.IsType<Menu>(window.FindName("TopMenuBar"));
                 MenuItem optionsMenu = Assert.IsType<MenuItem>(window.FindName("OptionsMenu"));
                 MenuItem aboutMenu = Assert.IsType<MenuItem>(window.FindName("AboutMenu"));
                 MenuItem toggleThemeMenuItem = Assert.IsType<MenuItem>(
@@ -69,6 +71,11 @@ public sealed class MainWindowRenderingTests
                     window.FindName("OrderDetailHeading"));
                 Assert.Equal("报销管理", managementHeading.Text);
                 Assert.Equal("批量导入发票", batchImportButton.Content);
+                Assert.Equal(Dock.Top, DockPanel.GetDock(topToolBar));
+                Assert.Same(topMenuBar, topToolBar.Child);
+                Assert.Equal(
+                    [optionsMenu, aboutMenu],
+                    topMenuBar.Items.OfType<MenuItem>());
                 Assert.Equal("选项", optionsMenu.Header);
                 Assert.Equal("关于", aboutMenu.Header);
                 Assert.Equal("切换深色/浅色模式", toggleThemeMenuItem.Header);
