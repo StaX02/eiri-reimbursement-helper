@@ -23,7 +23,13 @@
                Height="144"
                HorizontalAlignment="Center"
                Stretch="UniformToFill"
-               Source="/Eiri.Reimbursement.Desktop;component/Assets/StaX02.png" />
+               Source="/Eiri.Reimbursement.Desktop;component/Assets/StaX02.png">
+            <Image.Clip>
+                <RectangleGeometry Rect="0,0,144,144"
+                                   RadiusX="24"
+                                   RadiusY="24" />
+            </Image.Clip>
+        </Image>
 
         <TextBlock x:Name="AuthorName"
                    Grid.Row="1"
