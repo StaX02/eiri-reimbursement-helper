@@ -2,7 +2,7 @@ namespace Eiri.Reimbursement.Infrastructure.Sqlite;
 
 internal static class Schema
 {
-    internal const int CurrentVersion = 2;
+    internal const int CurrentVersion = 3;
 
     internal const string Version1 =
         """
@@ -75,5 +75,12 @@ internal static class Schema
         """
         ALTER TABLE managed_files ADD COLUMN original_file_name TEXT NOT NULL DEFAULT '';
         PRAGMA user_version = 2;
+        """;
+
+    internal const string Version3 =
+        """
+        ALTER TABLE invoices ADD COLUMN is_user_corrected INTEGER NOT NULL DEFAULT 0
+            CHECK (is_user_corrected IN (0, 1));
+        PRAGMA user_version = 3;
         """;
 }

@@ -266,10 +266,73 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         Assert.False(analyzedInvoice.NeedsReview);
     }
 
+    [Fact]
+    public async Task ReanalysisUpdatesMachineFieldsButPreservesUserCorrections()
+    {
+        DocumentAnalysis firstAnalysis = AnalysisWithFields("商家甲", "10000000000000000001", "100");
+        DocumentAnalysis secondAnalysis = AnalysisWithFields("商家乙", "10000000000000000002", "200");
+        DocumentAnalysis thirdAnalysis = AnalysisWithFields("商家丙", "10000000000000000003", "300");
+        IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(
+            _libraryRoot,
+            new SequenceDocumentProcessor(firstAnalysis, secondAnalysis, thirdAnalysis));
+        await workspace.InitializeAsync();
+        OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
+        string invoicePath = Path.Combine(_libraryRoot, "invoice-reanalysis.pdf");
+        await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 reanalysis"u8.ToArray());
+        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath]));
+        InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
+            await workspace.GetOrderAsync(orderId)).Invoices);
+
+        await workspace.AnalyzeInvoiceAsync(invoice.Id);
+        await workspace.AnalyzeInvoiceAsync(invoice.Id);
+
+        InvoiceDetail reanalyzed = Assert.Single(Assert.IsType<OrderDetail>(
+            await workspace.GetOrderAsync(orderId)).Invoices);
+        Assert.Equal("商家乙", reanalyzed.MerchantName);
+        Assert.Equal(200, reanalyzed.TotalMinorUnits);
+
+        await workspace.UpdateInvoiceAsync(new UpdateInvoiceCommand(
+            invoice.Id,
+            "人工校正商家",
+            "20000000000000000001",
+            999,
+            []));
+        await workspace.AnalyzeInvoiceAsync(invoice.Id);
+
+        InvoiceDetail corrected = Assert.Single(Assert.IsType<OrderDetail>(
+            await workspace.GetOrderAsync(orderId)).Invoices);
+        Assert.Equal("人工校正商家", corrected.MerchantName);
+        Assert.Equal("20000000000000000001", corrected.InvoiceNumber);
+        Assert.Equal(999, corrected.TotalMinorUnits);
+    }
+
+    private static DocumentAnalysis AnalysisWithFields(
+        string merchantName,
+        string invoiceNumber,
+        string totalMinorUnits) => new(
+            "test-worker",
+            "test-parser",
+            [],
+            [
+                new FieldCandidate("merchant_name", merchantName, 1, "invoice-profile"),
+                new FieldCandidate("invoice_number", invoiceNumber, 1, "invoice-profile"),
+                new FieldCandidate("total_minor_units", totalMinorUnits, 1, "invoice-profile"),
+            ],
+            false);
+
     private sealed class FixedDocumentProcessor(DocumentAnalysis analysis) : IDocumentProcessor
     {
         public Task<DocumentAnalysis> AnalyzeAsync(
             DocumentJob job,
             CancellationToken cancellationToken = default) => Task.FromResult(analysis);
+    }
+
+    private sealed class SequenceDocumentProcessor(params DocumentAnalysis[] analyses) : IDocumentProcessor
+    {
+        private readonly Queue<DocumentAnalysis> _analyses = new(analyses);
+
+        public Task<DocumentAnalysis> AnalyzeAsync(
+            DocumentJob job,
+            CancellationToken cancellationToken = default) => Task.FromResult(_analyses.Dequeue());
     }
 }

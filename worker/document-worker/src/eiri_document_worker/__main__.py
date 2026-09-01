@@ -11,7 +11,7 @@ from eiri_document_worker import __version__
 
 
 PROTOCOL_VERSION = 1
-PARSER_VERSION = "pdfium-text-0.1"
+PARSER_VERSION = "cn-einvoice-text-0.2"
 INVOICE_NUMBER_PATTERN = re.compile(r"(?<!\d)\d{20}(?!\d)")
 TAXPAYER_CODE_PATTERN = re.compile(r"^[0-9A-Z]{18}$")
 PRICE_TAX_TOTAL_PATTERN = re.compile(
@@ -26,6 +26,7 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"Document does not exist: {file_path}")
 
     text_blocks: list[dict[str, Any]] = []
+    seller_regions: list[dict[str, Any]] = []
     document = pdfium.PdfDocument(file_path)
     try:
         for page_index in range(len(document)):
@@ -35,6 +36,12 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
                 text_page = page.get_textpage()
                 try:
                     text = text_page.get_text_range().strip()
+                    seller_text = text_page.get_text_bounded(
+                        left=width / 2,
+                        bottom=0,
+                        right=width,
+                        top=height,
+                    ).strip()
                 finally:
                     text_page.close()
 
@@ -53,41 +60,56 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
                             "source": "pdf-text",
                         }
                     )
+                if "销售方信息" in re.sub(r"\s+", "", seller_text):
+                    seller_regions.append(
+                        {
+                            "text": seller_text,
+                            "page": page_index + 1,
+                            "bounds": {
+                                "x": float(width / 2),
+                                "y": 0.0,
+                                "width": float(width / 2),
+                                "height": float(height),
+                            },
+                        }
+                    )
             finally:
                 page.close()
     finally:
         document.close()
 
     candidates: list[dict[str, Any]] = []
-    for block in text_blocks:
-        match = INVOICE_NUMBER_PATTERN.search(block["text"])
+    for region in seller_regions:
+        match = INVOICE_NUMBER_PATTERN.search(region["text"])
         if match:
             candidates.append(
                 {
                     "field": "invoice_number",
                     "value": match.group(0),
-                    "confidence": 1.0,
+                    "confidence": 0.99,
                     "source": "invoice-profile",
-                    "page": block["page"],
+                    "page": region["page"],
+                    "bounds": region["bounds"],
                 }
             )
             break
 
-    for block in text_blocks:
-        lines = [line.strip() for line in block["text"].splitlines() if line.strip()]
+    for region in seller_regions:
+        lines = [line.strip() for line in region["text"].splitlines() if line.strip()]
         taxpayer_code_indexes = [
             index for index, line in enumerate(lines) if TAXPAYER_CODE_PATTERN.fullmatch(line)
         ]
-        if len(taxpayer_code_indexes) >= 2:
-            seller_code_index = taxpayer_code_indexes[1]
+        if taxpayer_code_indexes:
+            seller_code_index = taxpayer_code_indexes[0]
             if seller_code_index > 0:
                 candidates.append(
                     {
                         "field": "merchant_name",
                         "value": lines[seller_code_index - 1],
-                        "confidence": 1.0,
+                        "confidence": 0.99,
                         "source": "invoice-profile",
-                        "page": block["page"],
+                        "page": region["page"],
+                        "bounds": region["bounds"],
                     }
                 )
                 break
@@ -98,13 +120,22 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
             if not match:
                 continue
             amount = Decimal(match.group(1).replace(",", ""))
+            candidate_bounds = next(
+                (
+                    region["bounds"]
+                    for region in seller_regions
+                    if region["page"] == block["page"]
+                ),
+                block["bounds"],
+            )
             candidates.append(
                 {
                     "field": "total_minor_units",
                     "value": str(int(amount * 100)),
-                    "confidence": 1.0,
+                    "confidence": 0.99,
                     "source": "invoice-profile",
                     "page": block["page"],
+                    "bounds": candidate_bounds,
                 }
             )
             break
@@ -112,15 +143,19 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
             continue
         break
 
-    candidate_fields = {candidate["field"] for candidate in candidates}
     required_fields = {"merchant_name", "invoice_number", "total_minor_units"}
+    candidates_by_field = {candidate["field"]: candidate for candidate in candidates}
+    complete_high_confidence_result = all(
+        field in candidates_by_field and candidates_by_field[field]["confidence"] >= 0.98
+        for field in required_fields
+    )
 
     return {
         "workerVersion": __version__,
         "parserVersion": PARSER_VERSION,
         "textBlocks": text_blocks,
         "candidates": candidates,
-        "needsReview": not required_fields.issubset(candidate_fields),
+        "needsReview": not complete_high_confidence_result,
     }
 
 

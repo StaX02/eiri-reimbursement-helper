@@ -350,6 +350,7 @@ public sealed class SqliteReimbursementWorkspace(
                     invoice_number = $invoiceNumber,
                     total_minor_units = $totalMinorUnits,
                     needs_review = 0,
+                    is_user_corrected = 1,
                     updated_at = $updatedAt
                 WHERE id = $id;
                 """;
@@ -670,6 +671,12 @@ public sealed class SqliteReimbursementWorkspace(
         if (version == 1)
         {
             await ExecuteNonQueryAsync(connection, Schema.Version2, cancellationToken);
+            version = 2;
+        }
+
+        if (version == 2)
+        {
+            await ExecuteNonQueryAsync(connection, Schema.Version3, cancellationToken);
         }
     }
 
@@ -779,7 +786,9 @@ public sealed class SqliteReimbursementWorkspace(
             resultSql.Parameters.AddWithValue("$managedFileId", managedFileId.ToString());
             resultSql.Parameters.AddWithValue("$workerVersion", analysis.WorkerVersion);
             resultSql.Parameters.AddWithValue("$parserVersion", analysis.ParserVersion);
-            resultSql.Parameters.AddWithValue("$analysisJson", JsonSerializer.Serialize(analysis, JsonOptions));
+            resultSql.Parameters.AddWithValue(
+                "$analysisJson",
+                JsonSerializer.Serialize(analysis.Candidates, JsonOptions));
             resultSql.Parameters.AddWithValue("$completedAt", Format(DateTimeOffset.UtcNow));
             await resultSql.ExecuteNonQueryAsync(cancellationToken);
         }
@@ -813,7 +822,7 @@ public sealed class SqliteReimbursementWorkspace(
                     total_minor_units = COALESCE($totalMinorUnits, total_minor_units),
                     needs_review = $needsReview,
                     updated_at = $updatedAt
-                WHERE managed_file_id = $managedFileId AND needs_review = 1;
+                WHERE managed_file_id = $managedFileId AND is_user_corrected = 0;
                 """;
             invoiceSql.Parameters.AddWithValue(
                 "$merchantName",

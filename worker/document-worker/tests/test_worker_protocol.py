@@ -47,118 +47,61 @@ def build_text_pdf(text: str) -> bytes:
     return bytes(pdf)
 
 
+def analyze_document(pdf_path: Path) -> dict:
+    request = {
+        "protocolVersion": 1,
+        "job": {
+            "jobId": str(uuid.uuid4()),
+            "filePath": str(pdf_path),
+            "kind": 1,
+            "timeout": "00:00:10",
+        },
+    }
+    completed = subprocess.run(
+        [sys.executable, str(WORKER_SCRIPT)],
+        input=json.dumps(request) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(completed.stderr)
+    return json.loads(completed.stdout)["analysis"]
+
+
 class WorkerProtocolTests(unittest.TestCase):
     def test_machine_generated_pdf_returns_text_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             pdf_path = Path(temporary_directory) / "invoice.pdf"
             pdf_path.write_bytes(build_text_pdf("EIRI-INV-001"))
-            request = {
-                "protocolVersion": 1,
-                "job": {
-                    "jobId": str(uuid.uuid4()),
-                    "filePath": str(pdf_path),
-                    "kind": 1,
-                    "timeout": "00:00:10",
-                },
-            }
-
-            completed = subprocess.run(
-                [sys.executable, str(WORKER_SCRIPT)],
-                input=json.dumps(request) + "\n",
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=10,
-            )
-
-            self.assertEqual(0, completed.returncode, completed.stderr)
-            response = json.loads(completed.stdout)
+            analysis = analyze_document(pdf_path)
             extracted_text = "\n".join(
-                block["text"] for block in response["analysis"]["textBlocks"]
+                block["text"] for block in analysis["textBlocks"]
             )
             self.assertIn("EIRI-INV-001", extracted_text)
 
     def test_real_invoice_returns_invoice_number_candidate(self) -> None:
-        request = {
-            "protocolVersion": 1,
-            "job": {
-                "jobId": str(uuid.uuid4()),
-                "filePath": str(INVOICE_EXAMPLES / "example1.pdf"),
-                "kind": 1,
-                "timeout": "00:00:10",
-            },
-        }
-
-        completed = subprocess.run(
-            [sys.executable, str(WORKER_SCRIPT)],
-            input=json.dumps(request) + "\n",
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=10,
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        response = json.loads(completed.stdout)
+        analysis = analyze_document(INVOICE_EXAMPLES / "example1.pdf")
         candidates = {
             candidate["field"]: candidate["value"]
-            for candidate in response["analysis"]["candidates"]
+            for candidate in analysis["candidates"]
         }
         self.assertEqual("25952000000269819544", candidates["invoice_number"])
 
     def test_real_invoice_returns_sales_merchant_candidate(self) -> None:
-        request = {
-            "protocolVersion": 1,
-            "job": {
-                "jobId": str(uuid.uuid4()),
-                "filePath": str(INVOICE_EXAMPLES / "example1.pdf"),
-                "kind": 1,
-                "timeout": "00:00:10",
-            },
-        }
-
-        completed = subprocess.run(
-            [sys.executable, str(WORKER_SCRIPT)],
-            input=json.dumps(request) + "\n",
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=10,
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        response = json.loads(completed.stdout)
+        analysis = analyze_document(INVOICE_EXAMPLES / "example1.pdf")
         candidates = {
             candidate["field"]: candidate["value"]
-            for candidate in response["analysis"]["candidates"]
+            for candidate in analysis["candidates"]
         }
         self.assertEqual("深圳德诺嘉电子有限公司", candidates["merchant_name"])
 
     def test_real_invoice_returns_price_tax_total_candidate(self) -> None:
-        request = {
-            "protocolVersion": 1,
-            "job": {
-                "jobId": str(uuid.uuid4()),
-                "filePath": str(INVOICE_EXAMPLES / "example1.pdf"),
-                "kind": 1,
-                "timeout": "00:00:10",
-            },
-        }
-
-        completed = subprocess.run(
-            [sys.executable, str(WORKER_SCRIPT)],
-            input=json.dumps(request) + "\n",
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=10,
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        response = json.loads(completed.stdout)
+        analysis = analyze_document(INVOICE_EXAMPLES / "example1.pdf")
         candidates = {
             candidate["field"]: candidate["value"]
-            for candidate in response["analysis"]["candidates"]
+            for candidate in analysis["candidates"]
         }
         self.assertEqual("778800", candidates["total_minor_units"])
 
@@ -171,33 +114,25 @@ class WorkerProtocolTests(unittest.TestCase):
 
         for file_name, (invoice_number, total_minor_units) in examples.items():
             with self.subTest(file_name=file_name):
-                request = {
-                    "protocolVersion": 1,
-                    "job": {
-                        "jobId": str(uuid.uuid4()),
-                        "filePath": str(INVOICE_EXAMPLES / file_name),
-                        "kind": 1,
-                        "timeout": "00:00:10",
-                    },
-                }
-                completed = subprocess.run(
-                    [sys.executable, str(WORKER_SCRIPT)],
-                    input=json.dumps(request) + "\n",
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    timeout=10,
-                )
-
-                self.assertEqual(0, completed.returncode, completed.stderr)
-                analysis = json.loads(completed.stdout)["analysis"]
-                candidates = {
-                    candidate["field"]: candidate["value"]
+                analysis = analyze_document(INVOICE_EXAMPLES / file_name)
+                candidates_by_field = {
+                    candidate["field"]: candidate
                     for candidate in analysis["candidates"]
                 }
-                self.assertEqual("深圳德诺嘉电子有限公司", candidates["merchant_name"])
-                self.assertEqual(invoice_number, candidates["invoice_number"])
-                self.assertEqual(total_minor_units, candidates["total_minor_units"])
+                self.assertEqual(
+                    "深圳德诺嘉电子有限公司",
+                    candidates_by_field["merchant_name"]["value"],
+                )
+                self.assertEqual(invoice_number, candidates_by_field["invoice_number"]["value"])
+                self.assertEqual(
+                    total_minor_units,
+                    candidates_by_field["total_minor_units"]["value"],
+                )
+                for candidate in candidates_by_field.values():
+                    self.assertGreaterEqual(candidate["confidence"], 0.98)
+                    self.assertEqual("invoice-profile", candidate["source"])
+                    self.assertEqual(1, candidate["page"])
+                    self.assertGreater(candidate["bounds"]["width"], 0)
                 self.assertFalse(analysis["needsReview"])
 
 
