@@ -74,6 +74,29 @@ def analyze_document(pdf_path: Path) -> dict:
     return json.loads(completed.stdout)["analysis"]
 
 
+def render_document(pdf_path: Path, output_directory: Path) -> list[Path]:
+    request = {
+        "protocolVersion": 1,
+        "operation": "render",
+        "job": {
+            "jobId": str(uuid.uuid4()),
+            "filePath": str(pdf_path),
+            "outputDirectory": str(output_directory),
+        },
+    }
+    completed = subprocess.run(
+        [sys.executable, str(WORKER_SCRIPT)],
+        input=json.dumps(request) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(completed.stderr)
+    return [Path(path) for path in json.loads(completed.stdout)["renderedFiles"]]
+
+
 def create_image_only_pdf(source_path: Path, destination_path: Path) -> None:
     document = pdfium.PdfDocument(source_path)
     try:
@@ -88,6 +111,17 @@ def create_image_only_pdf(source_path: Path, destination_path: Path) -> None:
 
 
 class WorkerProtocolTests(unittest.TestCase):
+    def test_render_operation_writes_one_png_per_pdf_page(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            pdf_path = root / "invoice.pdf"
+            pdf_path.write_bytes(build_text_pdf("EIRI-INV-001"))
+
+            pages = render_document(pdf_path, root / "pages")
+
+            self.assertEqual(["page-1.png"], [path.name for path in pages])
+            self.assertTrue(pages[0].read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+
     def test_total_amount_parser_accepts_common_semantic_layouts(self) -> None:
         examples = {
             "价税合计(大写) 壹仟贰佰叁拾肆圆伍角陆分 (小写) ¥1,234.56": Decimal("1234.56"),

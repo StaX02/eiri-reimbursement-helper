@@ -372,6 +372,30 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
     }
 
 
+def render_pdf(file_path: Path, output_directory: Path) -> list[str]:
+    if file_path.suffix.lower() != ".pdf":
+        raise ValueError("The PDF renderer only accepts .pdf files.")
+    if not file_path.is_file():
+        raise FileNotFoundError(f"Document does not exist: {file_path}")
+
+    output_directory.mkdir(parents=True, exist_ok=True)
+    rendered_files: list[str] = []
+    document = pdfium.PdfDocument(file_path)
+    try:
+        for page_index in range(len(document)):
+            page = document[page_index]
+            try:
+                output_path = output_directory / f"page-{page_index + 1}.png"
+                image = page.render(scale=OCR_RENDER_SCALE).to_pil()
+                image.save(output_path, "PNG")
+                rendered_files.append(str(output_path.resolve()))
+            finally:
+                page.close()
+    finally:
+        document.close()
+    return rendered_files
+
+
 def handle_request(request: dict[str, Any]) -> dict[str, Any]:
     protocol_version = request.get("protocolVersion")
     if protocol_version != PROTOCOL_VERSION:
@@ -380,6 +404,15 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
     job = request.get("job")
     if not isinstance(job, dict):
         raise ValueError("Request does not contain a document job.")
+    if request.get("operation") == "render":
+        rendered_files = render_pdf(
+            Path(job["filePath"]).resolve(),
+            Path(job["outputDirectory"]).resolve(),
+        )
+        return {
+            "protocolVersion": PROTOCOL_VERSION,
+            "renderedFiles": rendered_files,
+        }
     if job.get("kind") != 1:
         raise ValueError("The current PoC only supports invoice PDFs.")
 

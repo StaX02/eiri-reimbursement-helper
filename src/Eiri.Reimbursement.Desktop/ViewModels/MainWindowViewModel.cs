@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Eiri.Reimbursement.Core;
 using Eiri.Reimbursement.Core.Documents;
+using Eiri.Reimbursement.Core.Export;
 using Eiri.Reimbursement.Core.Invoices;
 using Eiri.Reimbursement.Core.Materials;
 using Eiri.Reimbursement.Core.Orders;
@@ -17,7 +18,7 @@ public sealed record BatchInvoiceImportResult(
     int ImportedCount,
     IReadOnlyList<string> FailedFileNames);
 
-public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : ObservableObject
+public partial class MainWindowViewModel : ObservableObject
 {
     private static readonly IReadOnlyList<OrderPlatformOption> AvailablePlatformOptions =
     [
@@ -25,8 +26,17 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         new(OrderPlatform.JD, OrderPlatform.JD.ToDisplayName()),
         new(OrderPlatform.Other, OrderPlatform.Other.ToDisplayName()),
     ];
-    private readonly IReimbursementWorkspace _workspace = workspace;
+    private readonly IReimbursementWorkspace _workspace;
+    private readonly IReimbursementBatchExporter? _batchExporter;
     private int _selectionVersion;
+
+    public MainWindowViewModel(
+        IReimbursementWorkspace workspace,
+        IReimbursementBatchExporter? batchExporter = null)
+    {
+        _workspace = workspace;
+        _batchExporter = batchExporter;
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OrderCountText))]
@@ -53,6 +63,7 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     [NotifyPropertyChangedFor(nameof(IsSingleOrderSelected))]
     [NotifyPropertyChangedFor(nameof(CanImport))]
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
+    [NotifyPropertyChangedFor(nameof(CanExport))]
     private int _selectedOrderCount;
 
     [ObservableProperty]
@@ -87,6 +98,7 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
     [NotifyPropertyChangedFor(nameof(CanEditOrderMilestones))]
     [NotifyPropertyChangedFor(nameof(CanBatchImportInvoices))]
+    [NotifyPropertyChangedFor(nameof(CanExport))]
     private bool _isBusy;
 
     public string OrderCountText => $"共 {Orders.Count} 个订单";
@@ -103,6 +115,8 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
 
     public bool CanBatchImportInvoices => !IsBusy;
 
+    public bool CanExport => SelectedOrderCount > 0 && !IsBusy && _batchExporter is not null;
+
     public string SelectedOrderHeading => SelectedOrderCount > 1
         ? "已选中多个订单"
         : "订单详情";
@@ -118,6 +132,44 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     public Task LoadAsync() => RefreshAsync();
 
     public void SetSelectedOrderCount(int count) => SelectedOrderCount = Math.Max(0, count);
+
+    public async Task ExportOrdersAsync(
+        IReadOnlyList<OrderId> orderIds,
+        string destinationDirectory)
+    {
+        OrderId[] distinctOrderIds = orderIds.Distinct().ToArray();
+        if (distinctOrderIds.Length == 0 || IsBusy || _batchExporter is null)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        StatusMessage = $"正在导出 {distinctOrderIds.Length} 个订单的报销资料…";
+        OrderId? selectedOrderId = SelectedOrder?.Id;
+        try
+        {
+            await _batchExporter.ExportAsync(new ExportBatchCommand(
+                distinctOrderIds,
+                destinationDirectory));
+            DateTimeOffset exportedAt = DateTimeOffset.UtcNow;
+            await _workspace.SetMilestonesAsync(
+                distinctOrderIds.Select(orderId => new SetMilestoneCommand(
+                    orderId,
+                    Milestone.Exported,
+                    exportedAt)).ToArray());
+
+            await ReloadOrdersAsync(selectedOrderId);
+            StatusMessage = $"已导出 {distinctOrderIds.Length} 个订单的报销资料。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"导出报销资料失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 
     public async Task ImportFilesAsync(
         IReadOnlyList<string> sourcePaths,

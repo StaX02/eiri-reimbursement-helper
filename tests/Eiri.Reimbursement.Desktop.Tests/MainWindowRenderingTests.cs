@@ -66,6 +66,8 @@ public sealed class MainWindowRenderingTests
                     window.FindName("ManagementHeading"));
                 Button batchImportButton = Assert.IsType<Button>(
                     window.FindName("BatchImportInvoicesButton"));
+                Button exportButton = Assert.IsType<Button>(
+                    window.FindName("ExportReimbursementFilesButton"));
                 Border topToolBar = Assert.IsType<Border>(window.FindName("TopToolBar"));
                 Menu topMenuBar = Assert.IsType<Menu>(window.FindName("TopMenuBar"));
                 MenuItem optionsMenu = Assert.IsType<MenuItem>(window.FindName("OptionsMenu"));
@@ -89,6 +91,7 @@ public sealed class MainWindowRenderingTests
                     window.FindName("OrderDetailHeading"));
                 Assert.Equal("报销管理", managementHeading.Text);
                 Assert.Equal("批量导入发票", batchImportButton.Content);
+                Assert.Equal("导出报销资料", exportButton.Content);
                 Assert.Equal(Dock.Top, DockPanel.GetDock(topToolBar));
                 Assert.Same(topMenuBar, topToolBar.Child);
                 Assert.Equal(

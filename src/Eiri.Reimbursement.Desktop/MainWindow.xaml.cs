@@ -30,6 +30,42 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void ExportReimbursementFilesButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        OrderId[] orderIds = GetSelectedOrderIds();
+        if (orderIds.Length == 0)
+        {
+            return;
+        }
+
+        OpenFolderDialog dialog = new()
+        {
+            Title = "选择报销资料导出位置",
+            Multiselect = false,
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        MessageBoxResult confirmation = MessageBox.Show(
+            this,
+            $"将在以下文件夹中创建发票图片、发票原件、报销辅助材料和 CSV：\n\n{dialog.FolderName}\n\n确认继续吗？",
+            "确认报销资料导出位置",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question,
+            MessageBoxResult.Yes);
+        if (confirmation == MessageBoxResult.Yes)
+        {
+            await viewModel.ExportOrdersAsync(orderIds, dialog.FolderName);
+        }
+    }
+
     private void ToggleThemeMenuItem_OnClick(object sender, RoutedEventArgs e)
     {
         ThemeManager.Toggle(Application.Current.Resources);

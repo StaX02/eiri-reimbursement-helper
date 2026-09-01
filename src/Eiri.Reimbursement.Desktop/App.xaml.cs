@@ -1,8 +1,10 @@
 using System.IO;
 using System.Windows;
 using Eiri.Reimbursement.Core.Documents;
+using Eiri.Reimbursement.Core.Export;
 using Eiri.Reimbursement.Desktop.ViewModels;
 using Eiri.Reimbursement.Infrastructure.Documents;
+using Eiri.Reimbursement.Infrastructure.Export;
 using Eiri.Reimbursement.Infrastructure.Sqlite;
 
 namespace Eiri.Reimbursement.Desktop;
@@ -19,10 +21,14 @@ public partial class App : Application
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "EiriReimbursementHelper");
 
-            SqliteReimbursementWorkspace workspace = new(libraryRoot, TryCreateDocumentProcessor());
+            IDocumentProcessor? documentProcessor = TryCreateDocumentProcessor();
+            SqliteReimbursementWorkspace workspace = new(libraryRoot, documentProcessor);
             await workspace.InitializeAsync();
 
-            MainWindowViewModel viewModel = new(workspace);
+            IReimbursementBatchExporter? batchExporter = documentProcessor is IPdfPageRenderer pdfPageRenderer
+                ? new ReimbursementBatchExporter(workspace, pdfPageRenderer)
+                : null;
+            MainWindowViewModel viewModel = new(workspace, batchExporter);
             MainWindow window = new(viewModel);
             MainWindow = window;
             window.Show();

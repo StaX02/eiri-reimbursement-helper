@@ -172,28 +172,48 @@ public sealed class SqliteReimbursementWorkspace(
 
     public async Task SetMilestoneAsync(
         SetMilestoneCommand command,
+        CancellationToken cancellationToken = default) =>
+        await SetMilestonesAsync([command], cancellationToken);
+
+    public async Task SetMilestonesAsync(
+        IReadOnlyList<SetMilestoneCommand> commands,
         CancellationToken cancellationToken = default)
     {
-        string column = command.Milestone switch
+        if (commands.Count == 0)
         {
-            Milestone.Exported => "exported_at",
-            Milestone.Submitted => "submitted_at",
-            Milestone.Refunded => "refunded_at",
-            _ => throw new ArgumentOutOfRangeException(nameof(command)),
-        };
+            return;
+        }
 
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken);
-        await using SqliteCommand sql = connection.CreateCommand();
-        sql.CommandText = $"UPDATE orders SET {column} = $occurredAt, updated_at = $updatedAt WHERE id = $id;";
-        sql.Parameters.AddWithValue("$occurredAt", command.OccurredAt is null ? DBNull.Value : Format(command.OccurredAt.Value));
-        sql.Parameters.AddWithValue("$updatedAt", Format(DateTimeOffset.UtcNow));
-        sql.Parameters.AddWithValue("$id", command.OrderId.ToString());
-
-        int changed = await sql.ExecuteNonQueryAsync(cancellationToken);
-        if (changed == 0)
+        await using SqliteTransaction transaction =
+            (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        string updatedAt = Format(DateTimeOffset.UtcNow);
+        foreach (SetMilestoneCommand command in commands)
         {
-            throw new KeyNotFoundException($"Order '{command.OrderId}' was not found.");
+            string column = command.Milestone switch
+            {
+                Milestone.Exported => "exported_at",
+                Milestone.Submitted => "submitted_at",
+                Milestone.Refunded => "refunded_at",
+                _ => throw new ArgumentOutOfRangeException(nameof(commands)),
+            };
+            await using SqliteCommand sql = connection.CreateCommand();
+            sql.Transaction = transaction;
+            sql.CommandText = $"UPDATE orders SET {column} = $occurredAt, updated_at = $updatedAt WHERE id = $id;";
+            sql.Parameters.AddWithValue(
+                "$occurredAt",
+                command.OccurredAt is null ? DBNull.Value : Format(command.OccurredAt.Value));
+            sql.Parameters.AddWithValue("$updatedAt", updatedAt);
+            sql.Parameters.AddWithValue("$id", command.OrderId.ToString());
+
+            int changed = await sql.ExecuteNonQueryAsync(cancellationToken);
+            if (changed == 0)
+            {
+                throw new KeyNotFoundException($"Order '{command.OrderId}' was not found.");
+            }
         }
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task UpdateOrderPlatformAsync(

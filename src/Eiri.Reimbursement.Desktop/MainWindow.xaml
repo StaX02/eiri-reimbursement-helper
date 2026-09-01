@@ -57,6 +57,13 @@
             <StackPanel DockPanel.Dock="Right"
                         Orientation="Horizontal"
                         HorizontalAlignment="Right">
+                <Button x:Name="ExportReimbursementFilesButton"
+                        Width="126"
+                        Height="36"
+                        Margin="0,0,10,0"
+                        IsEnabled="{Binding CanExport}"
+                        Click="ExportReimbursementFilesButton_OnClick"
+                        Content="导出报销资料" />
                 <Button Width="90"
                         Height="36"
                         Margin="0,0,10,0"

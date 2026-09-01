@@ -1,5 +1,6 @@
 using System.IO;
 using Eiri.Reimbursement.Core.Documents;
+using Eiri.Reimbursement.Core.Export;
 using Eiri.Reimbursement.Core.Materials;
 using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Desktop.ViewModels;
@@ -291,6 +292,37 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.False(viewModel.IsSingleOrderSelected);
     }
 
+    [Fact]
+    public async Task ExportOrdersMarksEverySelectedOrderExportedAfterFilesSucceed()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        OrderId firstOrderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Taobao));
+        OrderId secondOrderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD));
+        MainWindowViewModel viewModel = new(workspace, new SuccessfulBatchExporter());
+        await viewModel.LoadAsync();
+
+        await viewModel.ExportOrdersAsync([firstOrderId, secondOrderId], "C:\\exports");
+
+        Assert.All(viewModel.Orders, order => Assert.NotNull(order.ExportedAt));
+        Assert.Equal("已导出 2 个订单的报销资料。", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task ExportOrdersDoesNotMarkOrderExportedWhenFileExportFails()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
+        MainWindowViewModel viewModel = new(workspace, new FailingBatchExporter());
+        await viewModel.LoadAsync();
+
+        await viewModel.ExportOrdersAsync([orderId], "C:\\exports");
+
+        Assert.Null(Assert.Single(viewModel.Orders).ExportedAt);
+        Assert.Equal("导出报销资料失败：磁盘空间不足", viewModel.StatusMessage);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_libraryRoot))
@@ -343,5 +375,21 @@ public sealed class MainWindowViewModelTests : IDisposable
             Interlocked.Increment(ref _analysisCount) == 2
                 ? Task.FromException<DocumentAnalysis>(new InvalidDataException("测试解析失败"))
                 : Task.FromResult(Analysis("测试商家", "10000000000000000001", "100"));
+    }
+
+    private sealed class SuccessfulBatchExporter : IReimbursementBatchExporter
+    {
+        public Task<ExportBatchResult> ExportAsync(
+            ExportBatchCommand command,
+            CancellationToken cancellationToken = default) => Task.FromResult(
+                new ExportBatchResult(command.OrderIds.Count, 0, 0, 0, "export.csv"));
+    }
+
+    private sealed class FailingBatchExporter : IReimbursementBatchExporter
+    {
+        public Task<ExportBatchResult> ExportAsync(
+            ExportBatchCommand command,
+            CancellationToken cancellationToken = default) =>
+            Task.FromException<ExportBatchResult>(new IOException("磁盘空间不足"));
     }
 }

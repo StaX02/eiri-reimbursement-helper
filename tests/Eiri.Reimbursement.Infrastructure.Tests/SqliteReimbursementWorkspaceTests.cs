@@ -51,6 +51,24 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task BatchMilestoneUpdateRollsBackWhenAnyOrderDoesNotExist()
+    {
+        IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(_libraryRoot);
+        await workspace.InitializeAsync();
+        OrderId existingOrderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.JD));
+        DateTimeOffset exportedAt = DateTimeOffset.UtcNow;
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => workspace.SetMilestonesAsync(
+        [
+            new SetMilestoneCommand(existingOrderId, Milestone.Exported, exportedAt),
+            new SetMilestoneCommand(OrderId.New(), Milestone.Exported, exportedAt),
+        ]));
+
+        Assert.Null(Assert.Single(await workspace.SearchOrdersAsync(new OrderQuery())).ExportedAt);
+    }
+
+    [Fact]
     public async Task ImportedInvoiceIsAvailableFromOrderDetailAfterSourceIsRemoved()
     {
         IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(_libraryRoot);

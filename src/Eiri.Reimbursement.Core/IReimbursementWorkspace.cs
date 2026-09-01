@@ -21,6 +21,10 @@ public interface IReimbursementWorkspace
         SetMilestoneCommand command,
         CancellationToken cancellationToken = default);
 
+    Task SetMilestonesAsync(
+        IReadOnlyList<SetMilestoneCommand> commands,
+        CancellationToken cancellationToken = default);
+
     Task UpdateOrderPlatformAsync(
         UpdateOrderPlatformCommand command,
         CancellationToken cancellationToken = default);

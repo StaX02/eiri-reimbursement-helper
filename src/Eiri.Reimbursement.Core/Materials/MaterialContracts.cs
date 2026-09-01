@@ -69,4 +69,31 @@ public sealed record OrderDetail(
     string? ExternalOrderNumber,
     string? Notes,
     IReadOnlyList<ManagedMaterial> Materials,
-    IReadOnlyList<InvoiceDetail> Invoices);
+    IReadOnlyList<InvoiceDetail> Invoices)
+{
+    public string ProductDisplay
+    {
+        get
+        {
+            InvoiceDetail? firstInvoice = Invoices.FirstOrDefault();
+            if (firstInvoice is null)
+            {
+                return "待提取";
+            }
+
+            if (Invoices.Count == 1)
+            {
+                return string.IsNullOrWhiteSpace(firstInvoice.PrimaryProductDisplay)
+                    ? "待提取"
+                    : firstInvoice.PrimaryProductDisplay;
+            }
+
+            string? firstProductName = firstInvoice.Lines
+                .Where(line => line.IsEffective && !string.IsNullOrWhiteSpace(line.Name))
+                .OrderBy(line => line.Sequence)
+                .Select(line => line.Name)
+                .FirstOrDefault();
+            return string.IsNullOrWhiteSpace(firstProductName) ? "待提取" : $"{firstProductName}等";
+        }
+    }
+}

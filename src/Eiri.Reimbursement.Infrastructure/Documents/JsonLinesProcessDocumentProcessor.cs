@@ -5,7 +5,7 @@ namespace Eiri.Reimbursement.Infrastructure.Documents;
 
 public sealed class JsonLinesProcessDocumentProcessor(
     string executablePath,
-    IReadOnlyList<string> arguments) : IDocumentProcessor
+    IReadOnlyList<string> arguments) : IDocumentProcessor, IPdfPageRenderer
 {
     private readonly string _executablePath = executablePath;
     private readonly IReadOnlyList<string> _arguments = arguments;
@@ -19,6 +19,48 @@ public sealed class JsonLinesProcessDocumentProcessor(
             throw new ArgumentOutOfRangeException(nameof(job), "Document job timeout must be positive.");
         }
 
+        string response = await ExecuteAsync(
+            JsonLinesDocumentProtocol.SerializeRequest(job),
+            job.Timeout,
+            cancellationToken);
+        return JsonLinesDocumentProtocol.DeserializeResponse(response);
+    }
+
+    public async Task<IReadOnlyList<string>> RenderAsync(
+        string pdfPath,
+        string destinationDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        string destinationRoot = Path.GetFullPath(destinationDirectory);
+        Directory.CreateDirectory(destinationRoot);
+        string response = await ExecuteAsync(
+            JsonLinesDocumentProtocol.SerializeRenderRequest(
+                Path.GetFullPath(pdfPath),
+                destinationRoot),
+            TimeSpan.FromMinutes(2),
+            cancellationToken);
+        IReadOnlyList<string> renderedFiles = JsonLinesDocumentProtocol.DeserializeRenderResponse(response);
+        string rootWithSeparator = destinationRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? destinationRoot
+            : destinationRoot + Path.DirectorySeparatorChar;
+        foreach (string renderedFile in renderedFiles)
+        {
+            string fullPath = Path.GetFullPath(renderedFile);
+            if (!fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase)
+                || !File.Exists(fullPath))
+            {
+                throw new InvalidDataException("Document worker returned an invalid rendered page path.");
+            }
+        }
+
+        return renderedFiles.Select(Path.GetFullPath).ToArray();
+    }
+
+    private async Task<string> ExecuteAsync(
+        string request,
+        TimeSpan timeoutDuration,
+        CancellationToken cancellationToken)
+    {
         ProcessStartInfo startInfo = new()
         {
             FileName = _executablePath,
@@ -40,11 +82,10 @@ public sealed class JsonLinesProcessDocumentProcessor(
         }
 
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(job.Timeout);
+        timeout.CancelAfter(timeoutDuration);
 
         try
         {
-            string request = JsonLinesDocumentProtocol.SerializeRequest(job);
             await process.StandardInput.WriteLineAsync(request.AsMemory(), timeout.Token);
             process.StandardInput.Close();
 
@@ -65,12 +106,12 @@ public sealed class JsonLinesProcessDocumentProcessor(
                 throw new InvalidDataException("Document worker returned no response.");
             }
 
-            return JsonLinesDocumentProtocol.DeserializeResponse(response);
+            return response;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             TryTerminate(process);
-            throw new TimeoutException($"Document worker exceeded the {job.Timeout} timeout.");
+            throw new TimeoutException($"Document worker exceeded the {timeoutDuration} timeout.");
         }
         finally
         {
