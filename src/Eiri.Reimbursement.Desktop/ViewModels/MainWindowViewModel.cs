@@ -67,7 +67,9 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
 
     public Task LoadAsync() => RefreshAsync();
 
-    public async Task ImportFilesAsync(IReadOnlyList<string> sourcePaths)
+    public async Task ImportFilesAsync(
+        IReadOnlyList<string> sourcePaths,
+        ManagedFileRole role)
     {
         if (SelectedOrder is null || sourcePaths.Count == 0 || IsBusy)
         {
@@ -75,19 +77,28 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         }
 
         IsBusy = true;
-        StatusMessage = $"正在导入 {sourcePaths.Count} 个文件…";
+        StatusMessage = role == ManagedFileRole.InvoicePdf
+            ? $"正在导入并解析 {sourcePaths.Count} 份发票…"
+            : $"正在保存 {sourcePaths.Count} 份辅助材料…";
         OrderId orderId = SelectedOrder.Id;
 
         try
         {
             ImportMaterialsResult result = await _workspace.ImportMaterialsAsync(
-                new ImportMaterialsCommand(orderId, sourcePaths));
+                new ImportMaterialsCommand(orderId, sourcePaths, role));
+            int analysisFailureCount = role == ManagedFileRole.InvoicePdf
+                ? await AnalyzeImportedInvoicesAsync(orderId, result)
+                : 0;
             await LoadOrderDetailAsync(orderId, ++_selectionVersion);
             await ReloadOrdersAsync(orderId);
 
             int duplicateCount = result.Items.Count(item => item.Outcome == MaterialImportOutcome.Duplicate);
             int rejectedCount = result.Items.Count(item => item.Outcome == MaterialImportOutcome.Rejected);
             StatusMessage = $"导入完成：新增 {result.ImportedCount}，重复 {duplicateCount}，拒绝 {rejectedCount}。";
+            if (analysisFailureCount > 0)
+            {
+                StatusMessage += $" {analysisFailureCount} 份发票解析失败，可稍后重试。";
+            }
             AppendImportIssues(result);
         }
         catch (Exception exception)
@@ -141,7 +152,7 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         {
             OrderId orderId = await _workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
             await ReloadOrdersAsync(orderId);
-            StatusMessage = "订单已创建。可以拖放订单截图和发票 PDF。";
+            StatusMessage = "订单已创建。请选择发票区或辅助材料区拖放文件。";
         }
         catch (Exception exception)
         {
@@ -350,6 +361,36 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         }
     }
 
+    private async Task<int> AnalyzeImportedInvoicesAsync(
+        OrderId orderId,
+        ImportMaterialsResult result)
+    {
+        HashSet<ManagedFileId> importedFileIds = result.Items
+            .Where(item => item is { Outcome: MaterialImportOutcome.Imported, Material: not null })
+            .Select(item => item.Material!.Id)
+            .ToHashSet();
+        OrderDetail? detail = await _workspace.GetOrderAsync(orderId);
+        InvoiceId[] invoiceIds = detail?.Invoices
+            .Where(invoice => importedFileIds.Contains(invoice.ManagedFileId))
+            .Select(invoice => invoice.Id)
+            .ToArray() ?? [];
+
+        int failureCount = 0;
+        foreach (InvoiceId invoiceId in invoiceIds)
+        {
+            try
+            {
+                await _workspace.AnalyzeInvoiceAsync(invoiceId);
+            }
+            catch
+            {
+                failureCount++;
+            }
+        }
+
+        return failureCount;
+    }
+
     private static bool TryParseMinorUnits(string text, out long minorUnits)
     {
         bool parsed = decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out decimal amount)
@@ -380,7 +421,7 @@ public sealed record MaterialItemViewModel(ManagedMaterial Material)
     public string RoleDisplay => Material.Role switch
     {
         ManagedFileRole.InvoicePdf => "发票 PDF",
-        ManagedFileRole.OrderScreenshot => "订单截图",
+        ManagedFileRole.OrderScreenshot => "订单截图等辅助材料",
         _ => Material.Role.ToString(),
     };
 
@@ -396,6 +437,7 @@ public sealed record MaterialItemViewModel(ManagedMaterial Material)
         "Pending" => "待处理",
         "Processing" => "处理中",
         "Processed" => "已处理",
+        "Stored" => "已保存",
         "Failed" => "处理失败",
         _ => Material.ProcessingState,
     };

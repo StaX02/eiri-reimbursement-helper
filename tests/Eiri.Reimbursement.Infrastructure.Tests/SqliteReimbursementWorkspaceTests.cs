@@ -61,7 +61,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         await File.WriteAllBytesAsync(sourcePath, expectedContent);
 
         ImportMaterialsResult result = await workspace.ImportMaterialsAsync(
-            new ImportMaterialsCommand(orderId, [sourcePath]));
+            new ImportMaterialsCommand(orderId, [sourcePath], ManagedFileRole.InvoicePdf));
         File.Delete(sourcePath);
 
         OrderDetail? detail = await workspace.GetOrderAsync(orderId);
@@ -85,7 +85,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         await File.WriteAllBytesAsync(secondPath, content);
 
         ImportMaterialsResult result = await workspace.ImportMaterialsAsync(
-            new ImportMaterialsCommand(orderId, [firstPath, secondPath]));
+            new ImportMaterialsCommand(orderId, [firstPath, secondPath], ManagedFileRole.InvoicePdf));
 
         Assert.Collection(
             result.Items,
@@ -104,13 +104,34 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         await File.WriteAllBytesAsync(screenshotPath, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
 
         ImportMaterialsResult result = await workspace.ImportMaterialsAsync(
-            new ImportMaterialsCommand(orderId, [screenshotPath]));
+            new ImportMaterialsCommand(orderId, [screenshotPath], ManagedFileRole.OrderScreenshot));
 
         ManagedMaterial material = Assert.Single(Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Materials);
         Assert.Equal(MaterialImportOutcome.Imported, Assert.Single(result.Items).Outcome);
         Assert.Equal(ManagedFileRole.OrderScreenshot, material.Role);
         Assert.Equal("image/png", material.MediaType);
+    }
+
+    [Fact]
+    public async Task PdfImportedAsSupportingMaterialIsSavedWithoutCreatingInvoice()
+    {
+        IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(_libraryRoot);
+        await workspace.InitializeAsync();
+        OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
+        string sourcePath = Path.Combine(_libraryRoot, "order-detail.pdf");
+        await File.WriteAllBytesAsync(sourcePath, "%PDF-1.7 order detail"u8.ToArray());
+
+        ImportMaterialsResult result = await workspace.ImportMaterialsAsync(
+            new ImportMaterialsCommand(orderId, [sourcePath], ManagedFileRole.OrderScreenshot));
+
+        OrderDetail detail = Assert.IsType<OrderDetail>(await workspace.GetOrderAsync(orderId));
+        ManagedMaterial material = Assert.Single(detail.Materials);
+        Assert.Equal(MaterialImportOutcome.Imported, Assert.Single(result.Items).Outcome);
+        Assert.Equal(ManagedFileRole.OrderScreenshot, material.Role);
+        Assert.Equal("application/pdf", material.MediaType);
+        Assert.Equal("Stored", material.ProcessingState);
+        Assert.Empty(detail.Invoices);
     }
 
     [Fact]
@@ -123,7 +144,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         await File.WriteAllTextAsync(invalidPdfPath, "this is not a pdf");
 
         ImportMaterialsResult result = await workspace.ImportMaterialsAsync(
-            new ImportMaterialsCommand(orderId, [invalidPdfPath]));
+            new ImportMaterialsCommand(orderId, [invalidPdfPath], ManagedFileRole.InvoicePdf));
 
         MaterialImportItem item = Assert.Single(result.Items);
         Assert.Equal(MaterialImportOutcome.Rejected, item.Outcome);
@@ -138,7 +159,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD));
         string invoicePath = Path.Combine(_libraryRoot, "invoice-to-correct.pdf");
         await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 editable invoice"u8.ToArray());
-        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath]));
+        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
         InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Invoices);
 
@@ -166,7 +187,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD));
         string invoicePath = Path.Combine(_libraryRoot, "invoice-with-lines.pdf");
         await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 line summary"u8.ToArray());
-        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath]));
+        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
         InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Invoices);
         await workspace.UpdateInvoiceAsync(new UpdateInvoiceCommand(
@@ -192,7 +213,9 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 delete me"u8.ToArray());
         await File.WriteAllBytesAsync(screenshotPath, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
         await workspace.ImportMaterialsAsync(
-            new ImportMaterialsCommand(orderId, [invoicePath, screenshotPath]));
+            new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
+        await workspace.ImportMaterialsAsync(
+            new ImportMaterialsCommand(orderId, [screenshotPath], ManagedFileRole.OrderScreenshot));
         string[] managedPaths = Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Materials.Select(material => material.ManagedPath).ToArray();
 
@@ -221,7 +244,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD));
         string invoicePath = Path.Combine(_libraryRoot, "invoice-to-analyze.pdf");
         await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 analyze me"u8.ToArray());
-        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath]));
+        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
         InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Invoices);
 
@@ -253,7 +276,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
         string invoicePath = Path.Combine(_libraryRoot, "invoice-fields.pdf");
         await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 extracted fields"u8.ToArray());
-        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath]));
+        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
         InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Invoices);
 
@@ -280,7 +303,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
         string invoicePath = Path.Combine(_libraryRoot, "invoice-reanalysis.pdf");
         await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 reanalysis"u8.ToArray());
-        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath]));
+        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
         InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Invoices);
 
@@ -324,7 +347,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
         string invoicePath = Path.Combine(_libraryRoot, "invoice-partial-reanalysis.pdf");
         await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 partial reanalysis"u8.ToArray());
-        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath]));
+        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
         InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Invoices);
 

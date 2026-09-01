@@ -40,6 +40,8 @@ public sealed class MainWindowRenderingTests
                 MainWindow window = new(viewModel);
                 window.Show();
                 window.UpdateLayout();
+                Assert.NotNull(window.FindName("InvoiceDropZone"));
+                Assert.NotNull(window.FindName("SupportingDropZone"));
                 window.Close();
             }
             catch (Exception exception)

@@ -201,7 +201,7 @@ public sealed class SqliteReimbursementWorkspace(
         List<MaterialImportItem> results = [];
         foreach (string sourcePath in command.SourcePaths)
         {
-            results.Add(await ImportMaterialAsync(command.OrderId, sourcePath, cancellationToken));
+            results.Add(await ImportMaterialAsync(command.OrderId, sourcePath, command.Role, cancellationToken));
         }
 
         return new ImportMaterialsResult(results);
@@ -529,6 +529,7 @@ public sealed class SqliteReimbursementWorkspace(
     private async Task<MaterialImportItem> ImportMaterialAsync(
         OrderId orderId,
         string sourcePath,
+        ManagedFileRole role,
         CancellationToken cancellationToken)
     {
         string fullSourcePath = Path.GetFullPath(sourcePath);
@@ -537,10 +538,12 @@ public sealed class SqliteReimbursementWorkspace(
             return Rejected(sourcePath, "文件不存在或无法访问。");
         }
 
-        MaterialType? materialType = ClassifyMaterial(fullSourcePath);
+        MaterialType? materialType = ClassifyMaterial(fullSourcePath, role);
         if (materialType is null)
         {
-            return Rejected(sourcePath, "支持 PDF 发票以及 PNG、JPG、JPEG 订单截图。");
+            return Rejected(sourcePath, role == ManagedFileRole.InvoicePdf
+                ? "发票仅支持 PDF 文件。"
+                : "辅助材料支持 PDF、PNG、JPG、JPEG 文件。");
         }
 
         if (!await HasExpectedSignatureAsync(fullSourcePath, materialType, cancellationToken))
@@ -626,7 +629,7 @@ public sealed class SqliteReimbursementWorkspace(
                 materialType.MediaType,
                 stagedFile.Length,
                 sha256,
-                "Pending",
+                materialType.ProcessingState,
                 importedAt);
             return new MaterialImportItem(sourcePath, MaterialImportOutcome.Imported, material, null);
         }
@@ -896,7 +899,7 @@ public sealed class SqliteReimbursementWorkspace(
                 byte_length, sha256, processing_state, imported_at)
             VALUES (
                 $id, $orderId, $role, $originalFileName, $relativePath, $mediaType,
-                $byteLength, $sha256, 'Pending', $importedAt);
+                $byteLength, $sha256, $processingState, $importedAt);
             """;
         sql.Parameters.AddWithValue("$id", fileId.ToString());
         sql.Parameters.AddWithValue("$orderId", orderId.ToString());
@@ -906,6 +909,7 @@ public sealed class SqliteReimbursementWorkspace(
         sql.Parameters.AddWithValue("$relativePath", relativePath);
         sql.Parameters.AddWithValue("$byteLength", byteLength);
         sql.Parameters.AddWithValue("$sha256", sha256);
+        sql.Parameters.AddWithValue("$processingState", materialType.ProcessingState);
         sql.Parameters.AddWithValue("$importedAt", Format(importedAt));
         await sql.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -989,13 +993,19 @@ public sealed class SqliteReimbursementWorkspace(
     private static MaterialImportItem Rejected(string sourcePath, string message) =>
         new(sourcePath, MaterialImportOutcome.Rejected, null, message);
 
-    private static MaterialType? ClassifyMaterial(string path) =>
-        Path.GetExtension(path).ToLowerInvariant() switch
+    private static MaterialType? ClassifyMaterial(string path, ManagedFileRole role) =>
+        (role, Path.GetExtension(path).ToLowerInvariant()) switch
         {
-            ".pdf" => new MaterialType(ManagedFileRole.InvoicePdf, "invoices", ".pdf", "application/pdf"),
-            ".png" => new MaterialType(ManagedFileRole.OrderScreenshot, "screenshots", ".png", "image/png"),
-            ".jpg" => new MaterialType(ManagedFileRole.OrderScreenshot, "screenshots", ".jpg", "image/jpeg"),
-            ".jpeg" => new MaterialType(ManagedFileRole.OrderScreenshot, "screenshots", ".jpeg", "image/jpeg"),
+            (ManagedFileRole.InvoicePdf, ".pdf") =>
+                new MaterialType(ManagedFileRole.InvoicePdf, "invoices", ".pdf", "application/pdf", "Pending"),
+            (ManagedFileRole.OrderScreenshot, ".pdf") =>
+                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".pdf", "application/pdf", "Stored"),
+            (ManagedFileRole.OrderScreenshot, ".png") =>
+                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".png", "image/png", "Stored"),
+            (ManagedFileRole.OrderScreenshot, ".jpg") =>
+                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".jpg", "image/jpeg", "Stored"),
+            (ManagedFileRole.OrderScreenshot, ".jpeg") =>
+                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".jpeg", "image/jpeg", "Stored"),
             _ => null,
         };
 
@@ -1039,7 +1049,8 @@ public sealed class SqliteReimbursementWorkspace(
         ManagedFileRole Role,
         string FolderName,
         string Extension,
-        string MediaType);
+        string MediaType,
+        string ProcessingState);
 
     private sealed record InvoiceRow(
         InvoiceId Id,

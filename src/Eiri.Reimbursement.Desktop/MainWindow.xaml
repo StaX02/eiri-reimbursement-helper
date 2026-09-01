@@ -78,10 +78,46 @@
                           AlternatingRowBackground="#FAFAFA">
                     <DataGrid.Columns>
                         <DataGridTextColumn Width="80" Header="平台" Binding="{Binding Platform}" />
-                        <DataGridTextColumn Width="1.2*" Header="商家名" Binding="{Binding MerchantDisplay}" />
+                        <DataGridTemplateColumn Width="1.2*" Header="商家名">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox Margin="4,2"
+                                              IsEditable="True"
+                                              IsReadOnly="True"
+                                              ItemsSource="{Binding MerchantOptions}"
+                                              Text="{Binding MerchantDisplay, Mode=OneWay}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Width="1.4*" Header="商品名" Binding="{Binding ProductDisplay}" />
                         <DataGridTextColumn Width="100" Header="金额" Binding="{Binding TotalAmount, StringFormat=¥{0:N2}}" />
-                        <DataGridTextColumn Width="1.1*" Header="发票号" Binding="{Binding InvoiceNumberDisplay}" />
+                        <DataGridTemplateColumn Width="1.1*" Header="发票号">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="4,2">
+                                        <TextBlock Text="待提取">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding InvoiceNumbers.Count}" Value="0">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <ItemsControl ItemsSource="{Binding InvoiceNumbers}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding}" TextWrapping="NoWrap" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Width="110" Header="已导出" Binding="{Binding ExportedAt, TargetNullValue=未导出, StringFormat={}{0:yyyy-MM-dd}}" />
                         <DataGridTextColumn Width="110" Header="已提交" Binding="{Binding SubmittedAt, TargetNullValue=未提交, StringFormat={}{0:yyyy-MM-dd}}" />
                         <DataGridTextColumn Width="110" Header="已返款" Binding="{Binding RefundedAt, TargetNullValue=未返款, StringFormat={}{0:yyyy-MM-dd}}" />
@@ -110,11 +146,17 @@
                                     IsEnabled="{Binding CanDeleteOrder}"
                                     Click="DeleteOrderButton_OnClick"
                                     Content="删除" />
-                            <Button Width="82"
+                            <Button Width="72"
+                                    Height="32"
+                                    Margin="0,0,8,0"
+                                    IsEnabled="{Binding CanImport}"
+                                    Click="SelectInvoiceFilesButton_OnClick"
+                                    Content="添加发票" />
+                            <Button Width="100"
                                     Height="32"
                                     IsEnabled="{Binding CanImport}"
-                                    Click="SelectFilesButton_OnClick"
-                                    Content="选择文件" />
+                                    Click="SelectSupportingFilesButton_OnClick"
+                                    Content="添加辅助材料" />
                         </StackPanel>
                         <StackPanel>
                             <TextBlock FontSize="17"
@@ -126,26 +168,54 @@
                         </StackPanel>
                     </DockPanel>
 
-                    <Border Grid.Row="1"
-                            Margin="0,0,0,14"
-                            Padding="18"
-                            AllowDrop="True"
-                            Background="#F8FAFC"
-                            BorderBrush="#98A2B3"
-                            BorderThickness="1"
-                            CornerRadius="7"
-                            DragOver="DropZone_OnDragOver"
-                            Drop="DropZone_OnDrop">
-                        <StackPanel HorizontalAlignment="Center">
-                            <TextBlock HorizontalAlignment="Center"
-                                       FontWeight="SemiBold"
-                                       Text="拖放文件到这里" />
-                            <TextBlock Margin="0,5,0,0"
-                                       HorizontalAlignment="Center"
-                                       Foreground="#667085"
-                                       Text="PDF、PNG、JPG、JPEG" />
-                        </StackPanel>
-                    </Border>
+                    <Grid Grid.Row="1" Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border x:Name="InvoiceDropZone"
+                                Padding="10"
+                                AllowDrop="True"
+                                Background="#F0F7FF"
+                                BorderBrush="#1570EF"
+                                BorderThickness="1"
+                                CornerRadius="7"
+                                DragOver="DropZone_OnDragOver"
+                                Drop="InvoiceDropZone_OnDrop">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock HorizontalAlignment="Center"
+                                           FontWeight="SemiBold"
+                                           Text="发票" />
+                                <TextBlock Margin="0,5,0,0"
+                                           HorizontalAlignment="Center"
+                                           Foreground="#475467"
+                                           Text="拖入 PDF，自动解析" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border x:Name="SupportingDropZone"
+                                Grid.Column="2"
+                                Padding="10"
+                                AllowDrop="True"
+                                Background="#F8FAFC"
+                                BorderBrush="#98A2B3"
+                                BorderThickness="1"
+                                CornerRadius="7"
+                                DragOver="DropZone_OnDragOver"
+                                Drop="SupportingDropZone_OnDrop">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock HorizontalAlignment="Center"
+                                           FontWeight="SemiBold"
+                                           Text="订单截图等辅助材料" />
+                                <TextBlock Margin="0,5,0,0"
+                                           HorizontalAlignment="Center"
+                                           Foreground="#667085"
+                                           Text="仅保存，不解析" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
 
                     <TabControl Grid.Row="2">
                         <TabItem Header="材料">

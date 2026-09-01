@@ -27,7 +27,8 @@ public enum MaterialImportOutcome
 
 public sealed record ImportMaterialsCommand(
     OrderId OrderId,
-    IReadOnlyList<string> SourcePaths);
+    IReadOnlyList<string> SourcePaths,
+    ManagedFileRole Role);
 
 public sealed record ManagedMaterial(
     ManagedFileId Id,

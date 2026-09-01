@@ -31,7 +31,17 @@ public sealed record OrderListItem(
 {
     public decimal TotalAmount => TotalMinorUnits / 100m;
 
-    public string MerchantDisplay => JoinOrPlaceholder(MerchantNames);
+    public IReadOnlyList<string> MerchantOptions => MerchantNames
+        .Where(name => !string.IsNullOrWhiteSpace(name))
+        .Distinct(StringComparer.Ordinal)
+        .ToArray();
+
+    public string MerchantDisplay => MerchantOptions.Count switch
+    {
+        0 => "待提取",
+        1 => MerchantOptions[0],
+        _ => "多个商家",
+    };
 
     public string ProductDisplay => JoinOrPlaceholder(ProductNames);
 

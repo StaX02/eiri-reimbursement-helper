@@ -1,4 +1,5 @@
 using System.Windows;
+using Eiri.Reimbursement.Core.Materials;
 using Eiri.Reimbursement.Desktop.ViewModels;
 using Microsoft.Win32;
 
@@ -12,19 +13,35 @@ public partial class MainWindow : Window
         DataContext = viewModel;
     }
 
-    private async void SelectFilesButton_OnClick(object sender, RoutedEventArgs e)
+    private async void SelectInvoiceFilesButton_OnClick(object sender, RoutedEventArgs e)
     {
         OpenFileDialog dialog = new()
         {
-            Title = "选择订单截图和发票",
-            Filter = "支持的材料|*.pdf;*.png;*.jpg;*.jpeg|PDF 发票|*.pdf|订单截图|*.png;*.jpg;*.jpeg",
+            Title = "选择发票",
+            Filter = "PDF 发票|*.pdf",
             Multiselect = true,
             CheckFileExists = true,
         };
 
         if (dialog.ShowDialog(this) == true && DataContext is MainWindowViewModel viewModel)
         {
-            await viewModel.ImportFilesAsync(dialog.FileNames);
+            await viewModel.ImportFilesAsync(dialog.FileNames, ManagedFileRole.InvoicePdf);
+        }
+    }
+
+    private async void SelectSupportingFilesButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        OpenFileDialog dialog = new()
+        {
+            Title = "选择订单截图等辅助材料",
+            Filter = "支持的辅助材料|*.pdf;*.png;*.jpg;*.jpeg|PDF|*.pdf|图片|*.png;*.jpg;*.jpeg",
+            Multiselect = true,
+            CheckFileExists = true,
+        };
+
+        if (dialog.ShowDialog(this) == true && DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.ImportFilesAsync(dialog.FileNames, ManagedFileRole.OrderScreenshot);
         }
     }
 
@@ -36,7 +53,17 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private async void DropZone_OnDrop(object sender, DragEventArgs e)
+    private async void InvoiceDropZone_OnDrop(object sender, DragEventArgs e)
+    {
+        await ImportDroppedFilesAsync(e, ManagedFileRole.InvoicePdf);
+    }
+
+    private async void SupportingDropZone_OnDrop(object sender, DragEventArgs e)
+    {
+        await ImportDroppedFilesAsync(e, ManagedFileRole.OrderScreenshot);
+    }
+
+    private async Task ImportDroppedFilesAsync(DragEventArgs e, ManagedFileRole role)
     {
         if (DataContext is not MainWindowViewModel viewModel
             || e.Data.GetData(DataFormats.FileDrop) is not string[] paths)
@@ -44,7 +71,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        await viewModel.ImportFilesAsync(paths);
+        await viewModel.ImportFilesAsync(paths, role);
     }
 
     private async void DeleteOrderButton_OnClick(object sender, RoutedEventArgs e)
