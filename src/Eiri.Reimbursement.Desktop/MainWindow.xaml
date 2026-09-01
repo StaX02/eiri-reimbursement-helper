@@ -308,6 +308,13 @@
                         <TabItem Header="发票">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="8">
+                                    <TextBlock Margin="0,0,0,4" Foreground="#475467" Text="平台" />
+                                    <ComboBox x:Name="InvoicePlatformSelector"
+                                              Margin="0,0,0,10"
+                                              ItemsSource="{Binding PlatformOptions}"
+                                              SelectedItem="{Binding SelectedOrderPlatform, Mode=TwoWay}"
+                                              DisplayMemberPath="DisplayName" />
+
                                     <TextBlock Margin="0,0,0,4" Foreground="#475467" Text="发票文件" />
                                     <ComboBox Margin="0,0,0,10"
                                               ItemsSource="{Binding Invoices}"
@@ -326,8 +333,9 @@
                                     <TextBox Margin="0,0,0,10"
                                              Text="{Binding SelectedInvoice.AmountText, UpdateSourceTrigger=PropertyChanged}" />
 
-                                    <TextBlock Margin="0,0,0,4" Foreground="#475467" Text="商品名称（每行一项）" />
-                                    <TextBox Height="62"
+                                    <TextBlock Margin="0,0,0,4" Foreground="#475467" Text="商品名 / 项目名称（每行一条）" />
+                                    <TextBox x:Name="ProductNamesEditor"
+                                             Height="62"
                                              Margin="0,0,0,10"
                                              AcceptsReturn="True"
                                              VerticalScrollBarVisibility="Auto"

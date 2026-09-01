@@ -212,6 +212,36 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.All(viewModel.Materials, material => Assert.Equal("已处理", material.ProcessingStateDisplay));
     }
 
+    [Fact]
+    public async Task SavingInvoiceEditsAlsoUpdatesOrderPlatformAndProductNames()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        OrderId orderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.Other));
+        string invoicePath = Path.Combine(_libraryRoot, "editable-invoice.pdf");
+        await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 editable invoice"u8.ToArray());
+        await workspace.ImportMaterialsAsync(
+            new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
+        MainWindowViewModel viewModel = new(workspace);
+        await viewModel.LoadAsync();
+        viewModel.SelectedOrder = Assert.Single(viewModel.Orders);
+        await WaitUntilAsync(() => viewModel.SelectedInvoice is not null);
+        viewModel.SelectedOrderPlatform = viewModel.PlatformOptions.Single(
+            option => option.Value == OrderPlatform.JD);
+        viewModel.SelectedInvoice!.MerchantName = "京东自营";
+        viewModel.SelectedInvoice.InvoiceNumber = "25312000000000123456";
+        viewModel.SelectedInvoice.AmountText = "159.90";
+        viewModel.SelectedInvoice.ProductNamesText = "机械键盘\n键帽";
+
+        await viewModel.SaveInvoiceCommand.ExecuteAsync(null);
+
+        Assert.Equal(OrderPlatform.JD, Assert.IsType<OrderListItem>(viewModel.SelectedOrder).Platform);
+        Assert.Equal("机械键盘等1条", viewModel.SelectedOrder.ProductDisplay);
+        Assert.Equal(OrderPlatform.JD, Assert.IsType<OrderDetail>(
+            await workspace.GetOrderAsync(orderId)).Platform);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_libraryRoot))
@@ -233,6 +263,17 @@ public sealed class MainWindowViewModelTests : IDisposable
                 new FieldCandidate("total_minor_units", totalMinorUnits, 1, "invoice-profile"),
             ],
             false);
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(3);
+        while (!condition() && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+
+        Assert.True(condition(), "The expected view-model state was not reached in time.");
+    }
 
     private sealed class SequenceDocumentProcessor(params DocumentAnalysis[] analyses) : IDocumentProcessor
     {

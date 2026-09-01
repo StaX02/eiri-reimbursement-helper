@@ -46,6 +46,8 @@ public sealed class MainWindowRenderingTests
                 window.UpdateLayout();
                 Assert.NotNull(window.FindName("InvoiceDropZone"));
                 Assert.NotNull(window.FindName("SupportingDropZone"));
+                Assert.NotNull(window.FindName("InvoicePlatformSelector"));
+                Assert.NotNull(window.FindName("ProductNamesEditor"));
                 FrameworkElement detailPanel = Assert.IsAssignableFrom<FrameworkElement>(
                     window.FindName("OrderDetailPanel"));
                 ComboBox platformSelector = Assert.IsType<ComboBox>(

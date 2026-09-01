@@ -12,6 +12,10 @@ public sealed record SetMilestoneCommand(
     Milestone Milestone,
     DateTimeOffset? OccurredAt);
 
+public sealed record UpdateOrderPlatformCommand(
+    OrderId OrderId,
+    OrderPlatform Platform);
+
 public sealed record OrderQuery(
     string? SearchText = null,
     OrderPlatform? Platform = null,

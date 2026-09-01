@@ -89,38 +89,34 @@ public sealed class SqliteReimbursementWorkspace(
                     FROM (SELECT DISTINCT merchant_name FROM invoices WHERE order_id = o.id AND merchant_name <> '')
                 ), ''),
                 COALESCE((
-                    SELECT group_concat(product_display, char(31))
-                    FROM (
-                        SELECT DISTINCT
-                            (SELECT first_line.name
-                             FROM invoice_lines first_line
-                             WHERE first_line.invoice_id = i.id
-                               AND first_line.is_effective = 1
-                               AND first_line.name <> ''
-                             ORDER BY first_line.sequence
-                             LIMIT 1)
-                            || CASE
-                                WHEN (SELECT COUNT(*)
-                                      FROM invoice_lines counted_line
-                                      WHERE counted_line.invoice_id = i.id
-                                        AND counted_line.is_effective = 1
-                                        AND counted_line.name <> '') > 1
-                                THEN ' 等 ' || (SELECT COUNT(*)
-                                                FROM invoice_lines counted_line
-                                                WHERE counted_line.invoice_id = i.id
-                                                  AND counted_line.is_effective = 1
-                                                  AND counted_line.name <> '') || ' 项'
-                                ELSE ''
-                               END AS product_display
-                        FROM invoices i
-                        WHERE i.order_id = o.id
-                          AND EXISTS (
-                              SELECT 1
-                              FROM invoice_lines effective_line
-                              WHERE effective_line.invoice_id = i.id
-                                AND effective_line.is_effective = 1
-                                AND effective_line.name <> '')
-                    )
+                    SELECT
+                        (SELECT first_line.name
+                         FROM invoice_lines first_line
+                         WHERE first_line.invoice_id = i.id
+                           AND first_line.is_effective = 1
+                           AND first_line.name <> ''
+                         ORDER BY first_line.sequence
+                         LIMIT 1)
+                        || CASE
+                            WHEN (SELECT COUNT(*) FROM invoices WHERE order_id = o.id) > 1
+                            THEN '等'
+                            WHEN (SELECT COUNT(*)
+                                  FROM invoice_lines counted_line
+                                  WHERE counted_line.invoice_id = i.id
+                                    AND counted_line.is_effective = 1
+                                    AND counted_line.name <> '') > 1
+                            THEN '等' || ((SELECT COUNT(*)
+                                             FROM invoice_lines counted_line
+                                             WHERE counted_line.invoice_id = i.id
+                                               AND counted_line.is_effective = 1
+                                               AND counted_line.name <> '') - 1) || '条'
+                            ELSE ''
+                           END
+                    FROM invoices i
+                    JOIN managed_files invoice_file ON invoice_file.id = i.managed_file_id
+                    WHERE i.order_id = o.id
+                    ORDER BY invoice_file.imported_at, invoice_file.rowid
+                    LIMIT 1
                 ), ''),
                 COALESCE((SELECT SUM(total_minor_units) FROM invoices WHERE order_id = o.id), 0),
                 COALESCE((
@@ -193,6 +189,28 @@ public sealed class SqliteReimbursementWorkspace(
         sql.Parameters.AddWithValue("$updatedAt", Format(DateTimeOffset.UtcNow));
         sql.Parameters.AddWithValue("$id", command.OrderId.ToString());
 
+        int changed = await sql.ExecuteNonQueryAsync(cancellationToken);
+        if (changed == 0)
+        {
+            throw new KeyNotFoundException($"Order '{command.OrderId}' was not found.");
+        }
+    }
+
+    public async Task UpdateOrderPlatformAsync(
+        UpdateOrderPlatformCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken);
+        await using SqliteCommand sql = connection.CreateCommand();
+        sql.CommandText =
+            """
+            UPDATE orders
+            SET platform = $platform, updated_at = $updatedAt
+            WHERE id = $id;
+            """;
+        sql.Parameters.AddWithValue("$platform", command.Platform.ToString());
+        sql.Parameters.AddWithValue("$updatedAt", Format(DateTimeOffset.UtcNow));
+        sql.Parameters.AddWithValue("$id", command.OrderId.ToString());
         int changed = await sql.ExecuteNonQueryAsync(cancellationToken);
         if (changed == 0)
         {
@@ -320,7 +338,7 @@ public sealed class SqliteReimbursementWorkspace(
                 FROM invoices i
                 JOIN managed_files mf ON mf.id = i.managed_file_id
                 WHERE i.order_id = $orderId
-                ORDER BY mf.imported_at, i.id;
+                ORDER BY mf.imported_at, mf.rowid;
                 """;
             invoiceSql.Parameters.AddWithValue("$orderId", orderId.ToString());
 
@@ -861,6 +879,7 @@ public sealed class SqliteReimbursementWorkspace(
             || string.IsNullOrWhiteSpace(invoiceNumber)
             || totalMinorUnits is null;
 
+        int updatedInvoiceCount;
         await using (SqliteCommand invoiceSql = connection.CreateCommand())
         {
             invoiceSql.Transaction = transaction;
@@ -886,7 +905,49 @@ public sealed class SqliteReimbursementWorkspace(
             invoiceSql.Parameters.AddWithValue("$needsReview", needsReview ? 1 : 0);
             invoiceSql.Parameters.AddWithValue("$updatedAt", Format(DateTimeOffset.UtcNow));
             invoiceSql.Parameters.AddWithValue("$managedFileId", managedFileId.ToString());
-            await invoiceSql.ExecuteNonQueryAsync(cancellationToken);
+            updatedInvoiceCount = await invoiceSql.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        if (updatedInvoiceCount > 0)
+        {
+            string[] productNames = analysis.Candidates
+                .Where(candidate => candidate.Field == "product_name")
+                .Select(candidate => Normalize(candidate.Value))
+                .Where(name => name is not null)
+                .Cast<string>()
+                .ToArray();
+
+            await using SqliteCommand invoiceIdSql = connection.CreateCommand();
+            invoiceIdSql.Transaction = transaction;
+            invoiceIdSql.CommandText = "SELECT id FROM invoices WHERE managed_file_id = $managedFileId;";
+            invoiceIdSql.Parameters.AddWithValue("$managedFileId", managedFileId.ToString());
+            string invoiceId = (string?)await invoiceIdSql.ExecuteScalarAsync(cancellationToken)
+                ?? throw new KeyNotFoundException($"Invoice for material '{managedFileId}' was not found.");
+
+            await using (SqliteCommand deleteLinesSql = connection.CreateCommand())
+            {
+                deleteLinesSql.Transaction = transaction;
+                deleteLinesSql.CommandText = "DELETE FROM invoice_lines WHERE invoice_id = $invoiceId;";
+                deleteLinesSql.Parameters.AddWithValue("$invoiceId", invoiceId);
+                await deleteLinesSql.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            for (int sequence = 0; sequence < productNames.Length; sequence++)
+            {
+                await using SqliteCommand insertLineSql = connection.CreateCommand();
+                insertLineSql.Transaction = transaction;
+                insertLineSql.CommandText =
+                    """
+                    INSERT INTO invoice_lines (
+                        id, invoice_id, sequence, name, amount_minor_units, is_effective)
+                    VALUES ($id, $invoiceId, $sequence, $name, NULL, 1);
+                    """;
+                insertLineSql.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("D"));
+                insertLineSql.Parameters.AddWithValue("$invoiceId", invoiceId);
+                insertLineSql.Parameters.AddWithValue("$sequence", sequence);
+                insertLineSql.Parameters.AddWithValue("$name", productNames[sequence]);
+                await insertLineSql.ExecuteNonQueryAsync(cancellationToken);
+            }
         }
 
         await using (SqliteCommand stateSql = connection.CreateCommand())

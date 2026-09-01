@@ -11,7 +11,7 @@ from eiri_document_worker import __version__
 
 
 PROTOCOL_VERSION = 1
-PARSER_VERSION = "cn-einvoice-semantic-0.4"
+PARSER_VERSION = "cn-einvoice-semantic-0.5"
 INVOICE_NUMBER_PATTERN = re.compile(r"(?<!\d)\d{20}(?!\d)")
 LABELED_INVOICE_NUMBER_PATTERN = re.compile(
     r"发\s*票\s*号\s*码\s*[:：]?\s*(\d{20})(?!\d)"
@@ -25,6 +25,10 @@ SMALL_PRICE_TAX_TOTAL_PATTERN = re.compile(
     r"[（(]?\s*小\s*写\s*[)）]?\s*[:：]?\s*[¥￥]\s*(-?[\d,]+\.\d{2})"
 )
 MERCHANT_NAME_PATTERN = re.compile(r"^名称\s*[:：]\s*(.+)$")
+PROJECT_MARKER_PATTERN = re.compile(r"[*＊][^*＊\r\n]+[*＊]")
+QUANTITY_ROW_PATTERN = re.compile(
+    r"(?:个|片|套|台|件|项|次|批|张|只|盒|包|组|米|千克|公斤)\s+\d+(?:\.\d+)?\s"
+)
 OCR_RENDER_SCALE = 300 / 72
 
 
@@ -70,6 +74,46 @@ def find_total_amount(text: str) -> Decimal | None:
         if match:
             return Decimal(match.group(1).replace(",", ""))
     return None
+
+
+def find_product_names(text: str) -> list[str]:
+    table_text = text.split("项目名称", 1)[-1]
+    matches = list(PROJECT_MARKER_PATTERN.finditer(table_text))
+    product_names: list[str] = []
+    for index, match in enumerate(matches):
+        segment_end = matches[index + 1].start() if index + 1 < len(matches) else len(table_text)
+        segment = table_text[match.start():segment_end]
+        segment = re.split(r"\r?\n\s*合\s*计|\r?\n\s*价税合计", segment, maxsplit=1)[0]
+        lines = [line.strip() for line in segment.splitlines() if line.strip()]
+        if not lines:
+            continue
+
+        marker = match.group(0).replace("＊", "*")
+        fragments = [marker]
+        first_line_remainder = lines[0][len(match.group(0)):].strip()
+        candidate_lines = [first_line_remainder, *lines[1:]]
+        for line_index, line in enumerate(candidate_lines):
+            if not line:
+                continue
+            if line.startswith(("(", "（")):
+                break
+            quantity_match = QUANTITY_ROW_PATTERN.search(line)
+            if quantity_match:
+                if line_index == 0:
+                    inline_product = line[:quantity_match.start()].split(maxsplit=1)[0]
+                    if inline_product:
+                        fragments.append(inline_product)
+                    continue
+                break
+            first_fragment = line.split(maxsplit=1)[0]
+            if first_fragment:
+                fragments.append(first_fragment)
+
+        product_name = "".join(fragments)
+        if product_name != marker:
+            product_names.append(product_name)
+
+    return product_names
 
 
 def extract_ocr_text_blocks(file_path: Path) -> tuple[list[dict[str, Any]], dict[int, tuple[float, float]]]:
@@ -299,7 +343,20 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
             )
             break
 
-    required_fields = {"merchant_name", "invoice_number", "total_minor_units"}
+    for page in semantic_pages:
+        for product_name in find_product_names(page["text"]):
+            candidates.append(
+                {
+                    "field": "product_name",
+                    "value": product_name,
+                    "confidence": 0.90 if page["source"] == "ocr" else 0.98,
+                    "source": "invoice-profile",
+                    "page": page["page"],
+                    "bounds": page["bounds"],
+                }
+            )
+
+    required_fields = {"merchant_name", "invoice_number", "total_minor_units", "product_name"}
     candidates_by_field = {candidate["field"]: candidate for candidate in candidates}
     complete_high_confidence_result = all(
         field in candidates_by_field and candidates_by_field[field]["confidence"] >= 0.90

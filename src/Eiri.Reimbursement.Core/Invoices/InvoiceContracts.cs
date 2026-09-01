@@ -40,7 +40,7 @@ public sealed record InvoiceDetail(
             {
                 0 => string.Empty,
                 1 => names[0],
-                _ => $"{names[0]} 等 {names.Length} 项",
+                _ => $"{names[0]}等{names.Length - 1}条",
             };
         }
     }

@@ -176,6 +176,31 @@ class WorkerProtocolTests(unittest.TestCase):
         self.assertEqual("507874", candidates["total_minor_units"])
         self.assertFalse(analysis["needsReview"])
 
+    def test_real_invoices_return_project_names_in_document_order(self) -> None:
+        expected_product_names = {
+            "example1.pdf": ["*电子元件*BGA164-0.5-12*12-1.5合金翻盖旋钮老化座"],
+            "example2.pdf": ["*电子元件*BGA164合金翻盖旋钮测试座"],
+            "example3.pdf": [
+                "*电子元件*BGA164-0.5-12*12-1.5-1A针板整套",
+                "*电子元件*BGA164-0.5-12*12-1.5-2A针板整套",
+            ],
+            "example4.pdf": [
+                "*印制电路板*PCBA-线路板",
+                "*印制电路板*PCBA-元器件",
+                "*印制电路板*PCBA-SMT贴片",
+            ],
+        }
+
+        for file_name, expected in expected_product_names.items():
+            with self.subTest(file_name=file_name):
+                analysis = analyze_document(INVOICE_EXAMPLES / file_name)
+                actual = [
+                    candidate["value"]
+                    for candidate in analysis["candidates"]
+                    if candidate["field"] == "product_name"
+                ]
+                self.assertEqual(expected, actual)
+
     def test_image_only_invoice_uses_ocr_to_extract_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             pdf_path = Path(temporary_directory) / "image-only-invoice.pdf"

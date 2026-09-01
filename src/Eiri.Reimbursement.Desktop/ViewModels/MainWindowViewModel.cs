@@ -64,6 +64,9 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     private OrderPlatformOption _selectedPlatform = AvailablePlatformOptions[^1];
 
     [ObservableProperty]
+    private OrderPlatformOption _selectedOrderPlatform = AvailablePlatformOptions[^1];
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CreateOrderCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveInvoiceCommand))]
@@ -329,7 +332,7 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         }
 
         IsBusy = true;
-        StatusMessage = "正在保存发票字段…";
+        StatusMessage = "正在保存平台及发票字段…";
         try
         {
             InvoiceLineCorrection[] lines = SelectedInvoice.ProductNamesText
@@ -346,15 +349,18 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
             OrderId? orderId = SelectedOrder?.Id;
             if (orderId is not null)
             {
+                await _workspace.UpdateOrderPlatformAsync(new UpdateOrderPlatformCommand(
+                    orderId.Value,
+                    SelectedOrderPlatform.Value));
                 await LoadOrderDetailAsync(orderId.Value, ++_selectionVersion, SelectedInvoice.Id);
                 await ReloadOrdersAsync(orderId.Value);
             }
 
-            StatusMessage = "发票字段已保存。";
+            StatusMessage = "平台及发票字段已保存。";
         }
         catch (Exception exception)
         {
-            StatusMessage = $"保存发票失败：{exception.Message}";
+            StatusMessage = $"保存平台及发票失败：{exception.Message}";
         }
         finally
         {
@@ -404,6 +410,9 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     {
         int version = ++_selectionVersion;
         ExtractedText = string.Empty;
+        SelectedOrderPlatform = value is null
+            ? AvailablePlatformOptions[^1]
+            : AvailablePlatformOptions.Single(option => option.Value == value.Platform);
         IsSelectedOrderSubmitted = value?.SubmittedAt is not null;
         IsSelectedOrderRefunded = value?.RefundedAt is not null;
         if (value is null)
