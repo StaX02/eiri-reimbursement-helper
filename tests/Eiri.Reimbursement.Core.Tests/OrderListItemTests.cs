@@ -23,7 +23,7 @@ public sealed class OrderListItemTests
     }
 
     [Fact]
-    public void MultipleMerchantsUseSummaryLabelAndDeduplicatedOptions()
+    public void MultipleMerchantsShowTheFirstMerchantAsASummary()
     {
         OrderListItem order = new(
             OrderId.New(),
@@ -39,7 +39,7 @@ public sealed class OrderListItemTests
             null,
             DateTimeOffset.UtcNow);
 
-        Assert.Equal("多个商家", order.MerchantDisplay);
+        Assert.Equal("商家甲等", order.MerchantDisplay);
         Assert.Equal(["商家甲", "商家乙"], order.MerchantOptions);
         Assert.Equal(321.45m, order.TotalAmount);
         Assert.Equal(2, order.InvoiceNumbers.Count);

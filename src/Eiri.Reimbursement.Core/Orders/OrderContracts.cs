@@ -49,11 +49,11 @@ public sealed record OrderListItem(
         .Distinct(StringComparer.Ordinal)
         .ToArray();
 
-    public string MerchantDisplay => (InvoiceCount, MerchantOptions.Count) switch
+    public string MerchantDisplay => MerchantOptions.Count switch
     {
-        (> 1, _) => "多个商家",
-        (_, 0) => "待提取",
-        _ => MerchantOptions[0],
+        0 => "待提取",
+        1 => MerchantOptions[0],
+        _ => $"{MerchantOptions[0]}等",
     };
 
     public string ProductDisplay => JoinOrPlaceholder(ProductNames);
