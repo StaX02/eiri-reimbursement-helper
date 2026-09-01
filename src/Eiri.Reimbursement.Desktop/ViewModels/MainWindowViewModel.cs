@@ -121,26 +121,43 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         }
     }
 
-    public async Task DeleteSelectedOrderAsync()
+    public Task DeleteSelectedOrderAsync() => SelectedOrder is null
+        ? Task.CompletedTask
+        : DeleteOrdersAsync([SelectedOrder.Id]);
+
+    public async Task DeleteOrdersAsync(IReadOnlyList<OrderId> orderIds)
     {
-        if (SelectedOrder is null || IsBusy)
+        OrderId[] distinctOrderIds = orderIds.Distinct().ToArray();
+        if (distinctOrderIds.Length == 0 || IsBusy)
         {
             return;
         }
 
-        OrderId orderId = SelectedOrder.Id;
+        OrderId? selectedOrderId = SelectedOrder?.Id;
+        bool deletesSelectedOrder = selectedOrderId is not null
+            && distinctOrderIds.Contains(selectedOrderId.Value);
         IsBusy = true;
-        StatusMessage = "正在删除订单及其受管材料…";
+        StatusMessage = distinctOrderIds.Length == 1
+            ? "正在删除订单及其受管材料…"
+            : $"正在删除 {distinctOrderIds.Length} 个订单及其受管材料…";
 
         try
         {
-            await _workspace.DeleteOrderAsync(orderId);
-            SelectedOrder = null;
-            Materials = [];
-            Invoices = [];
-            SelectedInvoice = null;
-            await ReloadOrdersAsync(null);
-            StatusMessage = "订单及其受管材料已永久删除。";
+            foreach (OrderId orderId in distinctOrderIds)
+            {
+                await _workspace.DeleteOrderAsync(orderId);
+            }
+
+            if (deletesSelectedOrder)
+            {
+                SelectedOrder = null;
+                Materials = [];
+                Invoices = [];
+                SelectedInvoice = null;
+            }
+
+            await ReloadOrdersAsync(deletesSelectedOrder ? null : selectedOrderId);
+            StatusMessage = $"已删除 {distinctOrderIds.Length} 个订单及其受管材料。";
         }
         catch (Exception exception)
         {

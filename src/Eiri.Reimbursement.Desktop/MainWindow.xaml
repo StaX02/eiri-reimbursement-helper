@@ -83,9 +83,12 @@
                                   DisplayMemberPath="DisplayName" />
                     </StackPanel>
 
-                    <DataGrid Grid.Row="1"
+                    <DataGrid x:Name="OrdersGrid"
+                              Grid.Row="1"
                               ItemsSource="{Binding Orders}"
                               SelectedItem="{Binding SelectedOrder, Mode=TwoWay}"
+                              SelectionMode="Extended"
+                              SelectionUnit="FullRow"
                               AutoGenerateColumns="False"
                               CanUserAddRows="False"
                               IsReadOnly="True"
@@ -93,7 +96,14 @@
                               GridLinesVisibility="Horizontal"
                               BorderThickness="0"
                               RowHeaderWidth="0"
+                              PreviewMouseRightButtonDown="OrdersGrid_OnPreviewMouseRightButtonDown"
                               AlternatingRowBackground="#FAFAFA">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="删除订单"
+                                          Click="DeleteOrdersMenuItem_OnClick" />
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
                     <DataGrid.Columns>
                         <DataGridTextColumn Width="88" Header="平台" Binding="{Binding PlatformDisplay}" />
                         <DataGridTextColumn Width="105" Header="创建日期" Binding="{Binding CreatedDateDisplay}" />

@@ -49,7 +49,13 @@ public sealed class MainWindowRenderingTests
                     window.FindName("OrderDetailPanel"));
                 ComboBox platformSelector = Assert.IsType<ComboBox>(
                     window.FindName("PlatformSelector"));
+                DataGrid ordersGrid = Assert.IsType<DataGrid>(window.FindName("OrdersGrid"));
                 Assert.Equal(3, platformSelector.Items.Count);
+                Assert.Equal(DataGridSelectionMode.Extended, ordersGrid.SelectionMode);
+                Assert.Equal(DataGridSelectionUnit.FullRow, ordersGrid.SelectionUnit);
+                MenuItem deleteMenuItem = Assert.IsType<MenuItem>(
+                    Assert.Single(Assert.IsType<ContextMenu>(ordersGrid.ContextMenu).Items));
+                Assert.Equal("删除订单", deleteMenuItem.Header);
                 Assert.Equal(Visibility.Collapsed, detailPanel.Visibility);
 
                 viewModel.SelectedOrder = new OrderListItem(

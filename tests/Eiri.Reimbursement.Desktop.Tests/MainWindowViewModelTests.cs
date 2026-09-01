@@ -48,6 +48,31 @@ public sealed class MainWindowViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task DeletingMultipleOrdersRemovesOnlySelectedOrders()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        OrderId firstOrderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.Taobao));
+        OrderId secondOrderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.JD));
+        OrderId remainingOrderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.Other));
+        MainWindowViewModel viewModel = new(workspace);
+        await viewModel.LoadAsync();
+        viewModel.SelectedOrder = viewModel.Orders.Single(order => order.Id == firstOrderId);
+
+        await viewModel.DeleteOrdersAsync([firstOrderId, secondOrderId]);
+
+        OrderListItem remainingOrder = Assert.Single(viewModel.Orders);
+        Assert.Equal(remainingOrderId, remainingOrder.Id);
+        Assert.Null(viewModel.SelectedOrder);
+        Assert.Empty(viewModel.Materials);
+        Assert.Empty(viewModel.Invoices);
+        Assert.Equal("已删除 2 个订单及其受管材料。", viewModel.StatusMessage);
+    }
+
+    [Fact]
     public async Task ImportingInvoicesAnalyzesEachFileAndRefreshesOrderSummary()
     {
         SequenceDocumentProcessor processor = new(

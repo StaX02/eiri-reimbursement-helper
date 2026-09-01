@@ -1,5 +1,8 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using Eiri.Reimbursement.Core.Materials;
+using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Desktop.ViewModels;
 using Microsoft.Win32;
 
@@ -91,6 +94,56 @@ public partial class MainWindow : Window
         if (confirmation == MessageBoxResult.Yes)
         {
             await viewModel.DeleteSelectedOrderAsync();
+        }
+    }
+
+    private void OrdersGrid_OnPreviewMouseRightButtonDown(
+        object sender,
+        MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source
+            || ItemsControl.ContainerFromElement(OrdersGrid, source) is not DataGridRow row)
+        {
+            return;
+        }
+
+        if (!row.IsSelected)
+        {
+            OrdersGrid.SelectedItems.Clear();
+            row.IsSelected = true;
+        }
+
+        OrdersGrid.CurrentItem = row.Item;
+    }
+
+    private async void DeleteOrdersMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        OrderListItem[] selectedOrders = OrdersGrid.SelectedItems
+            .OfType<OrderListItem>()
+            .ToArray();
+        if (selectedOrders.Length == 0)
+        {
+            return;
+        }
+
+        string message = selectedOrders.Length == 1
+            ? "将永久删除所选订单、发票记录以及受管资料库中的材料。此操作无法撤销。"
+            : $"将永久删除所选的 {selectedOrders.Length} 个订单、发票记录以及受管资料库中的材料。此操作无法撤销。";
+        MessageBoxResult confirmation = MessageBox.Show(
+            this,
+            message,
+            selectedOrders.Length == 1 ? "确认删除订单" : "确认批量删除订单",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirmation == MessageBoxResult.Yes)
+        {
+            await viewModel.DeleteOrdersAsync(selectedOrders.Select(order => order.Id).ToArray());
         }
     }
 }
