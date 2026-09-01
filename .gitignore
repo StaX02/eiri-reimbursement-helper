@@ -487,3 +487,6 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .firecrawl/
+
+# Local examples
+/example/
