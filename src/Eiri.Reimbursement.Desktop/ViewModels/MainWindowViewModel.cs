@@ -42,10 +42,18 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     [NotifyPropertyChangedFor(nameof(SelectedOrderHeading))]
     [NotifyPropertyChangedFor(nameof(SelectedOrderSubmissionStatusDisplay))]
     [NotifyPropertyChangedFor(nameof(SelectedOrderRefundStatusDisplay))]
+    [NotifyPropertyChangedFor(nameof(IsSingleOrderSelected))]
     [NotifyPropertyChangedFor(nameof(CanImport))]
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
     [NotifyPropertyChangedFor(nameof(CanEditOrderMilestones))]
     private OrderListItem? _selectedOrder;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedOrderHeading))]
+    [NotifyPropertyChangedFor(nameof(IsSingleOrderSelected))]
+    [NotifyPropertyChangedFor(nameof(CanImport))]
+    [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
+    private int _selectedOrderCount;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveInvoiceCommand))]
@@ -85,20 +93,19 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
 
     public IReadOnlyList<OrderPlatformOption> PlatformOptions => AvailablePlatformOptions;
 
-    public bool CanImport => SelectedOrder is not null && !IsBusy;
+    public bool IsSingleOrderSelected => SelectedOrder is not null && SelectedOrderCount == 1;
 
-    public bool CanDeleteOrder => SelectedOrder is not null && !IsBusy;
+    public bool CanImport => IsSingleOrderSelected && !IsBusy;
+
+    public bool CanDeleteOrder => IsSingleOrderSelected && !IsBusy;
 
     public bool CanEditOrderMilestones => SelectedOrder is not null && !IsBusy;
 
     public bool CanBatchImportInvoices => !IsBusy;
 
-    public string SelectedOrderHeading => SelectedOrder switch
-    {
-        null => "选择一个订单",
-        { ExternalOrderNumber: { Length: > 0 } number } => number,
-        { } order => $"订单 {order.Id.ToString()[..8]}",
-    };
+    public string SelectedOrderHeading => SelectedOrderCount > 1
+        ? "已选中多个订单"
+        : "订单详情";
 
     public string SelectedOrderSubmissionStatusDisplay => SelectedOrder?.SubmittedAt is { } submittedAt
         ? $"已提交 · {submittedAt.ToLocalTime():yyyy-MM-dd HH:mm}"
@@ -109,6 +116,8 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         : "未返款";
 
     public Task LoadAsync() => RefreshAsync();
+
+    public void SetSelectedOrderCount(int count) => SelectedOrderCount = Math.Max(0, count);
 
     public async Task ImportFilesAsync(
         IReadOnlyList<string> sourcePaths,
@@ -492,10 +501,16 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         IsSelectedOrderRefunded = value?.RefundedAt is not null;
         if (value is null)
         {
+            SelectedOrderCount = 0;
             Materials = [];
             Invoices = [];
             SelectedInvoice = null;
             return;
+        }
+
+        if (SelectedOrderCount <= 1)
+        {
+            SelectedOrderCount = 1;
         }
 
         _ = LoadOrderDetailSafelyAsync(value.Id, version);

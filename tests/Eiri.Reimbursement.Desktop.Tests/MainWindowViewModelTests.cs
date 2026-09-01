@@ -269,6 +269,28 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.Equal("已完成2张发票的导入。", viewModel.StatusMessage);
     }
 
+    [Fact]
+    public async Task OrderDetailHeadingAndOperationsReflectSelectionCount()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Taobao));
+        await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD));
+        MainWindowViewModel viewModel = new(workspace);
+        await viewModel.LoadAsync();
+        viewModel.SelectedOrder = viewModel.Orders[0];
+
+        viewModel.SetSelectedOrderCount(1);
+
+        Assert.Equal("订单详情", viewModel.SelectedOrderHeading);
+        Assert.True(viewModel.IsSingleOrderSelected);
+
+        viewModel.SetSelectedOrderCount(2);
+
+        Assert.Equal("已选中多个订单", viewModel.SelectedOrderHeading);
+        Assert.False(viewModel.IsSingleOrderSelected);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_libraryRoot))

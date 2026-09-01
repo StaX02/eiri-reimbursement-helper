@@ -6,7 +6,7 @@
         Height="310"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource SurfaceBrush}">
+        Background="{DynamicResource SurfaceBrush}">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -18,7 +18,7 @@
             <TextBlock FontSize="20"
                        FontWeight="SemiBold"
                        Text="批量导入发票" />
-            <TextBlock Margin="0,6,0,0" Foreground="#667085" TextWrapping="Wrap">
+            <TextBlock Margin="0,6,0,0" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap">
                 <Run Text="每份 PDF 将创建一个独立订单并自动解析。订单平台：" />
                 <Run FontWeight="SemiBold" Text="{Binding SelectedPlatform.DisplayName}" />
             </TextBlock>
@@ -28,7 +28,7 @@
                 Grid.Row="1"
                 Padding="24"
                 AllowDrop="True"
-                Background="#F0F7FF"
+                Background="{DynamicResource InvoiceDropBrush}"
                 BorderBrush="#1570EF"
                 BorderThickness="1"
                 CornerRadius="8"
@@ -41,7 +41,7 @@
                            Text="拖入一个或多个发票 PDF" />
                 <TextBlock Margin="0,8,0,0"
                            HorizontalAlignment="Center"
-                           Foreground="#475467"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
                            Text="松开后立即创建订单并解析" />
             </StackPanel>
         </Border>
@@ -54,7 +54,7 @@
             <TextBlock x:Name="ImportStatusText"
                        Margin="0,8,0,0"
                        HorizontalAlignment="Center"
-                       Foreground="#667085"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
                        Text="等待拖入发票…" />
         </StackPanel>
     </Grid>

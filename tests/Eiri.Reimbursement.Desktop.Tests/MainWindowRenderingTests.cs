@@ -48,6 +48,10 @@ public sealed class MainWindowRenderingTests
                     window.FindName("ManagementHeading"));
                 Button batchImportButton = Assert.IsType<Button>(
                     window.FindName("BatchImportInvoicesButton"));
+                MenuItem optionsMenu = Assert.IsType<MenuItem>(window.FindName("OptionsMenu"));
+                MenuItem aboutMenu = Assert.IsType<MenuItem>(window.FindName("AboutMenu"));
+                MenuItem toggleThemeMenuItem = Assert.IsType<MenuItem>(
+                    window.FindName("ToggleThemeMenuItem"));
                 Assert.NotNull(window.FindName("InvoiceDropZone"));
                 Assert.NotNull(window.FindName("SupportingDropZone"));
                 Assert.NotNull(window.FindName("InvoicePlatformSelector"));
@@ -61,8 +65,13 @@ public sealed class MainWindowRenderingTests
                     window.FindName("OrderDetailActions"));
                 FrameworkElement materialDropZones = Assert.IsAssignableFrom<FrameworkElement>(
                     window.FindName("MaterialDropZones"));
+                TextBlock detailHeading = Assert.IsType<TextBlock>(
+                    window.FindName("OrderDetailHeading"));
                 Assert.Equal("报销管理", managementHeading.Text);
                 Assert.Equal("批量导入发票", batchImportButton.Content);
+                Assert.Equal("选项", optionsMenu.Header);
+                Assert.Equal("关于", aboutMenu.Header);
+                Assert.Equal("切换深色/浅色模式", toggleThemeMenuItem.Header);
                 Assert.Equal(1, Grid.GetRow(detailActions));
                 Assert.Equal(2, Grid.GetRow(materialDropZones));
                 Assert.Equal(3, platformSelector.Items.Count);
@@ -98,11 +107,27 @@ public sealed class MainWindowRenderingTests
                 window.UpdateLayout();
 
                 Assert.Equal(Visibility.Visible, detailPanel.Visibility);
+                Assert.Equal("订单详情", detailHeading.Text);
+                Assert.Equal(Visibility.Visible, detailActions.Visibility);
                 detailTabs.SelectedItem = statusTab;
                 window.UpdateLayout();
                 Assert.DoesNotContain(
                     FindVisualChildren<Button>(statusTab),
                     button => Equals(button.Content, "保存状态"));
+
+                viewModel.SetSelectedOrderCount(2);
+                window.UpdateLayout();
+                Assert.Equal("已选中多个订单", detailHeading.Text);
+                Assert.Equal(Visibility.Collapsed, detailActions.Visibility);
+                Assert.Equal(Visibility.Collapsed, materialDropZones.Visibility);
+                Assert.Equal(Visibility.Collapsed, detailTabs.Visibility);
+
+                toggleThemeMenuItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                window.UpdateLayout();
+                Assert.Equal(
+                    Color.FromRgb(0x11, 0x18, 0x27),
+                    Assert.IsType<SolidColorBrush>(window.Background).Color);
+                toggleThemeMenuItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
 
                 BatchInvoiceImportWindow batchWindow = new(viewModel);
                 Border batchDropZone = Assert.IsType<Border>(

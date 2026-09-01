@@ -28,6 +28,21 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ToggleThemeMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        ThemeManager.Toggle(Application.Current.Resources);
+    }
+
+    private void AboutAuthorMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        MessageBox.Show(
+            this,
+            "发票报销助手\n作者：Eiri",
+            "关于",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
     private async void SelectInvoiceFilesButton_OnClick(object sender, RoutedEventArgs e)
     {
         OpenFileDialog dialog = new()
@@ -126,6 +141,14 @@ public partial class MainWindow : Window
         }
 
         OrdersGrid.CurrentItem = row.Item;
+    }
+
+    private void OrdersGrid_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.SetSelectedOrderCount(OrdersGrid.SelectedItems.Count);
+        }
     }
 
     private async void DeleteOrdersMenuItem_OnClick(object sender, RoutedEventArgs e)
