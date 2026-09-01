@@ -53,9 +53,15 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(3, platformSelector.Items.Count);
                 Assert.Equal(DataGridSelectionMode.Extended, ordersGrid.SelectionMode);
                 Assert.Equal(DataGridSelectionUnit.FullRow, ordersGrid.SelectionUnit);
-                MenuItem deleteMenuItem = Assert.IsType<MenuItem>(
-                    Assert.Single(Assert.IsType<ContextMenu>(ordersGrid.ContextMenu).Items));
-                Assert.Equal("删除订单", deleteMenuItem.Header);
+                Assert.Equal(
+                    ["设为已提交", "设为已返款", "清空提交及返款状态", "删除订单"],
+                    Assert.IsType<ContextMenu>(ordersGrid.ContextMenu).Items
+                        .OfType<MenuItem>()
+                        .Select(item => item.Header));
+                TabControl detailTabs = Assert.IsType<TabControl>(window.FindName("OrderDetailTabs"));
+                Assert.Equal(
+                    ["材料", "发票", "提交/返款状态"],
+                    detailTabs.Items.OfType<TabItem>().Select(tab => tab.Header));
                 Assert.Equal(Visibility.Collapsed, detailPanel.Visibility);
 
                 viewModel.SelectedOrder = new OrderListItem(

@@ -36,8 +36,11 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedOrderHeading))]
+    [NotifyPropertyChangedFor(nameof(SelectedOrderSubmissionStatusDisplay))]
+    [NotifyPropertyChangedFor(nameof(SelectedOrderRefundStatusDisplay))]
     [NotifyPropertyChangedFor(nameof(CanImport))]
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
+    [NotifyCanExecuteChangedFor(nameof(SaveSelectedOrderMilestonesCommand))]
     private OrderListItem? _selectedOrder;
 
     [ObservableProperty]
@@ -52,6 +55,12 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     private string _statusMessage = "正在加载订单…";
 
     [ObservableProperty]
+    private bool _isSelectedOrderSubmitted;
+
+    [ObservableProperty]
+    private bool _isSelectedOrderRefunded;
+
+    [ObservableProperty]
     private OrderPlatformOption _selectedPlatform = AvailablePlatformOptions[^1];
 
     [ObservableProperty]
@@ -59,6 +68,7 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveInvoiceCommand))]
     [NotifyCanExecuteChangedFor(nameof(AnalyzeInvoiceCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveSelectedOrderMilestonesCommand))]
     [NotifyPropertyChangedFor(nameof(CanImport))]
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
     private bool _isBusy;
@@ -77,6 +87,14 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         { ExternalOrderNumber: { Length: > 0 } number } => number,
         { } order => $"订单 {order.Id.ToString()[..8]}",
     };
+
+    public string SelectedOrderSubmissionStatusDisplay => SelectedOrder?.SubmittedAt is { } submittedAt
+        ? $"已提交 · {submittedAt.ToLocalTime():yyyy-MM-dd HH:mm}"
+        : "未提交";
+
+    public string SelectedOrderRefundStatusDisplay => SelectedOrder?.RefundedAt is { } refundedAt
+        ? $"已返款 · {refundedAt.ToLocalTime():yyyy-MM-dd HH:mm}"
+        : "未返款";
 
     public Task LoadAsync() => RefreshAsync();
 
@@ -162,6 +180,118 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         catch (Exception exception)
         {
             StatusMessage = $"删除订单失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public async Task SetOrdersMilestoneAsync(
+        IReadOnlyList<OrderId> orderIds,
+        Milestone milestone,
+        bool isReached)
+    {
+        OrderId[] distinctOrderIds = orderIds.Distinct().ToArray();
+        if (distinctOrderIds.Length == 0 || IsBusy)
+        {
+            return;
+        }
+
+        OrderId? selectedOrderId = SelectedOrder?.Id;
+        DateTimeOffset? occurredAt = isReached ? DateTimeOffset.UtcNow : null;
+        string milestoneName = milestone switch
+        {
+            Milestone.Submitted => isReached ? "已提交" : "未提交",
+            Milestone.Refunded => isReached ? "已返款" : "未返款",
+            Milestone.Exported => isReached ? "已导出" : "未导出",
+            _ => throw new ArgumentOutOfRangeException(nameof(milestone)),
+        };
+
+        IsBusy = true;
+        StatusMessage = $"正在将 {distinctOrderIds.Length} 个订单设为{milestoneName}…";
+        try
+        {
+            foreach (OrderId orderId in distinctOrderIds)
+            {
+                await _workspace.SetMilestoneAsync(
+                    new SetMilestoneCommand(orderId, milestone, occurredAt));
+            }
+
+            await ReloadOrdersAsync(selectedOrderId);
+            StatusMessage = $"已将 {distinctOrderIds.Length} 个订单设为{milestoneName}。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"更新订单状态失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public async Task ClearOrdersSubmissionAndRefundAsync(IReadOnlyList<OrderId> orderIds)
+    {
+        OrderId[] distinctOrderIds = orderIds.Distinct().ToArray();
+        if (distinctOrderIds.Length == 0 || IsBusy)
+        {
+            return;
+        }
+
+        OrderId? selectedOrderId = SelectedOrder?.Id;
+        IsBusy = true;
+        StatusMessage = $"正在清空 {distinctOrderIds.Length} 个订单的提交及返款状态…";
+        try
+        {
+            foreach (OrderId orderId in distinctOrderIds)
+            {
+                await _workspace.SetMilestoneAsync(
+                    new SetMilestoneCommand(orderId, Milestone.Submitted, null));
+                await _workspace.SetMilestoneAsync(
+                    new SetMilestoneCommand(orderId, Milestone.Refunded, null));
+            }
+
+            await ReloadOrdersAsync(selectedOrderId);
+            StatusMessage = $"已清空 {distinctOrderIds.Length} 个订单的提交及返款状态。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"清空订单状态失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEditOrderMilestones))]
+    private async Task SaveSelectedOrderMilestonesAsync()
+    {
+        if (SelectedOrder is not { } selectedOrder)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        StatusMessage = "正在保存提交/返款状态…";
+        try
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            await _workspace.SetMilestoneAsync(new SetMilestoneCommand(
+                selectedOrder.Id,
+                Milestone.Submitted,
+                IsSelectedOrderSubmitted ? selectedOrder.SubmittedAt ?? now : null));
+            await _workspace.SetMilestoneAsync(new SetMilestoneCommand(
+                selectedOrder.Id,
+                Milestone.Refunded,
+                IsSelectedOrderRefunded ? selectedOrder.RefundedAt ?? now : null));
+            await ReloadOrdersAsync(selectedOrder.Id);
+            StatusMessage = "提交/返款状态已保存。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"保存提交/返款状态失败：{exception.Message}";
         }
         finally
         {
@@ -304,6 +434,8 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     {
         int version = ++_selectionVersion;
         ExtractedText = string.Empty;
+        IsSelectedOrderSubmitted = value?.SubmittedAt is not null;
+        IsSelectedOrderRefunded = value?.RefundedAt is not null;
         if (value is null)
         {
             Materials = [];
@@ -323,6 +455,8 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     private bool CanRunCommand() => !IsBusy;
 
     private bool CanEditInvoice() => SelectedInvoice is not null && !IsBusy;
+
+    private bool CanEditOrderMilestones() => SelectedOrder is not null && !IsBusy;
 
     private async Task ReloadOrdersAsync(OrderId? selectedOrderId)
     {

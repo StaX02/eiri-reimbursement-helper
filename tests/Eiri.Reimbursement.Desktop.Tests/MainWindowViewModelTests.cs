@@ -72,6 +72,109 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.Equal("已删除 2 个订单及其受管材料。", viewModel.StatusMessage);
     }
 
+    [Theory]
+    [InlineData(Milestone.Submitted)]
+    [InlineData(Milestone.Refunded)]
+    public async Task MarkingMultipleOrdersMilestoneUpdatesEverySelectedOrder(Milestone milestone)
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        OrderId firstOrderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.Taobao));
+        OrderId secondOrderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.JD));
+        OrderId unchangedOrderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.Other));
+        MainWindowViewModel viewModel = new(workspace);
+        await viewModel.LoadAsync();
+        viewModel.SelectedOrder = viewModel.Orders.Single(order => order.Id == firstOrderId);
+
+        await viewModel.SetOrdersMilestoneAsync(
+            [firstOrderId, secondOrderId],
+            milestone,
+            isReached: true);
+
+        OrderListItem[] updatedOrders = viewModel.Orders
+            .Where(order => order.Id == firstOrderId || order.Id == secondOrderId)
+            .ToArray();
+        Assert.Equal(2, updatedOrders.Length);
+        OrderListItem unchangedOrder = viewModel.Orders.Single(order => order.Id == unchangedOrderId);
+        if (milestone == Milestone.Submitted)
+        {
+            Assert.All(updatedOrders, order => Assert.NotNull(order.SubmittedAt));
+            Assert.Null(unchangedOrder.SubmittedAt);
+            Assert.True(viewModel.IsSelectedOrderSubmitted);
+            Assert.Equal("已将 2 个订单设为已提交。", viewModel.StatusMessage);
+        }
+        else
+        {
+            Assert.All(updatedOrders, order => Assert.NotNull(order.RefundedAt));
+            Assert.Null(unchangedOrder.RefundedAt);
+            Assert.True(viewModel.IsSelectedOrderRefunded);
+            Assert.Equal("已将 2 个订单设为已返款。", viewModel.StatusMessage);
+        }
+    }
+
+    [Fact]
+    public async Task ClearingSubmissionAndRefundStatusOnlyUpdatesSelectedOrders()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        OrderId selectedOrderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.Taobao));
+        OrderId unchangedOrderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.JD));
+        DateTimeOffset occurredAt = DateTimeOffset.UtcNow;
+        foreach (OrderId orderId in new[] { selectedOrderId, unchangedOrderId })
+        {
+            await workspace.SetMilestoneAsync(
+                new SetMilestoneCommand(orderId, Milestone.Submitted, occurredAt));
+            await workspace.SetMilestoneAsync(
+                new SetMilestoneCommand(orderId, Milestone.Refunded, occurredAt));
+        }
+
+        MainWindowViewModel viewModel = new(workspace);
+        await viewModel.LoadAsync();
+        viewModel.SelectedOrder = viewModel.Orders.Single(order => order.Id == selectedOrderId);
+
+        await viewModel.ClearOrdersSubmissionAndRefundAsync([selectedOrderId]);
+
+        OrderListItem clearedOrder = viewModel.Orders.Single(order => order.Id == selectedOrderId);
+        OrderListItem unchangedOrder = viewModel.Orders.Single(order => order.Id == unchangedOrderId);
+        Assert.Null(clearedOrder.SubmittedAt);
+        Assert.Null(clearedOrder.RefundedAt);
+        Assert.NotNull(unchangedOrder.SubmittedAt);
+        Assert.NotNull(unchangedOrder.RefundedAt);
+        Assert.False(viewModel.IsSelectedOrderSubmitted);
+        Assert.False(viewModel.IsSelectedOrderRefunded);
+        Assert.Equal("已清空 1 个订单的提交及返款状态。", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task SavingSelectedOrderStatusUsesEditedValues()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        OrderId orderId = await workspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.Taobao));
+        await workspace.SetMilestoneAsync(
+            new SetMilestoneCommand(orderId, Milestone.Submitted, DateTimeOffset.UtcNow));
+        MainWindowViewModel viewModel = new(workspace);
+        await viewModel.LoadAsync();
+        viewModel.SelectedOrder = Assert.Single(viewModel.Orders);
+        viewModel.IsSelectedOrderSubmitted = false;
+        viewModel.IsSelectedOrderRefunded = true;
+
+        await viewModel.SaveSelectedOrderMilestonesCommand.ExecuteAsync(null);
+
+        OrderListItem updatedOrder = Assert.Single(viewModel.Orders);
+        Assert.Null(updatedOrder.SubmittedAt);
+        Assert.NotNull(updatedOrder.RefundedAt);
+        Assert.False(viewModel.IsSelectedOrderSubmitted);
+        Assert.True(viewModel.IsSelectedOrderRefunded);
+        Assert.Equal("提交/返款状态已保存。", viewModel.StatusMessage);
+    }
+
     [Fact]
     public async Task ImportingInvoicesAnalyzesEachFileAndRefreshesOrderSummary()
     {

@@ -146,4 +146,41 @@ public partial class MainWindow : Window
             await viewModel.DeleteOrdersAsync(selectedOrders.Select(order => order.Id).ToArray());
         }
     }
+
+    private async void SetOrdersSubmittedMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.SetOrdersMilestoneAsync(
+                GetSelectedOrderIds(),
+                Milestone.Submitted,
+                isReached: true);
+        }
+    }
+
+    private async void SetOrdersRefundedMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.SetOrdersMilestoneAsync(
+                GetSelectedOrderIds(),
+                Milestone.Refunded,
+                isReached: true);
+        }
+    }
+
+    private async void ClearOrdersSubmissionAndRefundMenuItem_OnClick(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.ClearOrdersSubmissionAndRefundAsync(GetSelectedOrderIds());
+        }
+    }
+
+    private OrderId[] GetSelectedOrderIds() => OrdersGrid.SelectedItems
+        .OfType<OrderListItem>()
+        .Select(order => order.Id)
+        .ToArray();
 }

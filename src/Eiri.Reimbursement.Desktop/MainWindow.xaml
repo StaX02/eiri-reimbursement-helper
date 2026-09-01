@@ -100,6 +100,13 @@
                               AlternatingRowBackground="#FAFAFA">
                         <DataGrid.ContextMenu>
                             <ContextMenu>
+                                <MenuItem Header="设为已提交"
+                                          Click="SetOrdersSubmittedMenuItem_OnClick" />
+                                <MenuItem Header="设为已返款"
+                                          Click="SetOrdersRefundedMenuItem_OnClick" />
+                                <MenuItem Header="清空提交及返款状态"
+                                          Click="ClearOrdersSubmissionAndRefundMenuItem_OnClick" />
+                                <Separator />
                                 <MenuItem Header="删除订单"
                                           Click="DeleteOrdersMenuItem_OnClick" />
                             </ContextMenu>
@@ -260,7 +267,7 @@
                         </Border>
                     </Grid>
 
-                    <TabControl Grid.Row="2">
+                    <TabControl x:Name="OrderDetailTabs" Grid.Row="2">
                         <TabItem Header="材料">
                             <ListBox ItemsSource="{Binding Materials}"
                                      BorderThickness="0"
@@ -349,6 +356,50 @@
                                              Text="{Binding ExtractedText}" />
                                 </StackPanel>
                             </ScrollViewer>
+                        </TabItem>
+
+                        <TabItem Header="提交/返款状态">
+                            <StackPanel Margin="12">
+                                <TextBlock Margin="0,0,0,6"
+                                           Foreground="#475467"
+                                           Text="提交状态" />
+                                <Border Margin="0,0,0,14"
+                                        Padding="12"
+                                        Background="#F9FAFB"
+                                        CornerRadius="6">
+                                    <StackPanel>
+                                        <TextBlock FontWeight="SemiBold"
+                                                   Text="{Binding SelectedOrderSubmissionStatusDisplay}" />
+                                        <CheckBox Margin="0,8,0,0"
+                                                  IsChecked="{Binding IsSelectedOrderSubmitted, Mode=TwoWay}"
+                                                  Content="订单已提交" />
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Margin="0,0,0,6"
+                                           Foreground="#475467"
+                                           Text="返款状态" />
+                                <Border Margin="0,0,0,14"
+                                        Padding="12"
+                                        Background="#F9FAFB"
+                                        CornerRadius="6">
+                                    <StackPanel>
+                                        <TextBlock FontWeight="SemiBold"
+                                                   Text="{Binding SelectedOrderRefundStatusDisplay}" />
+                                        <CheckBox Margin="0,8,0,0"
+                                                  IsChecked="{Binding IsSelectedOrderRefunded, Mode=TwoWay}"
+                                                  Content="订单已返款" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Button Width="88"
+                                        Height="32"
+                                        HorizontalAlignment="Right"
+                                        Background="{StaticResource PrimaryBrush}"
+                                        Foreground="White"
+                                        Command="{Binding SaveSelectedOrderMilestonesCommand}"
+                                        Content="保存状态" />
+                            </StackPanel>
                         </TabItem>
                     </TabControl>
                 </Grid>
