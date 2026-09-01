@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Eiri.Reimbursement.Core.Orders;
 
 public sealed record CreateOrderCommand(
@@ -31,6 +33,12 @@ public sealed record OrderListItem(
     DateTimeOffset CreatedAt)
 {
     public decimal TotalAmount => TotalMinorUnits / 100m;
+
+    public string PlatformDisplay => Platform.ToDisplayName();
+
+    public string CreatedDateDisplay => CreatedAt
+        .ToLocalTime()
+        .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     public IReadOnlyList<string> MerchantOptions => MerchantNames
         .Where(name => !string.IsNullOrWhiteSpace(name))

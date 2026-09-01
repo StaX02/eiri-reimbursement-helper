@@ -45,6 +45,29 @@ public sealed class OrderListItemTests
         Assert.Equal(2, order.InvoiceNumbers.Count);
     }
 
+    [Fact]
+    public void DisplaysPlatformAndCreationDateForOrderList()
+    {
+        DateTime localDateTime = new(2026, 9, 1, 12, 0, 0, DateTimeKind.Unspecified);
+        DateTimeOffset createdAt = new(localDateTime, TimeZoneInfo.Local.GetUtcOffset(localDateTime));
+        OrderListItem order = new(
+            OrderId.New(),
+            OrderPlatform.JD,
+            null,
+            [],
+            [],
+            0,
+            [],
+            0,
+            null,
+            null,
+            null,
+            createdAt);
+
+        Assert.Equal("京东", order.PlatformDisplay);
+        Assert.Equal("2026-09-01", order.CreatedDateDisplay);
+    }
+
     private static OrderListItem CreateOrder(long totalMinorUnits) =>
         new(
             OrderId.New(),

@@ -15,6 +15,39 @@ public sealed class MainWindowViewModelTests : IDisposable
         Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public async Task CreatingOrderUsesSelectedPlatform()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        MainWindowViewModel viewModel = new(workspace);
+        await viewModel.LoadAsync();
+
+        Assert.Equal(
+            ["淘宝", "京东", "其他平台"],
+            viewModel.PlatformOptions.Select(option => option.DisplayName));
+        viewModel.SelectedPlatform = viewModel.PlatformOptions.Single(
+            option => option.Value == OrderPlatform.JD);
+        await viewModel.CreateOrderCommand.ExecuteAsync(null);
+
+        OrderListItem order = Assert.Single(viewModel.Orders);
+        Assert.Equal(OrderPlatform.JD, order.Platform);
+    }
+
+    [Fact]
+    public async Task LoadingExistingOrdersPreservesEmptySelection()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Taobao));
+        MainWindowViewModel viewModel = new(workspace);
+
+        await viewModel.LoadAsync();
+
+        Assert.Single(viewModel.Orders);
+        Assert.Null(viewModel.SelectedOrder);
+    }
+
+    [Fact]
     public async Task ImportingInvoicesAnalyzesEachFileAndRefreshesOrderSummary()
     {
         SequenceDocumentProcessor processor = new(
@@ -29,6 +62,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         await File.WriteAllBytesAsync(secondPath, "%PDF-1.7 invoice b"u8.ToArray());
         MainWindowViewModel viewModel = new(workspace);
         await viewModel.LoadAsync();
+        viewModel.SelectedOrder = Assert.Single(viewModel.Orders);
 
         await viewModel.ImportFilesAsync(
             [firstPath, secondPath],

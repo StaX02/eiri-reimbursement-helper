@@ -11,8 +11,16 @@ using Eiri.Reimbursement.Core.Orders;
 
 namespace Eiri.Reimbursement.Desktop.ViewModels;
 
+public sealed record OrderPlatformOption(OrderPlatform Value, string DisplayName);
+
 public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : ObservableObject
 {
+    private static readonly IReadOnlyList<OrderPlatformOption> AvailablePlatformOptions =
+    [
+        new(OrderPlatform.Taobao, OrderPlatform.Taobao.ToDisplayName()),
+        new(OrderPlatform.JD, OrderPlatform.JD.ToDisplayName()),
+        new(OrderPlatform.Other, OrderPlatform.Other.ToDisplayName()),
+    ];
     private readonly IReimbursementWorkspace _workspace = workspace;
     private int _selectionVersion;
 
@@ -44,6 +52,9 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     private string _statusMessage = "正在加载订单…";
 
     [ObservableProperty]
+    private OrderPlatformOption _selectedPlatform = AvailablePlatformOptions[^1];
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CreateOrderCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveInvoiceCommand))]
@@ -53,6 +64,8 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     private bool _isBusy;
 
     public string OrderCountText => $"共 {Orders.Count} 个订单";
+
+    public IReadOnlyList<OrderPlatformOption> PlatformOptions => AvailablePlatformOptions;
 
     public bool CanImport => SelectedOrder is not null && !IsBusy;
 
@@ -147,7 +160,7 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
 
         try
         {
-            OrderId orderId = await _workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
+            OrderId orderId = await _workspace.CreateOrderAsync(new CreateOrderCommand(SelectedPlatform.Value));
             await ReloadOrdersAsync(orderId);
             StatusMessage = "订单已创建。请选择发票区或辅助材料区拖放文件。";
         }
@@ -301,7 +314,7 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         OnPropertyChanged(nameof(OrderCountText));
 
         SelectedOrder = selectedOrderId is null
-            ? Orders.FirstOrDefault()
+            ? null
             : Orders.FirstOrDefault(order => order.Id == selectedOrderId.Value);
     }
 

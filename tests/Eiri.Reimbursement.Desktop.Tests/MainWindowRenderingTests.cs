@@ -1,7 +1,10 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading;
+using System.Windows;
+using System.Windows.Controls;
 using Eiri.Reimbursement.Core.Materials;
+using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Desktop;
 using Eiri.Reimbursement.Desktop.ViewModels;
 using Eiri.Reimbursement.Infrastructure.Sqlite;
@@ -11,7 +14,7 @@ namespace Eiri.Reimbursement.Desktop.Tests;
 public sealed class MainWindowRenderingTests
 {
     [Fact]
-    public void ImportedMaterialCanBeRenderedWithoutCrashingTheWindow()
+    public void MainWindowReflectsOrderSelectionAndRendersMaterials()
     {
         Exception? renderingException = null;
         Thread uiThread = new(() =>
@@ -42,6 +45,29 @@ public sealed class MainWindowRenderingTests
                 window.UpdateLayout();
                 Assert.NotNull(window.FindName("InvoiceDropZone"));
                 Assert.NotNull(window.FindName("SupportingDropZone"));
+                FrameworkElement detailPanel = Assert.IsAssignableFrom<FrameworkElement>(
+                    window.FindName("OrderDetailPanel"));
+                ComboBox platformSelector = Assert.IsType<ComboBox>(
+                    window.FindName("PlatformSelector"));
+                Assert.Equal(3, platformSelector.Items.Count);
+                Assert.Equal(Visibility.Collapsed, detailPanel.Visibility);
+
+                viewModel.SelectedOrder = new OrderListItem(
+                    OrderId.New(),
+                    OrderPlatform.Taobao,
+                    null,
+                    [],
+                    [],
+                    0,
+                    [],
+                    0,
+                    null,
+                    null,
+                    null,
+                    DateTimeOffset.UtcNow);
+                window.UpdateLayout();
+
+                Assert.Equal(Visibility.Visible, detailPanel.Visibility);
                 window.Close();
             }
             catch (Exception exception)

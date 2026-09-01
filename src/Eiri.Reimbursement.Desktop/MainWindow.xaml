@@ -57,27 +57,46 @@
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="350" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0"
-                    Margin="0,0,14,0"
                     Background="White"
                     BorderBrush="#E4E7EC"
                     BorderThickness="1"
                     CornerRadius="8">
-                <DataGrid ItemsSource="{Binding Orders}"
-                          SelectedItem="{Binding SelectedOrder, Mode=TwoWay}"
-                          AutoGenerateColumns="False"
-                          CanUserAddRows="False"
-                          IsReadOnly="True"
-                          HeadersVisibility="Column"
-                          GridLinesVisibility="Horizontal"
-                          BorderThickness="0"
-                          RowHeaderWidth="0"
-                          AlternatingRowBackground="#FAFAFA">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Margin="14,12" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center"
+                                   Foreground="#475467"
+                                   Text="平台选择" />
+                        <ComboBox x:Name="PlatformSelector"
+                                  Width="150"
+                                  Margin="10,0,0,0"
+                                  ItemsSource="{Binding PlatformOptions}"
+                                  SelectedItem="{Binding SelectedPlatform, Mode=TwoWay}"
+                                  DisplayMemberPath="DisplayName" />
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1"
+                              ItemsSource="{Binding Orders}"
+                              SelectedItem="{Binding SelectedOrder, Mode=TwoWay}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              BorderThickness="0"
+                              RowHeaderWidth="0"
+                              AlternatingRowBackground="#FAFAFA">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Width="80" Header="平台" Binding="{Binding Platform}" />
+                        <DataGridTextColumn Width="88" Header="平台" Binding="{Binding PlatformDisplay}" />
+                        <DataGridTextColumn Width="105" Header="创建日期" Binding="{Binding CreatedDateDisplay}" />
                         <DataGridTemplateColumn Width="1.2*" Header="商家名">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
@@ -122,14 +141,28 @@
                         <DataGridTextColumn Width="110" Header="已提交" Binding="{Binding SubmittedAt, TargetNullValue=未提交, StringFormat={}{0:yyyy-MM-dd}}" />
                         <DataGridTextColumn Width="110" Header="已返款" Binding="{Binding RefundedAt, TargetNullValue=未返款, StringFormat={}{0:yyyy-MM-dd}}" />
                     </DataGrid.Columns>
-                </DataGrid>
+                    </DataGrid>
+                </Grid>
             </Border>
 
-            <Border Grid.Column="1"
+            <Border x:Name="OrderDetailPanel"
+                    Grid.Column="1"
+                    Width="350"
+                    Margin="14,0,0,0"
                     Background="White"
                     BorderBrush="#E4E7EC"
                     BorderThickness="1"
                     CornerRadius="8">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedOrder}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <Grid Margin="18">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
