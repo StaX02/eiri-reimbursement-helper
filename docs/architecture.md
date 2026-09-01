@@ -113,6 +113,7 @@ RestoreBackup(BackupSource source)
 - `total_minor_units`: 有符号整数，以分为单位
 - `currency`: 首版固定 `CNY`
 - `needs_review`, `updated_at`
+- `is_user_corrected`: 用户保存过人工校正后为 true；后续机器重分析只更新未人工校正的字段集合
 
 ### invoice_lines
 

@@ -817,22 +817,22 @@ public sealed class SqliteReimbursementWorkspace(
             invoiceSql.CommandText =
                 """
                 UPDATE invoices
-                SET merchant_name = COALESCE($merchantName, merchant_name),
-                    invoice_number = COALESCE($invoiceNumber, invoice_number),
-                    total_minor_units = COALESCE($totalMinorUnits, total_minor_units),
+                SET merchant_name = $merchantName,
+                    invoice_number = $invoiceNumber,
+                    total_minor_units = $totalMinorUnits,
                     needs_review = $needsReview,
                     updated_at = $updatedAt
                 WHERE managed_file_id = $managedFileId AND is_user_corrected = 0;
                 """;
             invoiceSql.Parameters.AddWithValue(
                 "$merchantName",
-                string.IsNullOrWhiteSpace(merchantName) ? DBNull.Value : merchantName.Trim());
+                string.IsNullOrWhiteSpace(merchantName) ? string.Empty : merchantName.Trim());
             invoiceSql.Parameters.AddWithValue(
                 "$invoiceNumber",
-                string.IsNullOrWhiteSpace(invoiceNumber) ? DBNull.Value : invoiceNumber.Trim());
+                string.IsNullOrWhiteSpace(invoiceNumber) ? string.Empty : invoiceNumber.Trim());
             invoiceSql.Parameters.AddWithValue(
                 "$totalMinorUnits",
-                totalMinorUnits is null ? DBNull.Value : totalMinorUnits.Value);
+                totalMinorUnits ?? 0);
             invoiceSql.Parameters.AddWithValue("$needsReview", needsReview ? 1 : 0);
             invoiceSql.Parameters.AddWithValue("$updatedAt", Format(DateTimeOffset.UtcNow));
             invoiceSql.Parameters.AddWithValue("$managedFileId", managedFileId.ToString());

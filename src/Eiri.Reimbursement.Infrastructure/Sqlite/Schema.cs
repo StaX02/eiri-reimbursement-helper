@@ -81,6 +81,17 @@ internal static class Schema
         """
         ALTER TABLE invoices ADD COLUMN is_user_corrected INTEGER NOT NULL DEFAULT 0
             CHECK (is_user_corrected IN (0, 1));
+        UPDATE invoices
+        SET is_user_corrected = 1
+        WHERE needs_review = 0
+           OR merchant_name <> ''
+           OR invoice_number <> ''
+           OR total_minor_units <> 0;
+        UPDATE extraction_results
+        SET candidates_json = json_extract(candidates_json, '$.candidates')
+        WHERE json_valid(candidates_json)
+          AND json_type(candidates_json) = 'object'
+          AND json_type(candidates_json, '$.candidates') = 'array';
         PRAGMA user_version = 3;
         """;
 }

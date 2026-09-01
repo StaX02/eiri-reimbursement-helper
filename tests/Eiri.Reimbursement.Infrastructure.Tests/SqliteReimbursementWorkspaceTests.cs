@@ -4,6 +4,7 @@ using Eiri.Reimbursement.Core.Invoices;
 using Eiri.Reimbursement.Core.Materials;
 using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Infrastructure.Sqlite;
+using Microsoft.Data.Sqlite;
 
 namespace Eiri.Reimbursement.Infrastructure.Tests;
 
@@ -304,6 +305,94 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         Assert.Equal("人工校正商家", corrected.MerchantName);
         Assert.Equal("20000000000000000001", corrected.InvoiceNumber);
         Assert.Equal(999, corrected.TotalMinorUnits);
+    }
+
+    [Fact]
+    public async Task PartialReanalysisClearsStaleMachineFields()
+    {
+        DocumentAnalysis complete = AnalysisWithFields("商家甲", "10000000000000000001", "100");
+        DocumentAnalysis partial = new(
+            "test-worker",
+            "test-parser",
+            [],
+            [new FieldCandidate("invoice_number", "10000000000000000002", 1, "invoice-profile")],
+            true);
+        IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(
+            _libraryRoot,
+            new SequenceDocumentProcessor(complete, partial));
+        await workspace.InitializeAsync();
+        OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
+        string invoicePath = Path.Combine(_libraryRoot, "invoice-partial-reanalysis.pdf");
+        await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 partial reanalysis"u8.ToArray());
+        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath]));
+        InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
+            await workspace.GetOrderAsync(orderId)).Invoices);
+
+        await workspace.AnalyzeInvoiceAsync(invoice.Id);
+        await workspace.AnalyzeInvoiceAsync(invoice.Id);
+
+        InvoiceDetail reanalyzed = Assert.Single(Assert.IsType<OrderDetail>(
+            await workspace.GetOrderAsync(orderId)).Invoices);
+        Assert.Equal(string.Empty, reanalyzed.MerchantName);
+        Assert.Equal("10000000000000000002", reanalyzed.InvoiceNumber);
+        Assert.Equal(0, reanalyzed.TotalMinorUnits);
+        Assert.True(reanalyzed.NeedsReview);
+    }
+
+    [Fact]
+    public async Task VersionThreeMigrationPreservesCorrectionsAndNormalizesCandidateJson()
+    {
+        Directory.CreateDirectory(_libraryRoot);
+        string databasePath = Path.Combine(_libraryRoot, "library.db");
+        await using (SqliteConnection connection = new($"Data Source={databasePath};Pooling=False"))
+        {
+            await connection.OpenAsync();
+            await using SqliteCommand setup = connection.CreateCommand();
+            setup.CommandText =
+                """
+                CREATE TABLE invoices (
+                    id TEXT PRIMARY KEY,
+                    merchant_name TEXT NOT NULL DEFAULT '',
+                    invoice_number TEXT NOT NULL DEFAULT '',
+                    total_minor_units INTEGER NOT NULL DEFAULT 0,
+                    needs_review INTEGER NOT NULL DEFAULT 1,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE extraction_results (
+                    managed_file_id TEXT PRIMARY KEY,
+                    worker_version TEXT NOT NULL,
+                    parser_version TEXT NOT NULL,
+                    candidates_json TEXT NOT NULL,
+                    completed_at TEXT NULL,
+                    error TEXT NULL
+                );
+                INSERT INTO invoices VALUES (
+                    'invoice-1', '人工商家', '20000000000000000001', 999, 0, '2026-01-01T00:00:00Z');
+                INSERT INTO extraction_results VALUES (
+                    'file-1', 'worker', 'parser',
+                    '{"workerVersion":"worker","candidates":[{"field":"invoice_number","value":"1"}]}',
+                    '2026-01-01T00:00:00Z', NULL);
+                PRAGMA user_version = 2;
+                """;
+            await setup.ExecuteNonQueryAsync();
+        }
+
+        IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(_libraryRoot);
+        await workspace.InitializeAsync();
+
+        await using SqliteConnection migratedConnection = new($"Data Source={databasePath};Pooling=False");
+        await migratedConnection.OpenAsync();
+        await using SqliteCommand query = migratedConnection.CreateCommand();
+        query.CommandText =
+            """
+            SELECT
+                (SELECT is_user_corrected FROM invoices WHERE id = 'invoice-1'),
+                (SELECT candidates_json FROM extraction_results WHERE managed_file_id = 'file-1');
+            """;
+        await using SqliteDataReader reader = await query.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(1, reader.GetInt64(0));
+        Assert.Equal("[{\"field\":\"invoice_number\",\"value\":\"1\"}]", reader.GetString(1));
     }
 
     private static DocumentAnalysis AnalysisWithFields(
