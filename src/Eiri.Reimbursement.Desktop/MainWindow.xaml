@@ -21,7 +21,10 @@
 
         <DockPanel Grid.Row="0" Margin="0,0,0,20">
             <StackPanel DockPanel.Dock="Left">
-                <TextBlock FontSize="26" FontWeight="SemiBold" Text="订单" />
+                <TextBlock x:Name="ManagementHeading"
+                           FontSize="26"
+                           FontWeight="SemiBold"
+                           Text="报销管理" />
                 <TextBlock Margin="0,5,0,0"
                            Foreground="#667085"
                            Text="集中管理订单截图、电子发票和报销进度" />
@@ -34,6 +37,13 @@
                         Margin="0,0,10,0"
                         Command="{Binding RefreshCommand}"
                         Content="刷新" />
+                <Button x:Name="BatchImportInvoicesButton"
+                        Width="120"
+                        Height="36"
+                        Margin="0,0,10,0"
+                        IsEnabled="{Binding CanBatchImportInvoices}"
+                        Click="BatchImportInvoicesButton_OnClick"
+                        Content="批量导入发票" />
                 <Button Width="110"
                         Height="36"
                         Padding="14,0"
@@ -184,41 +194,46 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <DockPanel Grid.Row="0" Margin="0,0,0,14">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button Width="62"
-                                    Height="32"
-                                    Margin="0,0,8,0"
-                                    Foreground="#B42318"
-                                    IsEnabled="{Binding CanDeleteOrder}"
-                                    Click="DeleteOrderButton_OnClick"
-                                    Content="删除" />
-                            <Button Width="72"
-                                    Height="32"
-                                    Margin="0,0,8,0"
-                                    IsEnabled="{Binding CanImport}"
-                                    Click="SelectInvoiceFilesButton_OnClick"
-                                    Content="添加发票" />
-                            <Button Width="100"
-                                    Height="32"
-                                    IsEnabled="{Binding CanImport}"
-                                    Click="SelectSupportingFilesButton_OnClick"
-                                    Content="添加辅助材料" />
-                        </StackPanel>
-                        <StackPanel>
-                            <TextBlock FontSize="17"
-                                       FontWeight="SemiBold"
-                                       Text="{Binding SelectedOrderHeading}" />
-                            <TextBlock Margin="0,4,0,0"
-                                       Foreground="#667085"
-                                       Text="订单详情与材料" />
-                        </StackPanel>
-                    </DockPanel>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,14">
+                        <TextBlock FontSize="17"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"
+                                   Text="{Binding SelectedOrderHeading}" />
+                        <TextBlock Margin="0,4,0,0"
+                                   Foreground="#667085"
+                                   Text="订单详情与材料" />
+                    </StackPanel>
 
-                    <Grid Grid.Row="1" Margin="0,0,0,14">
+                    <StackPanel x:Name="OrderDetailActions"
+                                Grid.Row="1"
+                                Margin="0,0,0,14"
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal">
+                        <Button Width="62"
+                                Height="32"
+                                Margin="0,0,8,0"
+                                Foreground="#B42318"
+                                IsEnabled="{Binding CanDeleteOrder}"
+                                Click="DeleteOrderButton_OnClick"
+                                Content="删除" />
+                        <Button Width="72"
+                                Height="32"
+                                Margin="0,0,8,0"
+                                IsEnabled="{Binding CanImport}"
+                                Click="SelectInvoiceFilesButton_OnClick"
+                                Content="添加发票" />
+                        <Button Width="100"
+                                Height="32"
+                                IsEnabled="{Binding CanImport}"
+                                Click="SelectSupportingFilesButton_OnClick"
+                                Content="添加辅助材料" />
+                    </StackPanel>
+
+                    <Grid x:Name="MaterialDropZones" Grid.Row="2" Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="10" />
@@ -267,7 +282,7 @@
                         </Border>
                     </Grid>
 
-                    <TabControl x:Name="OrderDetailTabs" Grid.Row="2">
+                    <TabControl x:Name="OrderDetailTabs" Grid.Row="3">
                         <TabItem Header="材料">
                             <ListBox ItemsSource="{Binding Materials}"
                                      BorderThickness="0"

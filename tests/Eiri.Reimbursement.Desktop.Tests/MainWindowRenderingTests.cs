@@ -44,6 +44,10 @@ public sealed class MainWindowRenderingTests
                 MainWindow window = new(viewModel);
                 window.Show();
                 window.UpdateLayout();
+                TextBlock managementHeading = Assert.IsType<TextBlock>(
+                    window.FindName("ManagementHeading"));
+                Button batchImportButton = Assert.IsType<Button>(
+                    window.FindName("BatchImportInvoicesButton"));
                 Assert.NotNull(window.FindName("InvoiceDropZone"));
                 Assert.NotNull(window.FindName("SupportingDropZone"));
                 Assert.NotNull(window.FindName("InvoicePlatformSelector"));
@@ -53,6 +57,14 @@ public sealed class MainWindowRenderingTests
                 ComboBox platformSelector = Assert.IsType<ComboBox>(
                     window.FindName("PlatformSelector"));
                 DataGrid ordersGrid = Assert.IsType<DataGrid>(window.FindName("OrdersGrid"));
+                FrameworkElement detailActions = Assert.IsAssignableFrom<FrameworkElement>(
+                    window.FindName("OrderDetailActions"));
+                FrameworkElement materialDropZones = Assert.IsAssignableFrom<FrameworkElement>(
+                    window.FindName("MaterialDropZones"));
+                Assert.Equal("报销管理", managementHeading.Text);
+                Assert.Equal("批量导入发票", batchImportButton.Content);
+                Assert.Equal(1, Grid.GetRow(detailActions));
+                Assert.Equal(2, Grid.GetRow(materialDropZones));
                 Assert.Equal(3, platformSelector.Items.Count);
                 Assert.Equal(DataGridSelectionMode.Extended, ordersGrid.SelectionMode);
                 Assert.Equal(DataGridSelectionUnit.FullRow, ordersGrid.SelectionUnit);
@@ -91,6 +103,12 @@ public sealed class MainWindowRenderingTests
                 Assert.DoesNotContain(
                     FindVisualChildren<Button>(statusTab),
                     button => Equals(button.Content, "保存状态"));
+
+                BatchInvoiceImportWindow batchWindow = new(viewModel);
+                Border batchDropZone = Assert.IsType<Border>(
+                    batchWindow.FindName("BatchInvoiceDropZone"));
+                Assert.True(batchDropZone.AllowDrop);
+                batchWindow.Close();
                 window.Close();
             }
             catch (Exception exception)

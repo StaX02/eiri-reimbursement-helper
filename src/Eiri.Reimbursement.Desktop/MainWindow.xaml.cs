@@ -16,6 +16,18 @@ public partial class MainWindow : Window
         DataContext = viewModel;
     }
 
+    private void BatchImportInvoicesButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            BatchInvoiceImportWindow dialog = new(viewModel)
+            {
+                Owner = this,
+            };
+            dialog.ShowDialog();
+        }
+    }
+
     private async void SelectInvoiceFilesButton_OnClick(object sender, RoutedEventArgs e)
     {
         OpenFileDialog dialog = new()

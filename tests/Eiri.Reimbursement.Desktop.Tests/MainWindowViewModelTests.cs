@@ -242,6 +242,33 @@ public sealed class MainWindowViewModelTests : IDisposable
             await workspace.GetOrderAsync(orderId)).Platform);
     }
 
+    [Fact]
+    public async Task BatchImportCreatesOneOrderPerInvoiceAndReportsParsingFailures()
+    {
+        SecondAnalysisFailsDocumentProcessor processor = new();
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot, processor);
+        await workspace.InitializeAsync();
+        string firstPath = Path.Combine(_libraryRoot, "invoice-a.pdf");
+        string failedPath = Path.Combine(_libraryRoot, "invoice-b.pdf");
+        string thirdPath = Path.Combine(_libraryRoot, "invoice-c.pdf");
+        await File.WriteAllBytesAsync(firstPath, "%PDF-1.7 invoice a"u8.ToArray());
+        await File.WriteAllBytesAsync(failedPath, "%PDF-1.7 invoice b"u8.ToArray());
+        await File.WriteAllBytesAsync(thirdPath, "%PDF-1.7 invoice c"u8.ToArray());
+        MainWindowViewModel viewModel = new(workspace);
+        await viewModel.LoadAsync();
+        viewModel.SelectedPlatform = viewModel.PlatformOptions.Single(
+            option => option.Value == OrderPlatform.JD);
+
+        BatchInvoiceImportResult result = await viewModel.BatchImportInvoicesAsync(
+            [firstPath, failedPath, thirdPath]);
+
+        Assert.Equal(2, result.ImportedCount);
+        Assert.Equal(["invoice-b.pdf"], result.FailedFileNames);
+        Assert.Equal(3, viewModel.Orders.Count);
+        Assert.All(viewModel.Orders, order => Assert.Equal(OrderPlatform.JD, order.Platform));
+        Assert.Equal("已完成2张发票的导入。", viewModel.StatusMessage);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_libraryRoot))
@@ -282,5 +309,17 @@ public sealed class MainWindowViewModelTests : IDisposable
         public Task<DocumentAnalysis> AnalyzeAsync(
             DocumentJob job,
             CancellationToken cancellationToken = default) => Task.FromResult(_analyses.Dequeue());
+    }
+
+    private sealed class SecondAnalysisFailsDocumentProcessor : IDocumentProcessor
+    {
+        private int _analysisCount;
+
+        public Task<DocumentAnalysis> AnalyzeAsync(
+            DocumentJob job,
+            CancellationToken cancellationToken = default) =>
+            Interlocked.Increment(ref _analysisCount) == 2
+                ? Task.FromException<DocumentAnalysis>(new InvalidDataException("测试解析失败"))
+                : Task.FromResult(Analysis("测试商家", "10000000000000000001", "100"));
     }
 }

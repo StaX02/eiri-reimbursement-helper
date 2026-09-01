@@ -13,6 +13,10 @@ namespace Eiri.Reimbursement.Desktop.ViewModels;
 
 public sealed record OrderPlatformOption(OrderPlatform Value, string DisplayName);
 
+public sealed record BatchInvoiceImportResult(
+    int ImportedCount,
+    IReadOnlyList<string> FailedFileNames);
+
 public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : ObservableObject
 {
     private static readonly IReadOnlyList<OrderPlatformOption> AvailablePlatformOptions =
@@ -74,6 +78,7 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     [NotifyPropertyChangedFor(nameof(CanImport))]
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
     [NotifyPropertyChangedFor(nameof(CanEditOrderMilestones))]
+    [NotifyPropertyChangedFor(nameof(CanBatchImportInvoices))]
     private bool _isBusy;
 
     public string OrderCountText => $"共 {Orders.Count} 个订单";
@@ -85,6 +90,8 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
     public bool CanDeleteOrder => SelectedOrder is not null && !IsBusy;
 
     public bool CanEditOrderMilestones => SelectedOrder is not null && !IsBusy;
+
+    public bool CanBatchImportInvoices => !IsBusy;
 
     public string SelectedOrderHeading => SelectedOrder switch
     {
@@ -137,6 +144,74 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         catch (Exception exception)
         {
             StatusMessage = $"导入失败：{exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public async Task<BatchInvoiceImportResult> BatchImportInvoicesAsync(
+        IReadOnlyList<string> sourcePaths)
+    {
+        string[] distinctPaths = sourcePaths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (distinctPaths.Length == 0 || IsBusy)
+        {
+            return new BatchInvoiceImportResult(0, []);
+        }
+
+        IsBusy = true;
+        StatusMessage = $"正在批量导入并解析 {distinctPaths.Length} 张发票…";
+        int importedCount = 0;
+        List<string> failedFileNames = [];
+        OrderId? selectedOrderId = SelectedOrder?.Id;
+        OrderPlatform platform = SelectedPlatform.Value;
+
+        try
+        {
+            foreach (string sourcePath in distinctPaths)
+            {
+                OrderId? createdOrderId = null;
+                try
+                {
+                    createdOrderId = await _workspace.CreateOrderAsync(
+                        new CreateOrderCommand(platform));
+                    ImportMaterialsResult result = await _workspace.ImportMaterialsAsync(
+                        new ImportMaterialsCommand(
+                            createdOrderId.Value,
+                            [sourcePath],
+                            ManagedFileRole.InvoicePdf));
+                    bool imported = result.Items.SingleOrDefault()?.Outcome
+                        == MaterialImportOutcome.Imported;
+                    if (imported && result.AnalysisFailureCount == 0)
+                    {
+                        importedCount++;
+                    }
+                    else
+                    {
+                        failedFileNames.Add(Path.GetFileName(sourcePath));
+                        if (!imported)
+                        {
+                            await _workspace.DeleteOrderAsync(createdOrderId.Value);
+                        }
+                    }
+                }
+                catch
+                {
+                    failedFileNames.Add(Path.GetFileName(sourcePath));
+                    if (createdOrderId is not null)
+                    {
+                        await _workspace.DeleteOrderAsync(createdOrderId.Value);
+                    }
+                }
+            }
+
+            await ReloadOrdersAsync(selectedOrderId);
+            StatusMessage = $"已完成{importedCount}张发票的导入。";
+            return new BatchInvoiceImportResult(importedCount, failedFileNames);
         }
         finally
         {
