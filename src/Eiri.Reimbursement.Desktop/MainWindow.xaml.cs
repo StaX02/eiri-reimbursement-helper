@@ -16,6 +16,8 @@ public partial class MainWindow : Window
         DataContext = viewModel;
     }
 
+    public void RefreshOrdersList() => OrdersGrid.Items.Refresh();
+
     private void BatchImportInvoicesButton_OnClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is MainWindowViewModel viewModel)

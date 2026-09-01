@@ -27,6 +27,7 @@ public partial class App : Application
             MainWindow = window;
             window.Show();
             await viewModel.LoadAsync();
+            window.RefreshOrdersList();
         }
         catch (Exception exception)
         {

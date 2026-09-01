@@ -148,7 +148,7 @@
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                     <DataGrid.Columns>
-                        <DataGridTextColumn Width="80" Header="平台" Binding="{Binding PlatformDisplay}" />
+                        <DataGridTextColumn Width="Auto" Header="平台" Binding="{Binding PlatformDisplay}" />
                         <DataGridTextColumn Width="100" Header="创建日期" Binding="{Binding CreatedDateDisplay}" />
                         <DataGridTemplateColumn Width="1.2*" Header="商家名">
                             <DataGridTemplateColumn.CellTemplate>

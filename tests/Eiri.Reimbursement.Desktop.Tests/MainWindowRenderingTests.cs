@@ -44,6 +44,24 @@ public sealed class MainWindowRenderingTests
                 MainWindow window = new(viewModel);
                 window.Show();
                 window.UpdateLayout();
+                viewModel.Orders =
+                [
+                    new OrderListItem(
+                        OrderId.New(),
+                        OrderPlatform.Other,
+                        null,
+                        [],
+                        [],
+                        0,
+                        [],
+                        0,
+                        DateTimeOffset.UtcNow,
+                        DateTimeOffset.UtcNow,
+                        DateTimeOffset.UtcNow,
+                        DateTimeOffset.UtcNow),
+                ];
+                window.RefreshOrdersList();
+                window.UpdateLayout();
                 TextBlock managementHeading = Assert.IsType<TextBlock>(
                     window.FindName("ManagementHeading"));
                 Button batchImportButton = Assert.IsType<Button>(
@@ -84,13 +102,21 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(3, platformSelector.Items.Count);
                 Assert.Equal(DataGridSelectionMode.Extended, ordersGrid.SelectionMode);
                 Assert.Equal(DataGridSelectionUnit.FullRow, ordersGrid.SelectionUnit);
-                Assert.Equal(80, ordersGrid.Columns[0].Width.Value);
-                Assert.Equal(DataGridLengthUnitType.Pixel, ordersGrid.Columns[0].Width.UnitType);
                 Assert.Equal(100, ordersGrid.Columns[1].Width.Value);
                 Assert.Equal(DataGridLengthUnitType.Pixel, ordersGrid.Columns[1].Width.UnitType);
                 Assert.All(
                     ordersGrid.Columns.Skip(6).Take(3),
                     column => Assert.Equal(DataGridLengthUnitType.Auto, column.Width.UnitType));
+                Assert.Equal(ordersGrid.Columns[6].ActualWidth, ordersGrid.Columns[8].ActualWidth);
+                DataGridRow loadedRow = Assert.IsType<DataGridRow>(
+                    ordersGrid.ItemContainerGenerator.ContainerFromIndex(0));
+                DataGridCell refundedCell = FindVisualChildren<DataGridCell>(loadedRow)
+                    .Single(cell => cell.Column.DisplayIndex == 8);
+                TextBlock refundedText = Assert.IsType<TextBlock>(refundedCell.Content);
+                Assert.True(
+                    refundedCell.ActualWidth >= refundedText.DesiredSize.Width,
+                    $"返款日期被截断：列宽 {refundedCell.ActualWidth}，内容需要 {refundedText.DesiredSize.Width}。");
+                Assert.Equal(DataGridLengthUnitType.Auto, ordersGrid.Columns[0].Width.UnitType);
                 Assert.Equal(
                     ["设为已提交", "设为已返款", "清空提交及返款状态", "删除订单"],
                     Assert.IsType<ContextMenu>(ordersGrid.ContextMenu).Items
