@@ -16,7 +16,7 @@
 | 桌面界面 | WPF、CommunityToolkit.Mvvm | Windows 原生窗口、列表、拖放、预览和 MVVM |
 | 结构化存储 | SQLite、Microsoft.Data.Sqlite、显式 SQL migration | 订单、发票、当前里程碑和提取结果 |
 | 文件存储 | System.IO、受管资料库 | 原始材料、预览缓存和临时输出 |
-| 文档工作进程 | 打包的 Python、pypdfium2、RapidOCR、ONNX Runtime、PP-OCRv5 mobile | PDF 文本抽取、页面渲染和本地中文 OCR |
+| 文档工作进程 | 打包的 Python、pypdfium2、RapidOCR 3.9.2、ONNX Runtime 1.29.0、PP-OCRv6 small | PDF 文本抽取、页面渲染和本地中文 OCR |
 | XLSX 与压缩包 | ClosedXML、System.IO.Compression | 报销汇总和备份包 |
 | 合并 PDF | PDFsharp；样本不兼容时切换 qpdf adapter | 生成可选合并副本，原始 PDF 永不改写 |
 | 测试 | xUnit、临时 SQLite、fixture/golden tests、Windows UI Automation smoke tests | 模块、集成、导出与关键界面验证 |
@@ -164,7 +164,7 @@ logs/
 
 1. 使用 PDFium 文本层抽取带坐标文本。
 2. 通过字符量、关键标签、发票号和金额格式执行质量门。
-3. 文本层不足时以 250–300 DPI 渲染页面，再使用 PP-OCRv5 mobile。
+3. 没有文本层时以 300 DPI 渲染页面，再使用随 RapidOCR wheel 交付的 PP-OCRv6 small；低质量文本层回退将在后续质量门切片实现。
 4. 票面 profile 根据标签邻近、坐标和校验规则生成候选字段。
 5. 缺失、冲突或低置信度字段标记 `needs_review`。
 6. 用户校正写入 `invoices` 和 `invoice_lines`，原始候选保留在当前 `extraction_results` 中。
@@ -233,6 +233,6 @@ logs/
 - [MSIX overview](https://learn.microsoft.com/en-us/windows/msix/overview)
 - [RapidOCR](https://github.com/RapidAI/RapidOCR)
 - [pypdfium2](https://github.com/pypdfium2-team/pypdfium2)
-- [PP-OCRv5 text recognition](https://www.paddleocr.ai/latest/en/version3.x/module_usage/text_recognition.html)
+- [RapidOCR bundled OCR models](https://github.com/RapidAI/RapidOCR)
 - [ClosedXML](https://github.com/ClosedXML/ClosedXML)
 - [PDFsharp](https://github.com/empira/PDFsharp)

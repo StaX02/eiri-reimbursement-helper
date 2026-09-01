@@ -11,12 +11,91 @@ from eiri_document_worker import __version__
 
 
 PROTOCOL_VERSION = 1
-PARSER_VERSION = "cn-einvoice-text-0.2"
+PARSER_VERSION = "cn-einvoice-ocr-0.3"
 INVOICE_NUMBER_PATTERN = re.compile(r"(?<!\d)\d{20}(?!\d)")
 TAXPAYER_CODE_PATTERN = re.compile(r"^[0-9A-Z]{18}$")
 PRICE_TAX_TOTAL_PATTERN = re.compile(
     r"^[零壹贰叁肆伍陆柒捌玖拾佰仟万亿圆元角分整]+\s*[¥￥]\s*(-?[\d,]+\.\d{2})$"
 )
+SMALL_PRICE_TAX_TOTAL_PATTERN = re.compile(
+    r"^\(?小写\)?\s*[¥￥]\s*(-?[\d,]+\.\d{2})$"
+)
+MERCHANT_NAME_PATTERN = re.compile(r"^名称\s*[:：]\s*(.+)$")
+OCR_RENDER_SCALE = 300 / 72
+
+
+def extract_ocr_text_blocks(file_path: Path) -> tuple[list[dict[str, Any]], dict[int, tuple[float, float]]]:
+    from rapidocr import RapidOCR
+
+    engine = RapidOCR()
+    text_blocks: list[dict[str, Any]] = []
+    page_sizes: dict[int, tuple[float, float]] = {}
+    document = pdfium.PdfDocument(file_path)
+    try:
+        for page_index in range(len(document)):
+            page = document[page_index]
+            try:
+                width, height = page.get_size()
+                page_number = page_index + 1
+                page_sizes[page_number] = (float(width), float(height))
+                image = page.render(scale=OCR_RENDER_SCALE).to_numpy()
+                result = engine(image)
+                if result.txts is None or result.boxes is None or result.scores is None:
+                    continue
+                for text, score, box in zip(result.txts, result.scores, result.boxes):
+                    if not text.strip():
+                        continue
+                    xs = [float(point[0]) / OCR_RENDER_SCALE for point in box]
+                    ys = [float(point[1]) / OCR_RENDER_SCALE for point in box]
+                    text_blocks.append(
+                        {
+                            "text": text.strip(),
+                            "page": page_number,
+                            "bounds": {
+                                "x": min(xs),
+                                "y": min(ys),
+                                "width": max(xs) - min(xs),
+                                "height": max(ys) - min(ys),
+                            },
+                            "confidence": float(score),
+                            "source": "ocr",
+                        }
+                    )
+            finally:
+                page.close()
+    finally:
+        document.close()
+    return text_blocks, page_sizes
+
+
+def build_ocr_seller_regions(
+    text_blocks: list[dict[str, Any]],
+    page_sizes: dict[int, tuple[float, float]],
+) -> list[dict[str, Any]]:
+    regions: list[dict[str, Any]] = []
+    for page_number, (width, height) in page_sizes.items():
+        right_side_blocks = [
+            block
+            for block in text_blocks
+            if block["page"] == page_number
+            and block["bounds"]["x"] + block["bounds"]["width"] / 2 >= width / 2
+        ]
+        right_side_blocks.sort(key=lambda block: (block["bounds"]["y"], block["bounds"]["x"]))
+        text = "\n".join(block["text"] for block in right_side_blocks)
+        if "销售方信息" in re.sub(r"\s+", "", text):
+            regions.append(
+                {
+                    "text": text,
+                    "page": page_number,
+                    "bounds": {
+                        "x": width / 2,
+                        "y": 0.0,
+                        "width": width / 2,
+                        "height": height,
+                    },
+                }
+            )
+    return regions
 
 
 def analyze_pdf(file_path: Path) -> dict[str, Any]:
@@ -78,6 +157,10 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
     finally:
         document.close()
 
+    if not text_blocks:
+        text_blocks, page_sizes = extract_ocr_text_blocks(file_path)
+        seller_regions = build_ocr_seller_regions(text_blocks, page_sizes)
+
     candidates: list[dict[str, Any]] = []
     for region in seller_regions:
         match = INVOICE_NUMBER_PATTERN.search(region["text"])
@@ -96,6 +179,22 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
 
     for region in seller_regions:
         lines = [line.strip() for line in region["text"].splitlines() if line.strip()]
+        merchant_match = next(
+            (match for line in lines if (match := MERCHANT_NAME_PATTERN.fullmatch(line))),
+            None,
+        )
+        if merchant_match:
+            candidates.append(
+                {
+                    "field": "merchant_name",
+                    "value": merchant_match.group(1).strip(),
+                    "confidence": 0.95,
+                    "source": "invoice-profile",
+                    "page": region["page"],
+                    "bounds": region["bounds"],
+                }
+            )
+            break
         taxpayer_code_indexes = [
             index for index, line in enumerate(lines) if TAXPAYER_CODE_PATTERN.fullmatch(line)
         ]
@@ -118,6 +217,8 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
         for line in (line.strip() for line in block["text"].splitlines()):
             match = PRICE_TAX_TOTAL_PATTERN.fullmatch(line)
             if not match:
+                match = SMALL_PRICE_TAX_TOTAL_PATTERN.fullmatch(line)
+            if not match:
                 continue
             amount = Decimal(match.group(1).replace(",", ""))
             candidate_bounds = next(
@@ -132,7 +233,7 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
                 {
                     "field": "total_minor_units",
                     "value": str(int(amount * 100)),
-                    "confidence": 0.99,
+                    "confidence": 0.95 if block["source"] == "ocr" else 0.99,
                     "source": "invoice-profile",
                     "page": block["page"],
                     "bounds": candidate_bounds,
@@ -146,7 +247,7 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
     required_fields = {"merchant_name", "invoice_number", "total_minor_units"}
     candidates_by_field = {candidate["field"]: candidate for candidate in candidates}
     complete_high_confidence_result = all(
-        field in candidates_by_field and candidates_by_field[field]["confidence"] >= 0.98
+        field in candidates_by_field and candidates_by_field[field]["confidence"] >= 0.90
         for field in required_fields
     )
 

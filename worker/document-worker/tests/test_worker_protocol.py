@@ -6,6 +6,8 @@ import unittest
 import uuid
 from pathlib import Path
 
+import pypdfium2 as pdfium
+
 
 WORKER_ROOT = Path(__file__).resolve().parents[1]
 WORKER_SCRIPT = WORKER_ROOT / "src" / "eiri_document_worker" / "__main__.py"
@@ -68,6 +70,19 @@ def analyze_document(pdf_path: Path) -> dict:
     if completed.returncode != 0:
         raise AssertionError(completed.stderr)
     return json.loads(completed.stdout)["analysis"]
+
+
+def create_image_only_pdf(source_path: Path, destination_path: Path) -> None:
+    document = pdfium.PdfDocument(source_path)
+    try:
+        page = document[0]
+        try:
+            image = page.render(scale=300 / 72).to_pil().convert("RGB")
+            image.save(destination_path, "PDF", resolution=300)
+        finally:
+            page.close()
+    finally:
+        document.close()
 
 
 class WorkerProtocolTests(unittest.TestCase):
@@ -134,6 +149,24 @@ class WorkerProtocolTests(unittest.TestCase):
                     self.assertEqual(1, candidate["page"])
                     self.assertGreater(candidate["bounds"]["width"], 0)
                 self.assertFalse(analysis["needsReview"])
+
+    def test_image_only_invoice_uses_ocr_to_extract_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            pdf_path = Path(temporary_directory) / "image-only-invoice.pdf"
+            create_image_only_pdf(INVOICE_EXAMPLES / "example1.pdf", pdf_path)
+
+            analysis = analyze_document(pdf_path)
+            candidates = {
+                candidate["field"]: candidate["value"]
+                for candidate in analysis["candidates"]
+            }
+
+            self.assertTrue(analysis["textBlocks"])
+            self.assertTrue(all(block["source"] == "ocr" for block in analysis["textBlocks"]))
+            self.assertEqual("深圳德诺嘉电子有限公司", candidates["merchant_name"])
+            self.assertEqual("25952000000269819544", candidates["invoice_number"])
+            self.assertEqual("778800", candidates["total_minor_units"])
+            self.assertFalse(analysis["needsReview"])
 
 
 if __name__ == "__main__":
