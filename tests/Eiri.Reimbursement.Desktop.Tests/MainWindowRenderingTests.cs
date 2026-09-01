@@ -84,6 +84,13 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(3, platformSelector.Items.Count);
                 Assert.Equal(DataGridSelectionMode.Extended, ordersGrid.SelectionMode);
                 Assert.Equal(DataGridSelectionUnit.FullRow, ordersGrid.SelectionUnit);
+                Assert.Equal(80, ordersGrid.Columns[0].Width.Value);
+                Assert.Equal(DataGridLengthUnitType.Pixel, ordersGrid.Columns[0].Width.UnitType);
+                Assert.Equal(100, ordersGrid.Columns[1].Width.Value);
+                Assert.Equal(DataGridLengthUnitType.Pixel, ordersGrid.Columns[1].Width.UnitType);
+                Assert.All(
+                    ordersGrid.Columns.Skip(6).Take(3),
+                    column => Assert.Equal(DataGridLengthUnitType.Auto, column.Width.UnitType));
                 Assert.Equal(
                     ["设为已提交", "设为已返款", "清空提交及返款状态", "删除订单"],
                     Assert.IsType<ContextMenu>(ordersGrid.ContextMenu).Items
