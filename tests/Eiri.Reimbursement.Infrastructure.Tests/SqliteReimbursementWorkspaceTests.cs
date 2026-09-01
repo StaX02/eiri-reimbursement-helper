@@ -130,7 +130,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         Assert.Equal(MaterialImportOutcome.Imported, Assert.Single(result.Items).Outcome);
         Assert.Equal(ManagedFileRole.OrderScreenshot, material.Role);
         Assert.Equal("application/pdf", material.MediaType);
-        Assert.Equal("Stored", material.ProcessingState);
+        Assert.Equal(MaterialProcessingState.Stored, material.ProcessingState);
         Assert.Empty(detail.Invoices);
     }
 
@@ -253,7 +253,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         Assert.Equal("发票号码：25312000000000123456", Assert.Single(actual.TextBlocks).Text);
         ManagedMaterial material = Assert.Single(Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Materials);
-        Assert.Equal("Processed", material.ProcessingState);
+        Assert.Equal(MaterialProcessingState.Processed, material.ProcessingState);
     }
 
     [Fact]
@@ -308,7 +308,6 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
             await workspace.GetOrderAsync(orderId)).Invoices);
 
         await workspace.AnalyzeInvoiceAsync(invoice.Id);
-        await workspace.AnalyzeInvoiceAsync(invoice.Id);
 
         InvoiceDetail reanalyzed = Assert.Single(Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Invoices);
@@ -351,7 +350,6 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
             await workspace.GetOrderAsync(orderId)).Invoices);
 
-        await workspace.AnalyzeInvoiceAsync(invoice.Id);
         await workspace.AnalyzeInvoiceAsync(invoice.Id);
 
         InvoiceDetail reanalyzed = Assert.Single(Assert.IsType<OrderDetail>(

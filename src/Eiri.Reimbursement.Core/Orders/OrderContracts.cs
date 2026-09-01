@@ -24,6 +24,7 @@ public sealed record OrderListItem(
     IReadOnlyList<string> ProductNames,
     long TotalMinorUnits,
     IReadOnlyList<string> InvoiceNumbers,
+    int InvoiceCount,
     DateTimeOffset? ExportedAt,
     DateTimeOffset? SubmittedAt,
     DateTimeOffset? RefundedAt,
@@ -36,11 +37,11 @@ public sealed record OrderListItem(
         .Distinct(StringComparer.Ordinal)
         .ToArray();
 
-    public string MerchantDisplay => MerchantOptions.Count switch
+    public string MerchantDisplay => (InvoiceCount, MerchantOptions.Count) switch
     {
-        0 => "待提取",
-        1 => MerchantOptions[0],
-        _ => "多个商家",
+        (> 1, _) => "多个商家",
+        (_, 0) => "待提取",
+        _ => MerchantOptions[0],
     };
 
     public string ProductDisplay => JoinOrPlaceholder(ProductNames);

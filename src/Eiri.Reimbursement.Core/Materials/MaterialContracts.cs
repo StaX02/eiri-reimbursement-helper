@@ -25,6 +25,15 @@ public enum MaterialImportOutcome
     Rejected = 3,
 }
 
+public enum MaterialProcessingState
+{
+    Stored = 1,
+    Pending = 2,
+    Processing = 3,
+    Processed = 4,
+    Failed = 5,
+}
+
 public sealed record ImportMaterialsCommand(
     OrderId OrderId,
     IReadOnlyList<string> SourcePaths,
@@ -38,7 +47,7 @@ public sealed record ManagedMaterial(
     string MediaType,
     long ByteLength,
     string Sha256,
-    string ProcessingState,
+    MaterialProcessingState ProcessingState,
     DateTimeOffset ImportedAt);
 
 public sealed record MaterialImportItem(
@@ -47,7 +56,9 @@ public sealed record MaterialImportItem(
     ManagedMaterial? Material,
     string? Message);
 
-public sealed record ImportMaterialsResult(IReadOnlyList<MaterialImportItem> Items)
+public sealed record ImportMaterialsResult(
+    IReadOnlyList<MaterialImportItem> Items,
+    int AnalysisFailureCount = 0)
 {
     public int ImportedCount => Items.Count(item => item.Outcome == MaterialImportOutcome.Imported);
 }

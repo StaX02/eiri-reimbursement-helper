@@ -19,7 +19,7 @@ public sealed class MainWindowViewModelTests : IDisposable
     {
         SequenceDocumentProcessor processor = new(
             Analysis("商家甲", "10000000000000000001", "12345"),
-            Analysis("商家乙", "10000000000000000002", "20000"));
+            Analysis("商家甲", "10000000000000000001", "20000"));
         SqliteReimbursementWorkspace workspace = new(_libraryRoot, processor);
         await workspace.InitializeAsync();
         await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Other));
@@ -36,10 +36,10 @@ public sealed class MainWindowViewModelTests : IDisposable
 
         OrderListItem order = Assert.Single(viewModel.Orders);
         Assert.Equal("多个商家", order.MerchantDisplay);
-        Assert.Equal(["商家甲", "商家乙"], order.MerchantOptions);
+        Assert.Equal(["商家甲"], order.MerchantOptions);
         Assert.Equal(323.45m, order.TotalAmount);
         Assert.Equal(
-            ["10000000000000000001", "10000000000000000002"],
+            ["10000000000000000001", "10000000000000000001"],
             order.InvoiceNumbers);
         Assert.Equal(2, viewModel.Invoices.Count);
         Assert.All(viewModel.Materials, material => Assert.Equal("已处理", material.ProcessingStateDisplay));

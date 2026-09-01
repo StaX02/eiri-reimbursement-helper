@@ -33,7 +33,7 @@ public sealed class MainWindowRenderingTests
                             "application/pdf",
                             1024,
                             new string('a', 64),
-                            "Pending",
+                            MaterialProcessingState.Pending,
                             DateTimeOffset.UtcNow)),
                     ]),
                 };

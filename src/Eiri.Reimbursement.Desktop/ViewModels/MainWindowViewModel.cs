@@ -86,18 +86,15 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         {
             ImportMaterialsResult result = await _workspace.ImportMaterialsAsync(
                 new ImportMaterialsCommand(orderId, sourcePaths, role));
-            int analysisFailureCount = role == ManagedFileRole.InvoicePdf
-                ? await AnalyzeImportedInvoicesAsync(orderId, result)
-                : 0;
             await LoadOrderDetailAsync(orderId, ++_selectionVersion);
             await ReloadOrdersAsync(orderId);
 
             int duplicateCount = result.Items.Count(item => item.Outcome == MaterialImportOutcome.Duplicate);
             int rejectedCount = result.Items.Count(item => item.Outcome == MaterialImportOutcome.Rejected);
             StatusMessage = $"导入完成：新增 {result.ImportedCount}，重复 {duplicateCount}，拒绝 {rejectedCount}。";
-            if (analysisFailureCount > 0)
+            if (result.AnalysisFailureCount > 0)
             {
-                StatusMessage += $" {analysisFailureCount} 份发票解析失败，可稍后重试。";
+                StatusMessage += $" {result.AnalysisFailureCount} 份发票解析失败，可稍后重试。";
             }
             AppendImportIssues(result);
         }
@@ -361,36 +358,6 @@ public partial class MainWindowViewModel(IReimbursementWorkspace workspace) : Ob
         }
     }
 
-    private async Task<int> AnalyzeImportedInvoicesAsync(
-        OrderId orderId,
-        ImportMaterialsResult result)
-    {
-        HashSet<ManagedFileId> importedFileIds = result.Items
-            .Where(item => item is { Outcome: MaterialImportOutcome.Imported, Material: not null })
-            .Select(item => item.Material!.Id)
-            .ToHashSet();
-        OrderDetail? detail = await _workspace.GetOrderAsync(orderId);
-        InvoiceId[] invoiceIds = detail?.Invoices
-            .Where(invoice => importedFileIds.Contains(invoice.ManagedFileId))
-            .Select(invoice => invoice.Id)
-            .ToArray() ?? [];
-
-        int failureCount = 0;
-        foreach (InvoiceId invoiceId in invoiceIds)
-        {
-            try
-            {
-                await _workspace.AnalyzeInvoiceAsync(invoiceId);
-            }
-            catch
-            {
-                failureCount++;
-            }
-        }
-
-        return failureCount;
-    }
-
     private static bool TryParseMinorUnits(string text, out long minorUnits)
     {
         bool parsed = decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out decimal amount)
@@ -434,12 +401,12 @@ public sealed record MaterialItemViewModel(ManagedMaterial Material)
 
     public string ProcessingStateDisplay => Material.ProcessingState switch
     {
-        "Pending" => "待处理",
-        "Processing" => "处理中",
-        "Processed" => "已处理",
-        "Stored" => "已保存",
-        "Failed" => "处理失败",
-        _ => Material.ProcessingState,
+        MaterialProcessingState.Pending => "待处理",
+        MaterialProcessingState.Processing => "处理中",
+        MaterialProcessingState.Processed => "已处理",
+        MaterialProcessingState.Stored => "已保存",
+        MaterialProcessingState.Failed => "处理失败",
+        _ => Material.ProcessingState.ToString(),
     };
 }
 

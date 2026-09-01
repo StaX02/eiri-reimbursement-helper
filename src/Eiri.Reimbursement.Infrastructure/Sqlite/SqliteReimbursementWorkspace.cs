@@ -125,8 +125,13 @@ public sealed class SqliteReimbursementWorkspace(
                 COALESCE((SELECT SUM(total_minor_units) FROM invoices WHERE order_id = o.id), 0),
                 COALESCE((
                     SELECT group_concat(invoice_number, char(31))
-                    FROM (SELECT DISTINCT invoice_number FROM invoices WHERE order_id = o.id AND invoice_number <> '')
+                    FROM (
+                        SELECT CASE WHEN invoice_number = '' THEN '待提取' ELSE invoice_number END AS invoice_number
+                        FROM invoices
+                        WHERE order_id = o.id
+                    )
                 ), ''),
+                (SELECT COUNT(*) FROM invoices WHERE order_id = o.id),
                 o.exported_at,
                 o.submitted_at,
                 o.refunded_at,
@@ -159,10 +164,11 @@ public sealed class SqliteReimbursementWorkspace(
                 SplitAggregate(reader.GetString(4)),
                 reader.GetInt64(5),
                 SplitAggregate(reader.GetString(6)),
-                ParseNullableTimestamp(reader, 7),
+                reader.GetInt32(7),
                 ParseNullableTimestamp(reader, 8),
                 ParseNullableTimestamp(reader, 9),
-                DateTimeOffset.Parse(reader.GetString(10), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)));
+                ParseNullableTimestamp(reader, 10),
+                DateTimeOffset.Parse(reader.GetString(11), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)));
         }
 
         return orders;
@@ -199,12 +205,49 @@ public sealed class SqliteReimbursementWorkspace(
         CancellationToken cancellationToken = default)
     {
         List<MaterialImportItem> results = [];
+        int analysisFailureCount = 0;
         foreach (string sourcePath in command.SourcePaths)
         {
-            results.Add(await ImportMaterialAsync(command.OrderId, sourcePath, command.Role, cancellationToken));
+            MaterialImportItem item = await ImportMaterialAsync(
+                command.OrderId,
+                sourcePath,
+                command.Role,
+                cancellationToken);
+            results.Add(item);
+            if (command.Role == ManagedFileRole.InvoicePdf
+                && item is { Outcome: MaterialImportOutcome.Imported, Material: not null })
+            {
+                try
+                {
+                    InvoiceId invoiceId = await GetInvoiceIdAsync(item.Material.Id, cancellationToken);
+                    await AnalyzeInvoiceAsync(invoiceId, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch
+                {
+                    analysisFailureCount++;
+                }
+            }
         }
 
-        return new ImportMaterialsResult(results);
+        return new ImportMaterialsResult(results, analysisFailureCount);
+    }
+
+    private async Task<InvoiceId> GetInvoiceIdAsync(
+        ManagedFileId managedFileId,
+        CancellationToken cancellationToken)
+    {
+        await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken);
+        await using SqliteCommand sql = connection.CreateCommand();
+        sql.CommandText = "SELECT id FROM invoices WHERE managed_file_id = $managedFileId;";
+        sql.Parameters.AddWithValue("$managedFileId", managedFileId.ToString());
+        string? invoiceId = await sql.ExecuteScalarAsync(cancellationToken) as string;
+        return invoiceId is null
+            ? throw new KeyNotFoundException($"Invoice for material '{managedFileId}' was not found.")
+            : InvoiceId.Parse(invoiceId);
     }
 
     public async Task<OrderDetail?> GetOrderAsync(
@@ -260,7 +303,7 @@ public sealed class SqliteReimbursementWorkspace(
                 materialReader.GetString(4),
                 materialReader.GetInt64(5),
                 materialReader.GetString(6),
-                materialReader.GetString(7),
+                Enum.Parse<MaterialProcessingState>(materialReader.GetString(7)),
                 DateTimeOffset.Parse(
                     materialReader.GetString(8),
                     CultureInfo.InvariantCulture,
@@ -502,7 +545,11 @@ public sealed class SqliteReimbursementWorkspace(
             managedPath = ResolveManagedPath(reader.GetString(1));
         }
 
-        await UpdateProcessingStateAsync(managedFileId, "Processing", null, cancellationToken);
+        await UpdateProcessingStateAsync(
+            managedFileId,
+            MaterialProcessingState.Processing,
+            null,
+            cancellationToken);
         try
         {
             DocumentAnalysis analysis = await _documentProcessor.AnalyzeAsync(
@@ -519,7 +566,7 @@ public sealed class SqliteReimbursementWorkspace(
         {
             await UpdateProcessingStateAsync(
                 managedFileId,
-                "Failed",
+                MaterialProcessingState.Failed,
                 exception.Message,
                 CancellationToken.None);
             throw;
@@ -743,7 +790,7 @@ public sealed class SqliteReimbursementWorkspace(
 
     private async Task UpdateProcessingStateAsync(
         ManagedFileId managedFileId,
-        string state,
+        MaterialProcessingState state,
         string? error,
         CancellationToken cancellationToken)
     {
@@ -755,7 +802,7 @@ public sealed class SqliteReimbursementWorkspace(
             SET processing_state = $state, processing_error = $error
             WHERE id = $id;
             """;
-        sql.Parameters.AddWithValue("$state", state);
+        sql.Parameters.AddWithValue("$state", state.ToString());
         sql.Parameters.AddWithValue("$error", (object?)error ?? DBNull.Value);
         sql.Parameters.AddWithValue("$id", managedFileId.ToString());
         await sql.ExecuteNonQueryAsync(cancellationToken);
@@ -909,7 +956,7 @@ public sealed class SqliteReimbursementWorkspace(
         sql.Parameters.AddWithValue("$relativePath", relativePath);
         sql.Parameters.AddWithValue("$byteLength", byteLength);
         sql.Parameters.AddWithValue("$sha256", sha256);
-        sql.Parameters.AddWithValue("$processingState", materialType.ProcessingState);
+        sql.Parameters.AddWithValue("$processingState", materialType.ProcessingState.ToString());
         sql.Parameters.AddWithValue("$importedAt", Format(importedAt));
         await sql.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -997,15 +1044,15 @@ public sealed class SqliteReimbursementWorkspace(
         (role, Path.GetExtension(path).ToLowerInvariant()) switch
         {
             (ManagedFileRole.InvoicePdf, ".pdf") =>
-                new MaterialType(ManagedFileRole.InvoicePdf, "invoices", ".pdf", "application/pdf", "Pending"),
+                new MaterialType(ManagedFileRole.InvoicePdf, "invoices", ".pdf", "application/pdf", MaterialProcessingState.Pending),
             (ManagedFileRole.OrderScreenshot, ".pdf") =>
-                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".pdf", "application/pdf", "Stored"),
+                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".pdf", "application/pdf", MaterialProcessingState.Stored),
             (ManagedFileRole.OrderScreenshot, ".png") =>
-                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".png", "image/png", "Stored"),
+                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".png", "image/png", MaterialProcessingState.Stored),
             (ManagedFileRole.OrderScreenshot, ".jpg") =>
-                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".jpg", "image/jpeg", "Stored"),
+                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".jpg", "image/jpeg", MaterialProcessingState.Stored),
             (ManagedFileRole.OrderScreenshot, ".jpeg") =>
-                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".jpeg", "image/jpeg", "Stored"),
+                new MaterialType(ManagedFileRole.OrderScreenshot, "supporting-materials", ".jpeg", "image/jpeg", MaterialProcessingState.Stored),
             _ => null,
         };
 
@@ -1050,7 +1097,7 @@ public sealed class SqliteReimbursementWorkspace(
         string FolderName,
         string Extension,
         string MediaType,
-        string ProcessingState);
+        MaterialProcessingState ProcessingState);
 
     private sealed record InvoiceRow(
         InvoiceId Id,

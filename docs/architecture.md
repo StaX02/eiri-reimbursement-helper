@@ -140,7 +140,7 @@ RestoreBackup(BackupSource source)
 ```text
 library.db
 originals/
-  orders/{order-id}/screenshots/{file-id}.{ext}
+  orders/{order-id}/supporting-materials/{file-id}.{ext}
   orders/{order-id}/invoices/{file-id}.pdf
 cache/
   previews/{sha256}/page-001.png
@@ -169,7 +169,7 @@ logs/
 5. 缺失、冲突或低置信度字段标记 `needs_review`。
 6. 用户校正写入 `invoices` 和 `invoice_lines`，原始候选保留在当前 `extraction_results` 中。
 
-订单截图采用相同 OCR interface，并由淘宝、京东 profile 做可选信息提示；订单与材料的归属仍由用户手动确定。
+订单截图等辅助材料仅保存到受管资料库，不执行 OCR 或字段提取；订单与材料的归属由用户选择投放区确定。
 
 ### 导出
 
