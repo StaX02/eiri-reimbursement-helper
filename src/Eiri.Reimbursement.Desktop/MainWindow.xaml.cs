@@ -73,12 +73,11 @@ public partial class MainWindow : Window
 
     private void AboutAuthorMenuItem_OnClick(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show(
-            this,
-            "发票报销助手\n作者：Eiri",
-            "关于",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        AuthorInfoWindow dialog = new()
+        {
+            Owner = this,
+        };
+        dialog.ShowDialog();
     }
 
     private async void SelectInvoiceFilesButton_OnClick(object sender, RoutedEventArgs e)

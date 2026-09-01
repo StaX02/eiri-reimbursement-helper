@@ -16,4 +16,8 @@
     <ProjectReference Include="..\Eiri.Reimbursement.Infrastructure\Eiri.Reimbursement.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Assets\StaX02.png" />
+  </ItemGroup>
+
 </Project>
