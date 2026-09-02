@@ -4,6 +4,7 @@ using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Eiri.Reimbursement.Core;
+using Eiri.Reimbursement.Core.DataTransfer;
 using Eiri.Reimbursement.Core.Documents;
 using Eiri.Reimbursement.Core.Export;
 using Eiri.Reimbursement.Core.Invoices;
@@ -28,15 +29,18 @@ public partial class MainWindowViewModel : ObservableObject
     ];
     private readonly IReimbursementWorkspace _workspace;
     private readonly IReimbursementBatchExporter? _batchExporter;
+    private readonly IWholeLibraryBackupService? _backupPackageService;
     private int _selectionVersion;
     private long _selectedOrderTotalMinorUnits;
 
     public MainWindowViewModel(
         IReimbursementWorkspace workspace,
-        IReimbursementBatchExporter? batchExporter = null)
+        IReimbursementBatchExporter? batchExporter = null,
+        IWholeLibraryBackupService? backupPackageService = null)
     {
         _workspace = workspace;
         _batchExporter = batchExporter;
+        _backupPackageService = backupPackageService;
     }
 
     [ObservableProperty]
@@ -101,6 +105,7 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanEditOrderMilestones))]
     [NotifyPropertyChangedFor(nameof(CanBatchImportInvoices))]
     [NotifyPropertyChangedFor(nameof(CanExport))]
+    [NotifyPropertyChangedFor(nameof(CanManageData))]
     private bool _isBusy;
 
     public string OrderCountText => SelectedOrderCount > 0
@@ -121,6 +126,10 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool CanExport => SelectedOrderCount > 0 && !IsBusy && _batchExporter is not null;
 
+    public bool CanManageData => !IsBusy && _backupPackageService is not null;
+
+    public bool HasOrders => Orders.Count > 0;
+
     public string SelectedOrderHeading => SelectedOrderCount > 1
         ? "已选中多个订单"
         : "订单详情";
@@ -140,6 +149,61 @@ public partial class MainWindowViewModel : ObservableObject
         _selectedOrderTotalMinorUnits = orders.Sum(order => order.TotalMinorUnits);
         SelectedOrderCount = orders.Count;
         OnPropertyChanged(nameof(OrderCountText));
+    }
+
+    public async Task ExportDataAsync(string destinationPath)
+    {
+        if (IsBusy || _backupPackageService is null)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        StatusMessage = "正在导出数据库和受管文件…";
+        try
+        {
+            await _backupPackageService.CreateBackupAsync(destinationPath);
+            StatusMessage = "数据已导出。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"导出数据失败：{exception.Message}";
+            throw;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public async Task ImportDataAsync(string sourcePath)
+    {
+        if (IsBusy || _backupPackageService is null)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        StatusMessage = "正在校验并导入数据库和受管文件…";
+        try
+        {
+            await _backupPackageService.RestoreBackupAsync(sourcePath);
+            await ReloadOrdersAsync(selectedOrderId: null);
+            Materials = [];
+            Invoices = [];
+            SelectedInvoice = null;
+            SelectedOrderCount = 0;
+            StatusMessage = "数据已导入。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"导入数据失败：{exception.Message}";
+            throw;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     public async Task ExportOrdersAsync(
@@ -591,6 +655,7 @@ public partial class MainWindowViewModel : ObservableObject
         IReadOnlyList<OrderListItem> items = await _workspace.SearchOrdersAsync(new OrderQuery());
         Orders = new ObservableCollection<OrderListItem>(items);
         OnPropertyChanged(nameof(OrderCountText));
+        OnPropertyChanged(nameof(HasOrders));
 
         SelectedOrder = selectedOrderId is null
             ? null

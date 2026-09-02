@@ -1,9 +1,11 @@
 using System.IO;
+using Eiri.Reimbursement.Core.DataTransfer;
 using Eiri.Reimbursement.Core.Documents;
 using Eiri.Reimbursement.Core.Export;
 using Eiri.Reimbursement.Core.Materials;
 using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Desktop.ViewModels;
+using Eiri.Reimbursement.Infrastructure.DataTransfer;
 using Eiri.Reimbursement.Infrastructure.Sqlite;
 
 namespace Eiri.Reimbursement.Desktop.Tests;
@@ -14,6 +16,52 @@ public sealed class MainWindowViewModelTests : IDisposable
         Path.GetTempPath(),
         "eiri-desktop-tests",
         Guid.NewGuid().ToString("N"));
+
+    [Fact]
+    public async Task ExportingDataCreatesBackupPackageAndReportsCompletion()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        RecordingBackupService backupService = new();
+        MainWindowViewModel viewModel = new(workspace, backupPackageService: backupService);
+        await viewModel.LoadAsync();
+        string destinationPath = Path.Combine(_libraryRoot, "backup.eirbackup");
+
+        await viewModel.ExportDataAsync(destinationPath);
+
+        Assert.Equal(destinationPath, backupService.ExportedPath);
+        Assert.Equal("数据已导出。", viewModel.StatusMessage);
+        Assert.False(viewModel.IsBusy);
+    }
+
+    [Fact]
+    public async Task ImportingDataRefreshesOrdersFromRestoredLibrary()
+    {
+        string sourceRoot = Path.Combine(_libraryRoot, "source");
+        SqliteReimbursementWorkspace sourceWorkspace = new(sourceRoot);
+        await sourceWorkspace.InitializeAsync();
+        OrderId importedOrderId = await sourceWorkspace.CreateOrderAsync(
+            new CreateOrderCommand(OrderPlatform.JD));
+        string packagePath = Path.Combine(_libraryRoot, "source.eirbackup");
+        await new WholeLibraryBackupService(sourceRoot).CreateBackupAsync(packagePath);
+
+        string targetRoot = Path.Combine(_libraryRoot, "target");
+        SqliteReimbursementWorkspace targetWorkspace = new(targetRoot);
+        await targetWorkspace.InitializeAsync();
+        await targetWorkspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Taobao));
+        MainWindowViewModel viewModel = new(
+            targetWorkspace,
+            backupPackageService: new WholeLibraryBackupService(targetRoot));
+        await viewModel.LoadAsync();
+
+        await viewModel.ImportDataAsync(packagePath);
+
+        OrderListItem importedOrder = Assert.Single(viewModel.Orders);
+        Assert.Equal(importedOrderId, importedOrder.Id);
+        Assert.Null(viewModel.SelectedOrder);
+        Assert.Equal("数据已导入。", viewModel.StatusMessage);
+        Assert.False(viewModel.IsBusy);
+    }
 
     [Fact]
     public async Task CreatingOrderUsesSelectedPlatform()
@@ -428,5 +476,22 @@ public sealed class MainWindowViewModelTests : IDisposable
             ExportBatchCommand command,
             CancellationToken cancellationToken = default) =>
             Task.FromException<ExportBatchResult>(new IOException("磁盘空间不足"));
+    }
+
+    private sealed class RecordingBackupService : IWholeLibraryBackupService
+    {
+        public string? ExportedPath { get; private set; }
+
+        public Task CreateBackupAsync(
+            string destinationPath,
+            CancellationToken cancellationToken = default)
+        {
+            ExportedPath = destinationPath;
+            return Task.CompletedTask;
+        }
+
+        public Task RestoreBackupAsync(
+            string sourcePath,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

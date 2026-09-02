@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -17,6 +18,24 @@ public partial class MainWindow : Window
     }
 
     public void RefreshOrdersList() => OrdersGrid.Items.Refresh();
+
+    private void MinimizeWindowButton_OnClick(object sender, RoutedEventArgs e) =>
+        SystemCommands.MinimizeWindow(this);
+
+    private void MaximizeRestoreWindowButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (WindowState == WindowState.Maximized)
+        {
+            SystemCommands.RestoreWindow(this);
+        }
+        else
+        {
+            SystemCommands.MaximizeWindow(this);
+        }
+    }
+
+    private void CloseWindowButton_OnClick(object sender, RoutedEventArgs e) =>
+        SystemCommands.CloseWindow(this);
 
     private void BatchImportInvoicesButton_OnClick(object sender, RoutedEventArgs e)
     {
@@ -78,6 +97,113 @@ public partial class MainWindow : Window
             Owner = this,
         };
         dialog.ShowDialog();
+    }
+
+    private async void ExportDataMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        SaveFileDialog dialog = new()
+        {
+            Title = "导出数据",
+            Filter = "Eiri 数据备份包|*.eirbackup",
+            DefaultExt = ".eirbackup",
+            AddExtension = true,
+            OverwritePrompt = true,
+            FileName = $"Eiri-数据备份-{DateTime.Now:yyyyMMdd-HHmmss}.eirbackup",
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await viewModel.ExportDataAsync(dialog.FileName);
+            MessageBox.Show(
+                this,
+                $"订单数据库和受管文件已保存到：\n\n{dialog.FileName}",
+                "数据已导出",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                $"数据导出失败，未生成可用的备份包。\n\n{exception.Message}",
+                "无法导出数据",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void ImportDataMenuItem_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        OpenFileDialog dialog = new()
+        {
+            Title = "导入数据",
+            Filter = "Eiri 数据备份包|*.eirbackup;*.zip|所有文件|*.*",
+            Multiselect = false,
+            CheckFileExists = true,
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        if (viewModel.HasOrders)
+        {
+            MessageBoxResult confirmation = MessageBox.Show(
+                this,
+                "当前资料库已有订单。导入将用备份包中的数据库和受管文件完整替换当前资料库，此操作无法撤销。\n\n是否继续导入？",
+                "导入将替换现有数据",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
+            if (confirmation != MessageBoxResult.Yes)
+            {
+                return;
+            }
+        }
+
+        try
+        {
+            await viewModel.ImportDataAsync(dialog.FileName);
+            RefreshOrdersList();
+            MessageBox.Show(
+                this,
+                "订单数据库和受管文件已成功导入。",
+                "数据已导入",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (InvalidDataException exception)
+        {
+            MessageBox.Show(
+                this,
+                $"所选文件不是有效的 Eiri 数据备份包，未导入任何数据。\n\n{exception.Message}",
+                "无法导入数据",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                $"数据导入未完成。请重试；若问题持续，请重启软件后检查资料库。\n\n{exception.Message}",
+                "无法导入数据",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private async void SelectInvoiceFilesButton_OnClick(object sender, RoutedEventArgs e)
