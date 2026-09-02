@@ -184,7 +184,8 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainWindowViewModel viewModel)
         {
-            viewModel.SetSelectedOrderCount(OrdersGrid.SelectedItems.Count);
+            viewModel.SetSelectedOrders(
+                OrdersGrid.SelectedItems.OfType<OrderListItem>().ToArray());
         }
     }
 

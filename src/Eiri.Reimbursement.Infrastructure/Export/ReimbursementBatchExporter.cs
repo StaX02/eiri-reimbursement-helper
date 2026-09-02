@@ -138,8 +138,10 @@ public sealed class ReimbursementBatchExporter(
     private static string BuildCsv(IEnumerable<OrderExportSnapshot> snapshots)
     {
         StringBuilder csv = new("总金额,发票号\r\n");
+        long selectedOrdersTotalMinorUnits = 0;
         foreach (OrderExportSnapshot snapshot in snapshots)
         {
+            selectedOrdersTotalMinorUnits += snapshot.TotalMinorUnits;
             string invoiceNumbers = string.Join(
                 ' ',
                 snapshot.Detail.Invoices.Select(invoice => invoice.InvoiceNumber.Trim()));
@@ -148,6 +150,9 @@ public sealed class ReimbursementBatchExporter(
                 .Append(CsvField(invoiceNumbers))
                 .Append("\r\n");
         }
+
+        csv.Append(FormatAmount(selectedOrdersTotalMinorUnits))
+            .Append(",合计\r\n");
 
         return csv.ToString();
     }

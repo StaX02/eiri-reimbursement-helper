@@ -281,15 +281,52 @@ public sealed class MainWindowViewModelTests : IDisposable
         await viewModel.LoadAsync();
         viewModel.SelectedOrder = viewModel.Orders[0];
 
-        viewModel.SetSelectedOrderCount(1);
+        viewModel.SetSelectedOrders([viewModel.Orders[0]]);
 
         Assert.Equal("订单详情", viewModel.SelectedOrderHeading);
         Assert.True(viewModel.IsSingleOrderSelected);
 
-        viewModel.SetSelectedOrderCount(2);
+        viewModel.SetSelectedOrders(viewModel.Orders);
 
         Assert.Equal("已选中多个订单", viewModel.SelectedOrderHeading);
         Assert.False(viewModel.IsSingleOrderSelected);
+    }
+
+    [Fact]
+    public async Task OrderCountTextIncludesTotalAmountOfSelectedOrders()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        MainWindowViewModel viewModel = new(workspace);
+        await viewModel.LoadAsync();
+        OrderListItem firstOrder = new(
+            OrderId.New(),
+            OrderPlatform.Taobao,
+            null,
+            [],
+            [],
+            15_990,
+            [],
+            1,
+            null,
+            null,
+            null,
+            DateTimeOffset.UtcNow);
+        OrderListItem secondOrder = firstOrder with
+        {
+            Id = OrderId.New(),
+            TotalMinorUnits = 2_050,
+        };
+        viewModel.Orders = [firstOrder, secondOrder];
+
+        viewModel.SetSelectedOrders([firstOrder, secondOrder]);
+
+        Assert.Equal("共 2 个订单 · 已选金额 ¥180.40", viewModel.OrderCountText);
+
+        viewModel.SetSelectedOrders([firstOrder]);
+        viewModel.SetSelectedOrders([secondOrder]);
+
+        Assert.Equal("共 2 个订单 · 已选金额 ¥20.50", viewModel.OrderCountText);
     }
 
     [Fact]

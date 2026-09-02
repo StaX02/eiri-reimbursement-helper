@@ -98,7 +98,7 @@ public sealed class ReimbursementBatchExporterTests : IAsyncLifetime
             "发票导出-20260901-123456.csv"));
         string csv = await File.ReadAllTextAsync(csvPath, Encoding.UTF8);
         Assert.Equal(
-            "总金额,发票号\r\n159.90,25312000000000123456\r\n20.50,25312000000000654321\r\n",
+            "总金额,发票号\r\n159.90,25312000000000123456\r\n20.50,25312000000000654321\r\n180.40,合计\r\n",
             csv.TrimStart('\uFEFF'));
     }
 

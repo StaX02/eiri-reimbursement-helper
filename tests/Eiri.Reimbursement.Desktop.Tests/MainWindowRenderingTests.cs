@@ -174,7 +174,7 @@ public sealed class MainWindowRenderingTests
                 Assert.NotNull(window.FindName("RefundedStatusCheckBox"));
                 Assert.Equal(Visibility.Collapsed, detailPanel.Visibility);
 
-                viewModel.SelectedOrder = new OrderListItem(
+                OrderListItem selectedOrder = new(
                     OrderId.New(),
                     OrderPlatform.Taobao,
                     null,
@@ -187,6 +187,7 @@ public sealed class MainWindowRenderingTests
                     null,
                     null,
                     DateTimeOffset.UtcNow);
+                viewModel.SelectedOrder = selectedOrder;
                 window.UpdateLayout();
 
                 Assert.Equal(Visibility.Visible, detailPanel.Visibility);
@@ -218,7 +219,8 @@ public sealed class MainWindowRenderingTests
                     FindVisualChildren<Button>(statusTab),
                     button => Equals(button.Content, "保存状态"));
 
-                viewModel.SetSelectedOrderCount(2);
+                viewModel.SetSelectedOrders(
+                    [selectedOrder, selectedOrder with { Id = OrderId.New() }]);
                 window.UpdateLayout();
                 Assert.Equal("已选中多个订单", detailHeading.Text);
                 Assert.Equal(Visibility.Collapsed, detailActions.Visibility);

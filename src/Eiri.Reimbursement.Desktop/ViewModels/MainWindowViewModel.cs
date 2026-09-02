@@ -29,6 +29,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly IReimbursementWorkspace _workspace;
     private readonly IReimbursementBatchExporter? _batchExporter;
     private int _selectionVersion;
+    private long _selectedOrderTotalMinorUnits;
 
     public MainWindowViewModel(
         IReimbursementWorkspace workspace,
@@ -64,6 +65,7 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanImport))]
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
     [NotifyPropertyChangedFor(nameof(CanExport))]
+    [NotifyPropertyChangedFor(nameof(OrderCountText))]
     private int _selectedOrderCount;
 
     [ObservableProperty]
@@ -101,7 +103,9 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanExport))]
     private bool _isBusy;
 
-    public string OrderCountText => $"共 {Orders.Count} 个订单";
+    public string OrderCountText => SelectedOrderCount > 0
+        ? $"共 {Orders.Count} 个订单 · 已选金额 ¥{_selectedOrderTotalMinorUnits / 100m:0.00}"
+        : $"共 {Orders.Count} 个订单";
 
     public IReadOnlyList<OrderPlatformOption> PlatformOptions => AvailablePlatformOptions;
 
@@ -131,7 +135,12 @@ public partial class MainWindowViewModel : ObservableObject
 
     public Task LoadAsync() => RefreshAsync();
 
-    public void SetSelectedOrderCount(int count) => SelectedOrderCount = Math.Max(0, count);
+    public void SetSelectedOrders(IReadOnlyCollection<OrderListItem> orders)
+    {
+        _selectedOrderTotalMinorUnits = orders.Sum(order => order.TotalMinorUnits);
+        SelectedOrderCount = orders.Count;
+        OnPropertyChanged(nameof(OrderCountText));
+    }
 
     public async Task ExportOrdersAsync(
         IReadOnlyList<OrderId> orderIds,
