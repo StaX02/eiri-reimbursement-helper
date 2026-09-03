@@ -28,10 +28,7 @@
     <ItemGroup>
       <DocumentWorkerPublishFile Include="$(DocumentWorkerPublishDir)\**\*" />
     </ItemGroup>
-    <Copy
-      SourceFiles="@(DocumentWorkerPublishFile)"
-      DestinationFiles="@(DocumentWorkerPublishFile->'$(PublishDir)document-worker\%(RecursiveDir)%(Filename)%(Extension)')"
-      SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(DocumentWorkerPublishFile)" DestinationFiles="@(DocumentWorkerPublishFile->'$(PublishDir)document-worker\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
