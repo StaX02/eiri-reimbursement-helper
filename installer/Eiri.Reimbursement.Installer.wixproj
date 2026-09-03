@@ -1,0 +1,17 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <OutputName>Eiri-Reimbursement-Helper-v$(ProductVersion)-win-x64</OutputName>
+    <OutputPath>$(MSBuildThisFileDirectory)..\artifacts\release\</OutputPath>
+    <DefineConstants>PublishDirectory=$(PublishDirectory);ProductVersion=$(ProductVersion)</DefineConstants>
+    <SuppressIces>ICE60</SuppressIces>
+  </PropertyGroup>
+
+  <Target Name="ValidateInstallerProperties" BeforeTargets="Build">
+    <Error Condition="'$(ProductVersion)' == ''" Text="ProductVersion is required. Use installer/Build-Msi.ps1." />
+    <Error Condition="'$(PublishDirectory)' == ''" Text="PublishDirectory is required. Use installer/Build-Msi.ps1." />
+  </Target>
+
+</Project>

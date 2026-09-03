@@ -40,4 +40,12 @@ dotnet publish src/Eiri.Reimbursement.Desktop/Eiri.Reimbursement.Desktop.csproj 
 
 完整产物位于 `src/Eiri.Reimbursement.Desktop/bin/Release/net10.0-windows/win-x64/publish`。
 
+生成包含完整应用、开始菜单快捷方式和卸载注册信息的 MSI：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer/Build-Msi.ps1
+```
+
+MSI 产物位于 `artifacts/release/Eiri-Reimbursement-Helper-v<version>-win-x64.msi`。构建脚本从桌面项目读取版本，使用 WiX Toolset 6，并将 `icon.ico` 用作应用、快捷方式和“已安装的应用”图标。构建结束时会自动校验图标、内嵌 CAB、升级规则和完整 payload。
+
 开发前先阅读 [领域词汇](./CONTEXT.md) 和 [架构规划](./docs/architecture.md)。

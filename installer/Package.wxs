@@ -1,0 +1,74 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="Eiri Reimbursement Helper"
+      Manufacturer="StaX02"
+      Version="$(var.ProductVersion)"
+      UpgradeCode="{CA55F813-CFE8-4525-840B-72E300503353}"
+      Language="2052"
+      Scope="perMachine"
+      InstallerVersion="500"
+      Compressed="yes">
+
+    <SummaryInformation
+        Description="Eiri 发票报销助手"
+        Manufacturer="StaX02" />
+
+    <MajorUpgrade
+        DowngradeErrorMessage="已安装更新版本的 Eiri Reimbursement Helper。"
+        Schedule="afterInstallInitialize" />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="ProductIcon" SourceFile="..\icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/StaX02/eiri-reimbursement-helper" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="ManufacturerFolder" Name="StaX02">
+        <Directory Id="INSTALLFOLDER" Name="Eiri Reimbursement Helper" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Eiri Reimbursement Helper">
+        <Component Id="ApplicationShortcut" Guid="{3E55E910-10EE-4402-816D-653F4FAC40CC}">
+          <Shortcut
+              Id="ApplicationStartMenuShortcut"
+              Name="Eiri Reimbursement Helper"
+              Description="整理电子发票材料并跟踪报销进度"
+              Target="[INSTALLFOLDER]Eiri.Reimbursement.Desktop.exe"
+              WorkingDirectory="INSTALLFOLDER"
+              Icon="ProductIcon" />
+          <RemoveFolder
+              Id="RemoveApplicationProgramsFolder"
+              Directory="ApplicationProgramsFolder"
+              On="uninstall" />
+          <RegistryValue
+              Root="HKCU"
+              Key="Software\StaX02\Eiri Reimbursement Helper"
+              Name="Installed"
+              Type="integer"
+              Value="1"
+              KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="PublishedFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDirectory)\**">
+        <Exclude Files="$(var.PublishDirectory)\Eiri.Reimbursement.Desktop.exe" />
+        <Exclude Files="$(var.PublishDirectory)\*.pdb" />
+      </Files>
+      <Component Id="MainExecutableComponent">
+        <File
+            Id="EiriReimbursementDesktopExe"
+            Source="$(var.PublishDirectory)\Eiri.Reimbursement.Desktop.exe"
+            KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Complete" Title="Eiri Reimbursement Helper" Level="1">
+      <ComponentGroupRef Id="PublishedFiles" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+  </Package>
+</Wix>
