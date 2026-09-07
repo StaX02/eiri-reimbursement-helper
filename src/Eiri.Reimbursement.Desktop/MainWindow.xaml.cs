@@ -164,7 +164,7 @@ public partial class MainWindow : Window
 
         MessageBoxResult confirmation = MessageBox.Show(
             this,
-            $"将在以下文件夹中创建报销资料图片、发票原件、报销辅助材料和 CSV：\n\n{dialog.FolderName}\n\n确认继续吗？",
+            $"将在以下位置新建“报销材料导出-总金额-导出时间”文件夹，保存现有导出资料及“打印材料”图片：\n\n{dialog.FolderName}\n\n确认继续吗？",
             "确认报销资料导出位置",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question,

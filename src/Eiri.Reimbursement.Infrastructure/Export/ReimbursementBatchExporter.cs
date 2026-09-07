@@ -39,7 +39,20 @@ public sealed class ReimbursementBatchExporter(
             throw new ArgumentException("At least one order is required for export.", nameof(command));
         }
 
-        string destinationRoot = Path.GetFullPath(command.DestinationDirectory);
+        List<OrderExportSnapshot> snapshots = [];
+        foreach (OrderId orderId in orderIds)
+        {
+            OrderDetail detail = await _workspace.GetOrderAsync(orderId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Order '{orderId}' was not found.");
+            snapshots.Add(new(detail, detail.Invoices.Sum(invoice => invoice.TotalMinorUnits)));
+        }
+        var boundOrderIds = forms.SelectMany(form => form.Form.OrderIds).ToHashSet();
+        long totalMinorUnits = checked(forms.Sum(form => form.Form.TotalMinorUnits ??
+            snapshots.Where(snapshot => form.Form.OrderIds.Contains(snapshot.Detail.Id)).Sum(snapshot => snapshot.TotalMinorUnits)) +
+            snapshots.Where(snapshot => !boundOrderIds.Contains(snapshot.Detail.Id)).Sum(snapshot => snapshot.TotalMinorUnits));
+        DateTimeOffset exportedAt = _clock();
+        string destinationRoot = AvailablePath(Path.GetFullPath(command.DestinationDirectory),
+            $"报销材料导出-{FormatAmount(totalMinorUnits)}-{exportedAt:yyyyMMdd-HHmmss}", "");
         Directory.CreateDirectory(destinationRoot);
         string invoiceImageDirectory = Path.Combine(destinationRoot, "发票图片");
         string invoiceOriginalDirectory = Path.Combine(destinationRoot, "发票原件");
@@ -48,7 +61,8 @@ public sealed class ReimbursementBatchExporter(
         Directory.CreateDirectory(invoiceOriginalDirectory);
         Directory.CreateDirectory(supportingMaterialDirectory);
 
-        List<OrderExportSnapshot> snapshots = [];
+        string printDirectory = Path.Combine(destinationRoot, "打印材料");
+        Directory.CreateDirectory(printDirectory);
         int invoiceImageCount = 0;
         int supportingMaterialCount = 0;
         string renderRoot = Path.Combine(destinationRoot, $".eiri-render-{Guid.NewGuid():N}");
@@ -62,15 +76,15 @@ public sealed class ReimbursementBatchExporter(
                 {
                     var pages = await _pdfPageRenderer.RenderFirstPageAsync(file.ManagedPath, Path.Combine(renderRoot, file.Id.ToString()), cancellationToken);
                     if (pages.Count != 1) throw new InvalidDataException("报销单 PDF 首页转换失败。");
-                    File.Move(pages[0], AvailablePath(directory, FileNamePart(form.Form.Content, "未填写报销内容") + "-" + FileNamePart(Path.GetFileNameWithoutExtension(file.OriginalFileName), "报销单") + "-第1页", ".png"));
+                    string baseName = FileNamePart(form.Form.Content, "未填写报销内容") + "-" + FileNamePart(Path.GetFileNameWithoutExtension(file.OriginalFileName), "报销单") + "-第1页";
+                    File.Copy(pages[0], AvailablePath(printDirectory, baseName, ".png"));
+                    File.Move(pages[0], AvailablePath(directory, baseName, ".png"));
                 }
             }
-            foreach (OrderId orderId in orderIds)
+            foreach (OrderExportSnapshot snapshot in snapshots)
             {
-                OrderDetail detail = await _workspace.GetOrderAsync(orderId, cancellationToken)
-                    ?? throw new KeyNotFoundException($"Order '{orderId}' was not found.");
-                long orderTotalMinorUnits = detail.Invoices.Sum(invoice => invoice.TotalMinorUnits);
-                snapshots.Add(new OrderExportSnapshot(detail, orderTotalMinorUnits));
+                OrderDetail detail = snapshot.Detail;
+                long orderTotalMinorUnits = snapshot.TotalMinorUnits;
 
                 foreach (InvoiceDetail invoice in detail.Invoices)
                 {
@@ -126,13 +140,14 @@ public sealed class ReimbursementBatchExporter(
                             supportingMaterialDirectory,
                             baseName,
                             Path.GetExtension(material.OriginalFileName)));
+                    await ExportPrintableMaterialAsync(material, baseName, printDirectory, renderRoot, cancellationToken);
                     supportingMaterialCount++;
                 }
             }
 
             string csvPath = AvailablePath(
                 destinationRoot,
-                $"发票导出-{_clock():yyyyMMdd-HHmmss}",
+                $"发票导出-{exportedAt:yyyyMMdd-HHmmss}",
                 ".csv");
             await File.WriteAllTextAsync(
                 csvPath,
@@ -153,6 +168,23 @@ public sealed class ReimbursementBatchExporter(
             {
                 Directory.Delete(renderRoot, recursive: true);
             }
+        }
+    }
+
+    private async Task ExportPrintableMaterialAsync(ManagedMaterial material, string baseName,
+        string printDirectory, string renderRoot, CancellationToken cancellationToken)
+    {
+        if (material.MediaType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            var pages = await _pdfPageRenderer.RenderAsync(material.ManagedPath,
+                Path.Combine(renderRoot, material.Id.ToString()), cancellationToken);
+            if (pages.Count == 0) throw new InvalidDataException($"辅助材料“{material.OriginalFileName}”未生成图片。");
+            for (int page = 0; page < pages.Count; page++)
+                File.Move(pages[page], AvailablePath(printDirectory, $"{baseName}-第{page + 1}页", ".png"));
+        }
+        else if (material.MediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            File.Copy(material.ManagedPath, AvailablePath(printDirectory, baseName, Path.GetExtension(material.OriginalFileName)));
         }
     }
 
@@ -199,7 +231,7 @@ public sealed class ReimbursementBatchExporter(
     private static string AvailablePath(string directory, string baseName, string extension)
     {
         string path = Path.Combine(directory, baseName + extension);
-        for (int suffix = 2; File.Exists(path); suffix++)
+        for (int suffix = 2; File.Exists(path) || Directory.Exists(path); suffix++)
         {
             path = Path.Combine(directory, $"{baseName}-{suffix}{extension}");
         }

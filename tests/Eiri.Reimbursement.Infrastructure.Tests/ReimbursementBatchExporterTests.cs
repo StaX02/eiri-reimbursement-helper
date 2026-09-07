@@ -66,6 +66,9 @@ public sealed class ReimbursementBatchExporterTests : IAsyncLifetime
         ExportBatchResult result = await exporter.ExportAsync(
             new ExportBatchCommand([firstOrderId, secondOrderId], destinationRoot));
 
+        destinationRoot = Assert.Single(Directory.GetDirectories(destinationRoot));
+        Assert.Equal("报销材料导出-180.40-20260901-123456", Path.GetFileName(destinationRoot));
+        Assert.Equal(destinationRoot, Path.GetDirectoryName(result.CsvPath));
         Assert.Equal(2, result.OrderCount);
         Assert.Equal(2, result.InvoiceCount);
         Assert.Equal(3, result.InvoiceImageCount);
@@ -93,6 +96,11 @@ public sealed class ReimbursementBatchExporterTests : IAsyncLifetime
             destinationRoot,
             "报销辅助材料",
             "机械键盘-159.90-辅助材料-1.png")));
+        string printDirectory = Path.Combine(destinationRoot, "打印材料");
+        Assert.Empty(Directory.GetDirectories(printDirectory));
+        string image = Assert.Single(Directory.GetFiles(printDirectory));
+        Assert.Equal(await File.ReadAllBytesAsync(supportingPath), await File.ReadAllBytesAsync(image));
+        Assert.False(Directory.Exists(Path.Combine(destinationRoot, "报销单图片")));
         string csvPath = Assert.Single(Directory.GetFiles(
             destinationRoot,
             "发票导出-20260901-123456.csv"));
@@ -138,12 +146,51 @@ public sealed class ReimbursementBatchExporterTests : IAsyncLifetime
             workspace,
             new FixedPdfPageRenderer());
 
-        await exporter.ExportAsync(new ExportBatchCommand([orderId], destinationRoot));
+        var result = await exporter.ExportAsync(new ExportBatchCommand([orderId], destinationRoot));
+        destinationRoot = Path.GetDirectoryName(result.CsvPath)!;
 
         Assert.True(File.Exists(Path.Combine(
             destinationRoot,
             "报销辅助材料",
             "显示器等-180.40-辅助材料-1.png")));
+    }
+
+    [Fact]
+    public async Task PrintablePdfsRenderAllPagesAndRepeatedExportsStaySeparate()
+    {
+        var workspace = new SqliteReimbursementWorkspace(Path.Combine(_testRoot, "library"));
+        await workspace.InitializeAsync();
+        var a = await CreateOrderWithInvoiceAsync(workspace, "a.pdf", "商家", "1001", 1200, "同名商品");
+        var b = await CreateOrderWithInvoiceAsync(workspace, "b.pdf", "商家", "1002", 1200, "同名商品");
+        string pdf = Path.Combine(_testRoot, "support.PDF");
+        string png = Path.Combine(_testRoot, "support.png");
+        foreach (var id in new[] { a, b })
+        {
+            await File.WriteAllTextAsync(pdf, $"%PDF-1.7 invoice-one support {id}");
+            await File.WriteAllBytesAsync(png, new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }.Concat(Encoding.ASCII.GetBytes(id.ToString())).ToArray());
+            await workspace.ImportMaterialsAsync(new(id, [pdf, png], ManagedFileRole.OrderScreenshot));
+        }
+        var exporter = new ReimbursementBatchExporter(workspace, new FixedPdfPageRenderer(),
+            () => new DateTimeOffset(2026, 9, 7, 12, 34, 56, TimeSpan.FromHours(8)));
+        string destination = Path.Combine(_testRoot, "export");
+        var first = await exporter.ExportAsync(new([a, b, a], destination));
+        string firstRoot = Path.GetDirectoryName(first.CsvPath)!;
+        Assert.Equal("报销材料导出-24.00-20260907-123456", Path.GetFileName(firstRoot));
+        string print = Path.Combine(firstRoot, "打印材料");
+        Assert.Equal(6, Directory.GetFiles(print).Length);
+        Assert.Empty(Directory.GetDirectories(print));
+        Assert.All(Directory.GetFiles(print), path => Assert.Equal(".png", Path.GetExtension(path)));
+        Assert.Equal(4, Directory.GetFiles(print).Count(path => Path.GetFileName(path).Contains("第")));
+        Assert.Equal(4, Directory.GetFiles(Path.Combine(firstRoot, "报销辅助材料")).Length);
+        Assert.Equal(2, first.InvoiceImageCount);
+        await File.WriteAllTextAsync(Path.Combine(firstRoot, "keep.txt"), "existing export");
+        var second = await exporter.ExportAsync(new([a, b], destination));
+        string secondRoot = Path.GetDirectoryName(second.CsvPath)!;
+        Assert.Equal(firstRoot + "-2", secondRoot);
+        Assert.Equal(2, Directory.GetDirectories(destination).Length);
+        Assert.Equal("existing export", await File.ReadAllTextAsync(Path.Combine(firstRoot, "keep.txt")));
+        Assert.Equal(6, Directory.GetFiles(Path.Combine(secondRoot, "打印材料")).Length);
+        Assert.Empty(Directory.GetFiles(destination));
     }
 
     private async Task<OrderId> CreateOrderWithInvoiceAsync(

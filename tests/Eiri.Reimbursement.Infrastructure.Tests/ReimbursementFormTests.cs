@@ -156,7 +156,12 @@ public sealed class ReimbursementFormTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() => exporter.ExportAsync(new([], destination, [id])));
         Assert.False(Directory.Exists(destination));
         await workspace.ImportReimbursementFilesAsync(id, [await FileAsync("form.pdf", "%PDF-form"), await FileAsync("form2.PDF", "%PDF-second")]);
+        await workspace.UpdateReimbursementAsync(new(id, null, "", "申请内容", 507874));
         var result = await exporter.ExportAsync(new([a], destination, [id, id]));
+        destination = Assert.Single(Directory.GetDirectories(destination));
+        Assert.StartsWith("报销材料导出-5078.74-", Path.GetFileName(destination));
+        Assert.Equal(3, Directory.GetFiles(Path.Combine(destination, "打印材料")).Length);
+        Assert.Empty(Directory.GetDirectories(Path.Combine(destination, "打印材料")));
         Assert.Equal(2, result.OrderCount);
         Assert.Equal(2, renderer.FirstPageCalls);
         Assert.Equal(1, renderer.AllPageCalls);
