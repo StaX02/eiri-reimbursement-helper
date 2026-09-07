@@ -109,8 +109,63 @@ public sealed class ReimbursementEditorTests
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
+    [Fact]
+    public async Task FormActionsSynchronizeOrdersAndFailedExportDoesNotMarkExported()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "eiri-lifecycle-test", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var workspace = new SqliteReimbursementWorkspace(root);
+            await workspace.InitializeAsync();
+            var order = await workspace.CreateOrderAsync(new(OrderPlatform.JD));
+            Guid id = await workspace.CreateReimbursementAsync([order]);
+            var exporter = new Exporter();
+            var vm = new MainWindowViewModel(workspace, exporter);
+            await vm.LoadAsync();
+            await vm.SetSelectedReimbursementsAsync([Assert.Single(vm.Reimbursements)]);
+            Assert.True(vm.CanExport);
+            await vm.ExportReimbursementsAsync([id], root);
+            Assert.Null((await workspace.GetReimbursementAsync(id))!.Form.ExportedAt);
+            Assert.Null(Assert.Single(await workspace.SearchOrdersAsync(new())).ExportedAt);
+            exporter.Fail = false;
+            await vm.ExportReimbursementsAsync([id], root);
+            Assert.Equal(id, Assert.Single(exporter.Command!.ReimbursementIds!));
+            Assert.NotNull((await workspace.GetReimbursementAsync(id))!.Form.ExportedAt);
+            Assert.True(vm.ReimbursementEditor!.IsExported);
+            await vm.SetReimbursementsMilestoneAsync([id], Milestone.Submitted, true);
+            await vm.SetReimbursementsMilestoneAsync([id], Milestone.Refunded, true);
+            Assert.NotNull(Assert.Single(await workspace.SearchOrdersAsync(new())).SubmittedAt);
+            Assert.True(vm.ReimbursementEditor.IsRefunded);
+            await vm.ClearReimbursementsStatusesAsync([id]);
+            Assert.Null(Assert.Single(await workspace.SearchOrdersAsync(new())).RefundedAt);
+            Assert.False(vm.ReimbursementEditor.IsSubmitted);
+            Assert.NotNull(Assert.Single(await workspace.SearchOrdersAsync(new())).ExportedAt);
+            vm.ReimbursementEditor.TotalAmount = "invalid";
+            Assert.False(await vm.ReimbursementEditor.PendingSave);
+            await vm.DeleteReimbursementsAsync([id]);
+            Assert.Null(await workspace.GetReimbursementAsync(id));
+            Assert.Null(Assert.Single(await workspace.SearchOrdersAsync(new())).ReimbursementId);
+            Assert.False(vm.CanExport);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private sealed class Exporter : Eiri.Reimbursement.Core.Export.IReimbursementBatchExporter
+    {
+        public bool Fail { get; set; } = true;
+        public Eiri.Reimbursement.Core.Export.ExportBatchCommand? Command { get; private set; }
+        public Task<Eiri.Reimbursement.Core.Export.ExportBatchResult> ExportAsync(Eiri.Reimbursement.Core.Export.ExportBatchCommand command, CancellationToken cancellationToken = default)
+        {
+            Command = command;
+            if (Fail) throw new IOException("render failed");
+            return Task.FromResult(new Eiri.Reimbursement.Core.Export.ExportBatchResult(1, 0, 0, 0, "test.csv"));
+        }
+    }
+
     private sealed class DelayedForms : IReimbursementFormWorkspace
     {
+        public Task SetReimbursementMilestonesAsync(IReadOnlyList<SetReimbursementMilestoneCommand> commands, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task DeleteReimbursementsAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public ReimbursementForm Form { get; private set; } = new(Guid.NewGuid(), null, "", "", 0, []);
         public TaskCompletionSource<bool>? SaveGate { get; set; }
         public TaskCompletionSource<bool>? ImportGate { get; set; }

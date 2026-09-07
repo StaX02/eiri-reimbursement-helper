@@ -511,12 +511,21 @@
                                 <TextBlock Text="报销单" FontFamily="Segoe UI Variable Display, Microsoft YaHei UI" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                 <TextBlock Text="报销信息与关联订单汇总" Margin="10,0,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
                             </StackPanel>
-                            <DataGrid x:Name="ReimbursementsGrid" Grid.Row="1" ItemsSource="{Binding Reimbursements}" SelectedItem="{Binding SelectedReimbursement}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Extended" SelectionUnit="FullRow" HeadersVisibility="Column" RowHeaderWidth="0" SelectionChanged="ReimbursementsGrid_OnSelectionChanged" BorderThickness="0" AutomationProperties.Name="报销单列表"
+                            <DataGrid x:Name="ReimbursementsGrid" Grid.Row="1" ItemsSource="{Binding Reimbursements}" SelectedItem="{Binding SelectedReimbursement}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Extended" SelectionUnit="FullRow" HeadersVisibility="Column" RowHeaderWidth="0" PreviewMouseRightButtonDown="ReimbursementsGrid_OnPreviewMouseRightButtonDown" SelectionChanged="ReimbursementsGrid_OnSelectionChanged" BorderThickness="0" AutomationProperties.Name="报销单列表"
                                       EnableColumnVirtualization="False" GridLinesVisibility="Horizontal"
                                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                       AlternatingRowBackground="{DynamicResource AlternatingRowBrush}"
                                       CellStyle="{StaticResource CenteredDataGridCellStyle}"
                                       ColumnHeaderStyle="{StaticResource CenteredDataGridColumnHeaderStyle}">
+                                <DataGrid.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="已提交" Click="FormSubmitted_OnClick" />
+                                        <MenuItem Header="已返款" Click="FormRefunded_OnClick" />
+                                        <MenuItem Header="清除提交及返款状态" Click="FormClearStatuses_OnClick" />
+                                        <Separator />
+                                        <MenuItem Header="删除报销单" Click="DeleteForms_OnClick" />
+                                    </ContextMenu>
+                                </DataGrid.ContextMenu>
                                 <DataGrid.Columns>
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="申请日期" Binding="{Binding ApplicationDateDisplay}" Width="110"/>
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="报销类型" Binding="{Binding ReimbursementType}" Width="110"/>

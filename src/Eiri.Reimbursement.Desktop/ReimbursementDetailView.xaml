@@ -103,6 +103,66 @@
                     </Border>
                 </ScrollViewer>
             </TabItem>
+            <TabItem Header="提交/返款状态">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="6,10,6,0">
+                        <Border Padding="14" Margin="0,0,0,12"
+                                Background="{DynamicResource SubtlePanelBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="导出" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding ExportedDisplay}" Margin="0,4,0,0" FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" VerticalAlignment="Center" Content="已导出"
+                                          IsChecked="{Binding IsExported, Mode=OneWay}"
+                                          IsEnabled="False" />
+                            </Grid>
+                        </Border>
+                        <Border Padding="14" Margin="0,0,0,12"
+                                Background="{DynamicResource SubtlePanelBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="提交" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding SubmittedDisplay}" Margin="0,4,0,0" FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" VerticalAlignment="Center" Content="已提交"
+                                          IsChecked="{Binding IsSubmitted, Mode=OneWay}"
+                                          IsEnabled="{Binding CanEdit}" Tag="Submitted" Click="Milestone_OnClick" />
+                            </Grid>
+                        </Border>
+                        <Border Padding="14" Margin="0,0,0,12"
+                                Background="{DynamicResource SubtlePanelBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="返款" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding RefundedDisplay}" Margin="0,4,0,0" FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" VerticalAlignment="Center" Content="已返款"
+                                          IsChecked="{Binding IsRefunded, Mode=OneWay}"
+                                          IsEnabled="{Binding CanEdit}" Tag="Refunded" Click="Milestone_OnClick" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
         </TabControl>
 
         <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Margin="18,8,18,0"

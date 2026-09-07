@@ -124,7 +124,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool CanBatchImportInvoices => !IsBusy;
 
-    public bool CanExport => SelectedOrderCount > 0 && !IsBusy && _batchExporter is not null;
+    public bool CanExport => (SelectedOrderCount > 0 || SelectedReimbursementCount > 0) && !IsBusy && _batchExporter is not null;
 
     public bool CanManageData => !IsBusy && _backupPackageService is not null && !_reimbursementEditors.Values.Any(editor => editor.IsBusy);
 

@@ -38,6 +38,7 @@ public sealed partial class SqliteReimbursementWorkspace(
 
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken);
         await ApplyMigrationsAsync(connection, cancellationToken);
+        await RecoverReimbursementDeletionsAsync(connection, cancellationToken);
     }
 
     public async Task<OrderId> CreateOrderAsync(
@@ -788,6 +789,12 @@ public sealed partial class SqliteReimbursementWorkspace(
         if (version == 3)
         {
             await ExecuteNonQueryAsync(connection, Schema.Version4, cancellationToken);
+            version = 4;
+        }
+
+        if (version == 4)
+        {
+            await ExecuteNonQueryAsync(connection, Schema.Version5, cancellationToken);
         }
     }
 

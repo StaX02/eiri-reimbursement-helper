@@ -4,7 +4,8 @@ namespace Eiri.Reimbursement.Core.Export;
 
 public sealed record ExportBatchCommand(
     IReadOnlyList<OrderId> OrderIds,
-    string DestinationDirectory);
+    string DestinationDirectory,
+    IReadOnlyList<Guid>? ReimbursementIds = null);
 
 public sealed record ExportBatchResult(
     int OrderCount,

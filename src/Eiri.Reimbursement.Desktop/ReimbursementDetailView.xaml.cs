@@ -11,6 +11,15 @@ namespace Eiri.Reimbursement.Desktop;
 public partial class ReimbursementDetailView : UserControl
 {
     public ReimbursementDetailView() => InitializeComponent();
+    private async void Milestone_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox box && DataContext is ReimbursementEditorViewModel editor && Window.GetWindow(this)?.DataContext is MainWindowViewModel vm &&
+            Enum.TryParse<Eiri.Reimbursement.Core.Orders.Milestone>(box.Tag?.ToString(), out var milestone))
+        {
+            await vm.SetReimbursementsMilestoneAsync([editor.Id], milestone, box.IsChecked == true);
+            box.GetBindingExpression(CheckBox.IsCheckedProperty)?.UpdateTarget();
+        }
+    }
     private async void AddFiles_OnClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is not ReimbursementEditorViewModel editor || !editor.CanEdit) return;

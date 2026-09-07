@@ -303,7 +303,7 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(Visibility.Collapsed, detailPanel.Visibility);
                 Assert.Empty(ordersGrid.SelectedItems);
                 var reimbursementTabs = Assert.IsType<TabControl>(fields.FindName("ReimbursementDetailTabs"));
-                Assert.Equal(new[] { "附件材料", "报销单属性", "关联订单" }, reimbursementTabs.Items.Cast<TabItem>().Select(tab => tab.Header.ToString()));
+                Assert.Equal(new[] { "附件材料", "报销单属性", "关联订单", "提交/返款状态" }, reimbursementTabs.Items.Cast<TabItem>().Select(tab => tab.Header.ToString()));
                 Assert.Same(detailTabs.Style, reimbursementTabs.Style);
                 Assert.Same(ordersGrid.CellStyle, reimbursementGrid.CellStyle);
                 Assert.Same(ordersGrid.ColumnHeaderStyle, reimbursementGrid.ColumnHeaderStyle);
@@ -316,6 +316,9 @@ public sealed class MainWindowRenderingTests
                 Assert.True(reimbursementDrop.TranslatePoint(new Point(0, 0), window).Y < reimbursementTabs.TranslatePoint(new Point(0, 0), window).Y);
                 reimbursementGrid.ScrollIntoView(firstRow);
                 SavePreview(window, "reimbursement-tabs-attachments.png");
+                reimbursementTabs.SelectedIndex = 3;
+                window.UpdateLayout();
+                SavePreview(window, "reimbursement-status.png");
                 reimbursementTabs.SelectedIndex = 2;
                 window.UpdateLayout();
                 SavePreview(window, "reimbursement-tabs-orders.png");

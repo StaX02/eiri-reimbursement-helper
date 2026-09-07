@@ -14,11 +14,11 @@ public static class JsonLinesDocumentProtocol
 
     public static string SerializeRenderRequest(
         string filePath,
-        string outputDirectory) => JsonSerializer.Serialize(
+        string outputDirectory, bool firstPageOnly = false) => JsonSerializer.Serialize(
             new RenderRequest(
                 CurrentVersion,
                 "render",
-                new RenderJob(Guid.NewGuid(), filePath, outputDirectory)),
+                new RenderJob(Guid.NewGuid(), filePath, outputDirectory, firstPageOnly)),
             SerializerOptions);
 
     public static DocumentAnalysis DeserializeResponse(string json)
@@ -61,7 +61,7 @@ public static class JsonLinesDocumentProtocol
 
     private sealed record RenderRequest(int ProtocolVersion, string Operation, RenderJob Job);
 
-    private sealed record RenderJob(Guid JobId, string FilePath, string OutputDirectory);
+    private sealed record RenderJob(Guid JobId, string FilePath, string OutputDirectory, bool FirstPageOnly);
 
     private sealed record RenderResponse(int ProtocolVersion, IReadOnlyList<string> RenderedFiles);
 }

@@ -52,6 +52,26 @@ public partial class MainWindow : Window
         finally { vm.IsBusy = wasBusy; _waitingToClose = false; }
     }
 
+    private Guid[] GetSelectedReimbursementIds() => ReimbursementsGrid.SelectedItems.Cast<ReimbursementListItemViewModel>().Select(row => row.Id).ToArray();
+    private void ReimbursementsGrid_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemsControl.ContainerFromElement(ReimbursementsGrid, e.OriginalSource as DependencyObject) is DataGridRow row && !row.IsSelected)
+        { ReimbursementsGrid.UnselectAll(); row.IsSelected = true; }
+    }
+    private async void FormSubmitted_OnClick(object sender, RoutedEventArgs e)
+    { if (DataContext is MainWindowViewModel vm) await vm.SetReimbursementsMilestoneAsync(GetSelectedReimbursementIds(), Milestone.Submitted, true); }
+    private async void FormRefunded_OnClick(object sender, RoutedEventArgs e)
+    { if (DataContext is MainWindowViewModel vm) await vm.SetReimbursementsMilestoneAsync(GetSelectedReimbursementIds(), Milestone.Refunded, true); }
+    private async void FormClearStatuses_OnClick(object sender, RoutedEventArgs e)
+    { if (DataContext is MainWindowViewModel vm) await vm.ClearReimbursementsStatusesAsync(GetSelectedReimbursementIds()); }
+    private async void DeleteForms_OnClick(object sender, RoutedEventArgs e)
+    {
+        Guid[] ids = GetSelectedReimbursementIds();
+        if (ids.Length == 0 || DataContext is not MainWindowViewModel vm || vm.IsBusy) return;
+        if (MessageBox.Show(this, $"将永久删除所选 {ids.Length} 个报销单及其附件，关联订单将解绑并保留。是否继续？", "删除报销单", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes)
+            await vm.DeleteReimbursementsAsync(ids);
+    }
+
     private async void CreateReimbursement_OnClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is MainWindowViewModel vm && await vm.CreateReimbursementAsync(GetSelectedOrderIds()) is Guid id)
@@ -125,8 +145,9 @@ public partial class MainWindow : Window
             return;
         }
 
+        Guid[] formIds = GetSelectedReimbursementIds();
         OrderId[] orderIds = GetSelectedOrderIds();
-        if (orderIds.Length == 0)
+        if (orderIds.Length == 0 && formIds.Length == 0)
         {
             return;
         }
@@ -143,14 +164,15 @@ public partial class MainWindow : Window
 
         MessageBoxResult confirmation = MessageBox.Show(
             this,
-            $"将在以下文件夹中创建发票图片、发票原件、报销辅助材料和 CSV：\n\n{dialog.FolderName}\n\n确认继续吗？",
+            $"将在以下文件夹中创建报销资料图片、发票原件、报销辅助材料和 CSV：\n\n{dialog.FolderName}\n\n确认继续吗？",
             "确认报销资料导出位置",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question,
             MessageBoxResult.Yes);
         if (confirmation == MessageBoxResult.Yes)
         {
-            await viewModel.ExportOrdersAsync(orderIds, dialog.FolderName);
+            if (formIds.Length > 0) await viewModel.ExportReimbursementsAsync(formIds, dialog.FolderName);
+            else await viewModel.ExportOrdersAsync(orderIds, dialog.FolderName);
         }
     }
 

@@ -2,7 +2,7 @@ namespace Eiri.Reimbursement.Infrastructure.Sqlite;
 
 internal static class Schema
 {
-    internal const int CurrentVersion = 4;
+    internal const int CurrentVersion = 5;
 
     internal const string Version1 =
         """
@@ -120,6 +120,15 @@ internal static class Schema
             UNIQUE(reimbursement_id, sha256)
         );
         PRAGMA user_version = 4;
+        COMMIT;
+        """;
+    internal const string Version5 =
+        """
+        BEGIN IMMEDIATE;
+        ALTER TABLE reimbursement_forms ADD COLUMN exported_at TEXT NULL;
+        ALTER TABLE reimbursement_forms ADD COLUMN submitted_at TEXT NULL;
+        ALTER TABLE reimbursement_forms ADD COLUMN refunded_at TEXT NULL;
+        PRAGMA user_version = 5;
         COMMIT;
         """;
 }

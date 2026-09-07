@@ -1,4 +1,5 @@
 import unittest
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 from eiri_document_worker.__main__ import analyze_reimbursement_pdf, reimbursement_candidates, handle_request
@@ -6,6 +7,14 @@ from eiri_document_worker.__main__ import analyze_reimbursement_pdf, reimburseme
 SAMPLE = next((Path(__file__).resolve().parents[3] / 'examples' / 'reb').glob('*.pdf'), None)
 
 class ReimbursementTests(unittest.TestCase):
+    @unittest.skipUnless(SAMPLE, "Local reimbursement sample is not present")
+    def test_export_renders_first_page_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = handle_request({'protocolVersion': 1, 'operation': 'render', 'job': {
+                'filePath': str(SAMPLE), 'outputDirectory': directory, 'firstPageOnly': True}})
+            self.assertEqual(len(result['renderedFiles']), 1)
+            self.assertEqual([p.name for p in Path(directory).glob('*.png')], ['page-1.png'])
+
     @unittest.skipUnless(SAMPLE, "Local reimbursement sample is not present")
     def test_sample_first_page_semantic_fields(self):
         result = handle_request({'protocolVersion': 1, 'job': {'kind': 3, 'filePath': str(SAMPLE)}})['analysis']

@@ -439,7 +439,7 @@ def analyze_reimbursement_pdf(file_path: Path) -> dict[str, Any]:
             "textBlocks": blocks, "candidates": candidates, "needsReview": len(candidates) < 4}
 
 
-def render_pdf(file_path: Path, output_directory: Path) -> list[str]:
+def render_pdf(file_path: Path, output_directory: Path, first_page_only: bool = False) -> list[str]:
     if file_path.suffix.lower() != ".pdf":
         raise ValueError("The PDF renderer only accepts .pdf files.")
     if not file_path.is_file():
@@ -449,7 +449,7 @@ def render_pdf(file_path: Path, output_directory: Path) -> list[str]:
     rendered_files: list[str] = []
     document = pdfium.PdfDocument(file_path)
     try:
-        for page_index in range(len(document)):
+        for page_index in range(min(1, len(document)) if first_page_only else len(document)):
             page = document[page_index]
             try:
                 output_path = output_directory / f"page-{page_index + 1}.png"
@@ -475,6 +475,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
         rendered_files = render_pdf(
             Path(job["filePath"]).resolve(),
             Path(job["outputDirectory"]).resolve(),
+            first_page_only=job.get("firstPageOnly", False),
         )
         return {
             "protocolVersion": PROTOCOL_VERSION,

@@ -26,6 +26,7 @@ public partial class MainWindowViewModel
     [NotifyPropertyChangedFor(nameof(HasReimbursementSelection))]
     [NotifyPropertyChangedFor(nameof(IsSingleReimbursementSelected))]
     [NotifyPropertyChangedFor(nameof(ReimbursementDetailHeading))]
+    [NotifyPropertyChangedFor(nameof(CanExport))]
     private int _selectedReimbursementCount;
     [ObservableProperty]
     private string _reimbursementDetailStatus = "";

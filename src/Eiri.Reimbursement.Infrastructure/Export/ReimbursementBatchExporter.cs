@@ -6,6 +6,7 @@ using Eiri.Reimbursement.Core.Export;
 using Eiri.Reimbursement.Core.Invoices;
 using Eiri.Reimbursement.Core.Materials;
 using Eiri.Reimbursement.Core.Orders;
+using Eiri.Reimbursement.Core.Reimbursements;
 
 namespace Eiri.Reimbursement.Infrastructure.Export;
 
@@ -23,7 +24,16 @@ public sealed class ReimbursementBatchExporter(
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command.DestinationDirectory);
-        OrderId[] orderIds = command.OrderIds.Distinct().ToArray();
+        List<ReimbursementDetail> forms = [];
+        foreach (Guid id in (command.ReimbursementIds ?? []).Distinct())
+        {
+            if (_workspace is not IReimbursementFormWorkspace formWorkspace) throw new InvalidOperationException("报销单导出不可用。");
+            var form = await formWorkspace.GetReimbursementAsync(id, cancellationToken) ?? throw new KeyNotFoundException("报销单已不存在。");
+            if (!form.Attachments.Any(file => Path.GetExtension(file.ManagedPath).Equals(".pdf", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException($"报销单“{form.Form.ContentDisplay}”尚未添加 PDF，请先添加报销单文件。");
+            forms.Add(form);
+        }
+        OrderId[] orderIds = command.OrderIds.Concat(forms.SelectMany(form => form.Form.OrderIds)).Distinct().ToArray();
         if (orderIds.Length == 0)
         {
             throw new ArgumentException("At least one order is required for export.", nameof(command));
@@ -44,6 +54,17 @@ public sealed class ReimbursementBatchExporter(
         string renderRoot = Path.Combine(destinationRoot, $".eiri-render-{Guid.NewGuid():N}");
         try
         {
+            foreach (var form in forms)
+            {
+                string directory = Path.Combine(destinationRoot, "报销单图片");
+                Directory.CreateDirectory(directory);
+                foreach (var file in form.Attachments.Where(file => Path.GetExtension(file.ManagedPath).Equals(".pdf", StringComparison.OrdinalIgnoreCase)))
+                {
+                    var pages = await _pdfPageRenderer.RenderFirstPageAsync(file.ManagedPath, Path.Combine(renderRoot, file.Id.ToString()), cancellationToken);
+                    if (pages.Count != 1) throw new InvalidDataException("报销单 PDF 首页转换失败。");
+                    File.Move(pages[0], AvailablePath(directory, FileNamePart(form.Form.Content, "未填写报销内容") + "-" + FileNamePart(Path.GetFileNameWithoutExtension(file.OriginalFileName), "报销单") + "-第1页", ".png"));
+                }
+            }
             foreach (OrderId orderId in orderIds)
             {
                 OrderDetail detail = await _workspace.GetOrderAsync(orderId, cancellationToken)

@@ -26,9 +26,16 @@ public sealed class JsonLinesProcessDocumentProcessor(
         return JsonLinesDocumentProtocol.DeserializeResponse(response);
     }
 
-    public async Task<IReadOnlyList<string>> RenderAsync(
+    public Task<IReadOnlyList<string>> RenderAsync(string pdfPath, string destinationDirectory, CancellationToken cancellationToken = default)
+        => RenderCoreAsync(pdfPath, destinationDirectory, false, cancellationToken);
+
+    public Task<IReadOnlyList<string>> RenderFirstPageAsync(string pdfPath, string destinationDirectory, CancellationToken cancellationToken = default)
+        => RenderCoreAsync(pdfPath, destinationDirectory, true, cancellationToken);
+
+    private async Task<IReadOnlyList<string>> RenderCoreAsync(
         string pdfPath,
         string destinationDirectory,
+        bool firstPageOnly,
         CancellationToken cancellationToken = default)
     {
         string destinationRoot = Path.GetFullPath(destinationDirectory);
@@ -36,7 +43,7 @@ public sealed class JsonLinesProcessDocumentProcessor(
         string response = await ExecuteAsync(
             JsonLinesDocumentProtocol.SerializeRenderRequest(
                 Path.GetFullPath(pdfPath),
-                destinationRoot),
+                destinationRoot, firstPageOnly),
             TimeSpan.FromMinutes(2),
             cancellationToken);
         IReadOnlyList<string> renderedFiles = JsonLinesDocumentProtocol.DeserializeRenderResponse(response);
