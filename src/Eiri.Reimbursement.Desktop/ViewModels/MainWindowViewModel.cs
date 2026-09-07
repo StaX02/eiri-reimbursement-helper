@@ -126,7 +126,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool CanExport => SelectedOrderCount > 0 && !IsBusy && _batchExporter is not null;
 
-    public bool CanManageData => !IsBusy && _backupPackageService is not null;
+    public bool CanManageData => !IsBusy && _backupPackageService is not null && !_reimbursementEditors.Values.Any(editor => editor.IsBusy);
 
     public bool HasOrders => Orders.Count > 0;
 
@@ -146,6 +146,14 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void SetSelectedOrders(IReadOnlyCollection<OrderListItem> orders)
     {
+        _selectedOrderIds = orders.Select(order => order.Id).ToArray();
+        if (orders.Count > 0)
+        {
+            ++_reimbursementSelectionVersion;
+            SelectedReimbursementCount = 0;
+            SelectedReimbursement = null;
+            ReimbursementEditor = null;
+        }
         _selectedOrderTotalMinorUnits = orders.Sum(order => order.TotalMinorUnits);
         SelectedOrderCount = orders.Count;
         OnPropertyChanged(nameof(OrderCountText));
@@ -153,7 +161,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public async Task ExportDataAsync(string destinationPath)
     {
-        if (IsBusy || _backupPackageService is null)
+        if (!CanManageData)
         {
             return;
         }
@@ -162,7 +170,8 @@ public partial class MainWindowViewModel : ObservableObject
         StatusMessage = "正在导出数据库和受管文件…";
         try
         {
-            await _backupPackageService.CreateBackupAsync(destinationPath);
+            await FlushReimbursementChangesAsync();
+            await _backupPackageService!.CreateBackupAsync(destinationPath);
             StatusMessage = "数据已导出。";
         }
         catch (Exception exception)
@@ -178,7 +187,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public async Task ImportDataAsync(string sourcePath)
     {
-        if (IsBusy || _backupPackageService is null)
+        if (!CanManageData)
         {
             return;
         }
@@ -187,7 +196,10 @@ public partial class MainWindowViewModel : ObservableObject
         StatusMessage = "正在校验并导入数据库和受管文件…";
         try
         {
-            await _backupPackageService.RestoreBackupAsync(sourcePath);
+            await FlushReimbursementChangesAsync();
+            await Task.WhenAll(_loadingReimbursementEditors.Values);
+            await _backupPackageService!.RestoreBackupAsync(sourcePath);
+            ClearReimbursementEditors();
             await ReloadOrdersAsync(selectedOrderId: null);
             Materials = [];
             Invoices = [];

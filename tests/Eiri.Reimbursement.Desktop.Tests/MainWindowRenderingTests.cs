@@ -29,7 +29,9 @@ public sealed class MainWindowRenderingTests
             {
                 App application = new();
                 application.InitializeComponent();
-                SqliteReimbursementWorkspace workspace = new(Path.GetTempPath());
+                string libraryRoot = Path.Combine(Path.GetTempPath(), "eiri-sidebar-render", Guid.NewGuid().ToString("N"));
+                SqliteReimbursementWorkspace workspace = new(libraryRoot);
+                workspace.InitializeAsync().GetAwaiter().GetResult();
                 MainWindowViewModel viewModel = new(workspace)
                 {
                     Materials = new ObservableCollection<MaterialItemViewModel>(
@@ -278,36 +280,63 @@ public sealed class MainWindowRenderingTests
                     batchWindow.FindName("BatchInvoiceDropZone"));
                 Assert.True(batchDropZone.AllowDrop);
                 batchWindow.Close();
+                var firstOrder = workspace.CreateOrderAsync(new(OrderPlatform.JD)).GetAwaiter().GetResult();
+                var secondOrder = workspace.CreateOrderAsync(new(OrderPlatform.Taobao)).GetAwaiter().GetResult();
+                Guid firstId = workspace.CreateReimbursementAsync([firstOrder]).GetAwaiter().GetResult();
+                Guid secondId = workspace.CreateReimbursementAsync([secondOrder]).GetAwaiter().GetResult();
+                workspace.UpdateReimbursementAsync(new(firstId, new DateOnly(2026, 8, 25), "材料费", "IGCT驱动芯片测试PCB", 507874)).GetAwaiter().GetResult();
+                viewModel.LoadAsync().GetAwaiter().GetResult();
                 DataGrid reimbursementGrid = Assert.IsType<DataGrid>(window.FindName("ReimbursementsGrid"));
                 Assert.Equal(new[] { "申请日期", "报销类型", "报销内容", "总金额" }, reimbursementGrid.Columns.Select(c => c.Header.ToString()));
+                Assert.Equal(DataGridSelectionMode.Extended, reimbursementGrid.SelectionMode);
                 Assert.True(reimbursementGrid.TranslatePoint(new Point(0, 0), window).Y > ordersGrid.TranslatePoint(new Point(0, 0), window).Y);
-                Assert.NotNull(window.FindName("OrderReimbursementContent"));
-                viewModel.SetSelectedOrders([selectedOrder]);
-                viewModel.Reimbursements = [new(Guid.NewGuid(), new DateOnly(2026, 8, 25), "材料费", "IGCT驱动芯片测试PCB", 507874, [selectedOrder.Id])];
-                viewModel.StatusMessage = "已创建报销单，绑定 2 个订单。";
+                Border reimbursementPanel = Assert.IsType<Border>(window.FindName("ReimbursementDetailPanel"));
+                var fields = Assert.IsType<ReimbursementDetailView>(window.FindName("ReimbursementDetailFields"));
+                var firstRow = viewModel.Reimbursements.Single(row => row.Id == firstId);
+                var secondRow = viewModel.Reimbursements.Single(row => row.Id == secondId);
+                ordersGrid.UnselectAll();
                 window.UpdateLayout();
-                SavePreview(window, "reimbursement-main.png");
+                Assert.Equal(Visibility.Collapsed, reimbursementPanel.Visibility);
+                reimbursementGrid.SelectedItems.Add(firstRow);
+                window.UpdateLayout();
+                Assert.Equal(Visibility.Visible, reimbursementPanel.Visibility);
+                Assert.Equal(Visibility.Collapsed, detailPanel.Visibility);
+                Assert.Empty(ordersGrid.SelectedItems);
+                Assert.Equal("5078.74", Assert.IsType<TextBox>(fields.FindName("AmountInput")).Text);
+                var contentInput = Assert.IsType<TextBox>(fields.FindName("ContentInput"));
+                contentInput.Text = "即时保存的报销内容";
+                Assert.True(viewModel.ReimbursementEditor!.PendingSave.GetAwaiter().GetResult());
+                Assert.Same(firstRow, reimbursementGrid.SelectedItem);
+                Assert.Equal("即时保存的报销内容", workspace.GetReimbursementAsync(firstId).GetAwaiter().GetResult()!.Form.Content);
+                Assert.Equal("即时保存的报销内容", firstRow.ContentDisplay);
+                Assert.Equal("即时保存的报销内容", viewModel.Orders.Single(order => order.Id == firstOrder).ReimbursementDisplay);
+                SavePreview(window, "reimbursement-sidebar.png");
                 window.Width = 980;
                 window.Height = 660;
                 window.UpdateLayout();
                 Assert.True(reimbursementGrid.ActualHeight >= 80);
-                SavePreview(window, "reimbursement-main-narrow.png");
-                ReimbursementEditorViewModel editor = new(workspace, Guid.NewGuid())
-                {
-                    ApplicationDate = "2026-08-25", ReimbursementType = "材料费",
-                    Content = "IGCT驱动芯片测试PCB", TotalAmount = "5078.74", OrderSummary = "已绑定 2 个订单",
-                };
-                ReimbursementDetailWindow formWindow = new(editor);
-                formWindow.Show();
-                formWindow.UpdateLayout();
-                Assert.Equal("5078.74", Assert.IsType<TextBox>(formWindow.FindName("AmountInput")).Text);
-                SavePreview(formWindow, "reimbursement-detail.png");
+                SavePreview(window, "reimbursement-sidebar-narrow.png");
                 ThemeManager.Toggle(application.Resources);
-                formWindow.UpdateLayout();
-                SavePreview(formWindow, "reimbursement-detail-dark.png");
+                window.UpdateLayout();
+                SavePreview(window, "reimbursement-sidebar-dark.png");
                 ThemeManager.Toggle(application.Resources);
-                formWindow.Close();
+                reimbursementGrid.SelectedItems.Add(secondRow);
+                window.UpdateLayout();
+                Assert.Equal("已选中多个报销单", Assert.IsType<TextBlock>(window.FindName("ReimbursementDetailHeading")).Text);
+                Assert.False(fields.IsVisible);
+                SavePreview(window, "reimbursement-sidebar-multiple.png");
+                reimbursementGrid.UnselectAll();
+                window.UpdateLayout();
+                Assert.Equal(Visibility.Collapsed, reimbursementPanel.Visibility);
+                Assert.Equal(Visibility.Collapsed, detailPanel.Visibility);
+                reimbursementGrid.SelectedItems.Add(firstRow);
+                ordersGrid.SelectedItems.Add(viewModel.Orders[0]);
+                window.UpdateLayout();
+                Assert.Empty(reimbursementGrid.SelectedItems);
+                Assert.Equal(Visibility.Collapsed, reimbursementPanel.Visibility);
+                Assert.Equal(Visibility.Visible, detailPanel.Visibility);
                 window.Close();
+                Directory.Delete(libraryRoot, recursive: true);
             }
             catch (Exception exception)
             {
@@ -371,6 +400,7 @@ public sealed class MainWindowRenderingTests
         string? output = Environment.GetEnvironmentVariable("EIRI_QA_OUTPUT");
         if (output is null) return;
         Directory.CreateDirectory(output);
+        window.UpdateLayout();
         var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
         bitmap.Render(window);
         var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();

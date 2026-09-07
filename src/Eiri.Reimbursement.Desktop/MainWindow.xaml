@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Eiri.Reimbursement.Desktop"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         mc:Ignorable="d"
         Title="发票报销助手"
@@ -577,10 +578,9 @@
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <DockPanel Margin="16,10">
-                                <Button DockPanel.Dock="Right" Content="打开详情" Click="OpenReimbursement_OnClick"/>
                                 <TextBlock Text="报销单" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </DockPanel>
-                            <DataGrid x:Name="ReimbursementsGrid" Grid.Row="1" ItemsSource="{Binding Reimbursements}" SelectedItem="{Binding SelectedReimbursement}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" HeadersVisibility="Column" RowHeaderWidth="0" MouseDoubleClick="Reimbursements_OnDoubleClick" PreviewKeyDown="Reimbursements_OnKeyDown" BorderThickness="0" AutomationProperties.Name="报销单列表">
+                            <DataGrid x:Name="ReimbursementsGrid" Grid.Row="1" ItemsSource="{Binding Reimbursements}" SelectedItem="{Binding SelectedReimbursement}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Extended" SelectionUnit="FullRow" HeadersVisibility="Column" RowHeaderWidth="0" SelectionChanged="ReimbursementsGrid_OnSelectionChanged" BorderThickness="0" AutomationProperties.Name="报销单列表">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="申请日期" Binding="{Binding ApplicationDateDisplay}" Width="110"/>
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="报销类型" Binding="{Binding ReimbursementType}" Width="110"/>
@@ -602,6 +602,30 @@
                         </Grid>
                     </Border>
                 </Grid>
+
+                <Border x:Name="ReimbursementDetailPanel" Grid.Column="1" Width="380" Margin="14,0,0,0"
+                        Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="10"
+                        Visibility="{Binding HasReimbursementSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <Grid Margin="18,16,18,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="4"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="2"/>
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock x:Name="ReimbursementDetailHeading" Text="{Binding ReimbursementDetailHeading}" FontFamily="Segoe UI Variable Display, Microsoft YaHei UI" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                <TextBlock Text="报销信息与附件" Margin="0,3,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Row="1" Margin="18,0,10,18" Visibility="{Binding IsSingleReimbursementSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.Style><Style TargetType="Grid"><Setter Property="IsEnabled" Value="True"/><Style.Triggers><DataTrigger Binding="{Binding IsBusy}" Value="True"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Grid.Style>
+                            <TextBlock Text="{Binding ReimbursementDetailStatus}" TextWrapping="Wrap"/>
+                            <local:ReimbursementDetailView x:Name="ReimbursementDetailFields" DataContext="{Binding ReimbursementEditor}">
+                                <local:ReimbursementDetailView.Style><Style TargetType="local:ReimbursementDetailView"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></local:ReimbursementDetailView.Style>
+                            </local:ReimbursementDetailView>
+                        </Grid>
+                    </Grid>
+                </Border>
 
                 <Border x:Name="OrderDetailPanel"
                         Grid.Column="1"

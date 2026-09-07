@@ -15,39 +15,68 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+        viewModel.OrderRowsUpdated += RestoreOrderSelection;
+        Closed += (_, _) => viewModel.OrderRowsUpdated -= RestoreOrderSelection;
+        Closing += MainWindow_OnClosing;
+
+    }
+
+    private bool _closingAfterSave;
+    private bool _waitingToClose;
+
+    private async void MainWindow_OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_closingAfterSave || DataContext is not MainWindowViewModel vm || !vm.HasPendingReimbursementWrites) return;
+        e.Cancel = true;
+        if (_waitingToClose) return;
+        _waitingToClose = true;
+        bool wasBusy = vm.IsBusy;
+        vm.IsBusy = true;
+        vm.StatusMessage = "正在完成报销单保存…";
+        await Task.Yield();
+        try
+        {
+            await vm.FlushReimbursementChangesAsync();
+            _closingAfterSave = true;
+            Close();
+        }
+        catch (Exception exception)
+        {
+            vm.StatusMessage = exception.Message;
+            if (MessageBox.Show(this, $"{exception.Message}\n\n关闭将放弃未保存的修改，是否仍要关闭？", "报销单尚未保存", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes)
+            {
+                _closingAfterSave = true;
+                Close();
+            }
+        }
+        finally { vm.IsBusy = wasBusy; _waitingToClose = false; }
     }
 
     private async void CreateReimbursement_OnClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is MainWindowViewModel vm && await vm.CreateReimbursementAsync(GetSelectedOrderIds()) is Guid id)
-            await OpenReimbursementAsync(id);
+        {
+            ReimbursementsGrid.SelectedItem = vm.Reimbursements.FirstOrDefault(form => form.Id == id);
+            ReimbursementsGrid.ScrollIntoView(ReimbursementsGrid.SelectedItem);
+        }
     }
 
-    private async Task OpenReimbursementAsync(Guid id)
+    private async void ReimbursementsGrid_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel vm || vm.IsBusy || vm.ReimbursementWorkspace is not { } workspace) return;
-        try
-        {
-            vm.IsBusy = true;
-            ReimbursementEditorViewModel editor = new(workspace, id);
-            await editor.LoadAsync();
-            vm.IsBusy = false;
-            new ReimbursementDetailWindow(editor) { Owner = this }.ShowDialog();
-            await vm.RefreshCommand.ExecuteAsync(null);
-        }
-        catch (Exception exception) { vm.StatusMessage = $"无法打开报销单：{exception.Message}"; }
-        finally { vm.IsBusy = false; }
+        if (e.OriginalSource != ReimbursementsGrid || DataContext is not MainWindowViewModel vm) return;
+        var selected = ReimbursementsGrid.SelectedItems.Cast<ReimbursementListItemViewModel>().ToArray();
+        if (selected.Length > 0) OrdersGrid.UnselectAll();
+        await vm.SetSelectedReimbursementsAsync(selected);
     }
-    private async void OpenReimbursement_OnClick(object sender, RoutedEventArgs e)
+
+    private void RestoreOrderSelection()
     {
-        if (DataContext is MainWindowViewModel vm && vm.SelectedReimbursement is { } form)
-            await OpenReimbursementAsync(form.Id);
+        if (DataContext is not MainWindowViewModel vm) return;
+        OrderId[] ids = vm.SelectedOrderIds.ToArray();
+        OrdersGrid.UnselectAll();
+        foreach (var order in vm.Orders.Where(order => ids.Contains(order.Id))) OrdersGrid.SelectedItems.Add(order);
     }
-    private void Reimbursements_OnDoubleClick(object sender, MouseButtonEventArgs e) => OpenReimbursement_OnClick(sender, e);
-    private void Reimbursements_OnKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter) { OpenReimbursement_OnClick(sender, e); e.Handled = true; }
-    }
+
     private async Task ChangeReimbursementPageAsync(int delta)
     {
         if (DataContext is not MainWindowViewModel vm || vm.IsBusy) return;
@@ -348,8 +377,9 @@ public partial class MainWindow : Window
 
     private void OrdersGrid_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel)
+        if (e.OriginalSource == OrdersGrid && DataContext is MainWindowViewModel viewModel && !viewModel.IsUpdatingOrderRows)
         {
+            if (OrdersGrid.SelectedItems.Count > 0) ReimbursementsGrid.UnselectAll();
             viewModel.SetSelectedOrders(
                 OrdersGrid.SelectedItems.OfType<OrderListItem>().ToArray());
         }

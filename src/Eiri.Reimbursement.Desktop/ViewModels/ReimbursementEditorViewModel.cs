@@ -8,6 +8,12 @@ namespace Eiri.Reimbursement.Desktop.ViewModels;
 public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace workspace, Guid id) : ObservableObject
 {
     private ReimbursementForm? _original;
+    private bool _loading;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
+    public event Action<ReimbursementForm>? Saved;
+    public Task<bool> PendingSave { get; private set; } = Task.FromResult(true);
+    public Task PendingImport { get; private set; } = Task.CompletedTask;
+
     [ObservableProperty] private string _applicationDate = "";
     [ObservableProperty] private string _reimbursementType = "";
     [ObservableProperty] private string _content = "";
@@ -20,31 +26,44 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
     private bool _isBusy;
     public bool CanEdit => !IsBusy;
     public bool HasChanges => _original is not null &&
-        (ApplicationDate != (_original.ApplicationDate?.ToString("yyyy-MM-dd") ?? "") ||
-         ReimbursementType != _original.ReimbursementType || Content != _original.Content ||
-         TotalAmount != (_original.TotalAmount?.ToString("0.00", CultureInfo.InvariantCulture) ?? ""));
+        (!TryGetUpdate(out UpdateReimbursementCommand? update, out _) || !MatchesOriginal(update!));
+
+    partial void OnApplicationDateChanged(string value) => QueueSave();
+    partial void OnReimbursementTypeChanged(string value) => QueueSave();
+    partial void OnContentChanged(string value) => QueueSave();
+    partial void OnTotalAmountChanged(string value) => QueueSave();
+
+    private void QueueSave()
+    {
+        if (!_loading && _original is not null) PendingSave = SaveAsync();
+    }
 
     public async Task LoadAsync()
     {
         ReimbursementDetail detail = await workspace.GetReimbursementAsync(id) ?? throw new InvalidOperationException("报销单已不存在。");
-        _original = detail.Form;
-        ApplicationDate = _original.ApplicationDate?.ToString("yyyy-MM-dd") ?? "";
-        ReimbursementType = _original.ReimbursementType;
-        Content = _original.Content;
-        TotalAmount = _original.TotalAmount?.ToString("0.00", CultureInfo.InvariantCulture) ?? "";
-        OrderSummary = $"已绑定 {_original.OrderIds.Count} 个订单\n" + string.Join("\n", _original.OrderIds);
-        Attachments = new(detail.Attachments);
+        _loading = true;
+        try
+        {
+            _original = detail.Form;
+            ApplicationDate = _original.ApplicationDate?.ToString("yyyy-MM-dd") ?? "";
+            ReimbursementType = _original.ReimbursementType;
+            Content = _original.Content;
+            TotalAmount = _original.TotalAmount?.ToString("0.00", CultureInfo.InvariantCulture) ?? "";
+            OrderSummary = $"已绑定 {_original.OrderIds.Count} 个订单\n" + string.Join("\n", _original.OrderIds);
+            Attachments = new(detail.Attachments);
+        }
+        finally { _loading = false; }
     }
 
-    public async Task<bool> SaveAsync()
+    private bool TryGetUpdate(out UpdateReimbursementCommand? update, out string error)
     {
-        if (IsBusy) return false;
-        if (!HasChanges) return true;
+        update = null;
+        error = "";
         DateOnly? date = null;
         if (!string.IsNullOrWhiteSpace(ApplicationDate))
         {
             if (!DateOnly.TryParseExact(ApplicationDate.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly parsed))
-            { StatusMessage = "申请日期请填写为 yyyy-MM-dd，例如 2026-08-25。"; return false; }
+            { error = "申请日期请填写为 yyyy-MM-dd，例如 2026-08-25。"; return false; }
             date = parsed;
         }
         long? amount = null;
@@ -52,30 +71,66 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
         {
             if (!decimal.TryParse(TotalAmount, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal parsed) ||
                 parsed > long.MaxValue / 100m || parsed < long.MinValue / 100m || parsed * 100 != decimal.Truncate(parsed * 100))
-            { StatusMessage = "总金额请输入最多两位小数的有效金额。"; return false; }
+            { error = "总金额请输入最多两位小数的有效金额。"; return false; }
             amount = (long)(parsed * 100);
         }
-        IsBusy = true;
-        try
-        {
-            await workspace.UpdateReimbursementAsync(new(id, date, ReimbursementType, Content, amount));
-            await LoadAsync();
-            StatusMessage = "报销单已保存。";
-            return true;
-        }
-        catch (Exception exception) { StatusMessage = $"保存失败：{exception.Message}"; return false; }
-        finally { IsBusy = false; }
+        update = new(id, date, ReimbursementType.Trim(), Content.Trim(), amount);
+        return true;
     }
 
-    public async Task ImportAsync(IReadOnlyList<string> paths)
+    private bool MatchesOriginal(UpdateReimbursementCommand update) => _original is { } original &&
+        original.ApplicationDate == update.ApplicationDate && original.ReimbursementType == update.ReimbursementType &&
+        original.Content == update.Content && original.TotalMinorUnits == update.TotalMinorUnits;
+
+    public async Task<bool> SaveAsync()
     {
-        if (IsBusy || paths.Count == 0 || !await SaveAsync()) return;
-        IsBusy = true;
-        StatusMessage = "正在保存附件并识别 PDF 首页…";
+        await _saveLock.WaitAsync();
         try
         {
+            if (_original is null) return true;
+            if (!TryGetUpdate(out UpdateReimbursementCommand? update, out string error))
+            { StatusMessage = error; return false; }
+            if (MatchesOriginal(update!)) { StatusMessage = "修改已自动保存。"; return true; }
+            StatusMessage = "正在自动保存…";
+            await workspace.UpdateReimbursementAsync(update!);
+            _original = _original with
+            {
+                ApplicationDate = update!.ApplicationDate,
+                ReimbursementType = update.ReimbursementType,
+                Content = update.Content,
+                TotalMinorUnits = update.TotalMinorUnits,
+            };
+            // Keep the user's current input and caret intact while queued edits are saved.
+            Saved?.Invoke(_original);
+            StatusMessage = "修改已自动保存。";
+            return true;
+        }
+        catch (Exception exception) { StatusMessage = $"自动保存失败：{exception.Message}。请修改字段后重试。"; return false; }
+        finally { _saveLock.Release(); }
+    }
+
+    public void RefreshOrderSummary(ReimbursementForm form)
+    {
+        if (_original is not null) _original = _original with { OrderIds = form.OrderIds };
+        OrderSummary = $"已绑定 {form.OrderIds.Count} 个订单\n" + string.Join("\n", form.OrderIds);
+    }
+
+    public Task ImportAsync(IReadOnlyList<string> paths)
+    {
+        if (IsBusy || paths.Count == 0) return Task.CompletedTask;
+        return PendingImport = ImportCoreAsync(paths);
+    }
+
+    private async Task ImportCoreAsync(IReadOnlyList<string> paths)
+    {
+        IsBusy = true;
+        try
+        {
+            if (!await SaveAsync()) return;
+            StatusMessage = "正在保存附件并识别 PDF 首页…";
             ReimbursementImportResult result = await workspace.ImportReimbursementFilesAsync(id, paths);
             await LoadAsync();
+            Saved?.Invoke(_original!);
             StatusMessage = $"已添加 {result.ImportedCount} 个附件。" + string.Join("\n", result.Messages);
         }
         catch (Exception exception) { StatusMessage = $"添加附件失败：{exception.Message}"; }
