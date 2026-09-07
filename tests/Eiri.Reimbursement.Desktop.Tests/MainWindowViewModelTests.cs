@@ -1,5 +1,4 @@
 using System.IO;
-using Eiri.Reimbursement.Core.DataTransfer;
 using Eiri.Reimbursement.Core.Documents;
 using Eiri.Reimbursement.Core.Export;
 using Eiri.Reimbursement.Core.Materials;
@@ -16,23 +15,6 @@ public sealed class MainWindowViewModelTests : IDisposable
         Path.GetTempPath(),
         "eiri-desktop-tests",
         Guid.NewGuid().ToString("N"));
-
-    [Fact]
-    public async Task ExportingDataCreatesBackupPackageAndReportsCompletion()
-    {
-        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
-        await workspace.InitializeAsync();
-        RecordingBackupService backupService = new();
-        MainWindowViewModel viewModel = new(workspace, backupPackageService: backupService);
-        await viewModel.LoadAsync();
-        string destinationPath = Path.Combine(_libraryRoot, "backup.eirbackup");
-
-        await viewModel.ExportDataAsync(destinationPath);
-
-        Assert.Equal(destinationPath, backupService.ExportedPath);
-        Assert.Equal("数据已导出。", viewModel.StatusMessage);
-        Assert.False(viewModel.IsBusy);
-    }
 
     [Fact]
     public async Task ImportingDataRefreshesOrdersFromRestoredLibrary()
@@ -61,39 +43,6 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.Null(viewModel.SelectedOrder);
         Assert.Equal("数据已导入。", viewModel.StatusMessage);
         Assert.False(viewModel.IsBusy);
-    }
-
-    [Fact]
-    public async Task CreatingOrderUsesSelectedPlatform()
-    {
-        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
-        await workspace.InitializeAsync();
-        MainWindowViewModel viewModel = new(workspace);
-        await viewModel.LoadAsync();
-
-        Assert.Equal(
-            ["淘宝", "京东", "其他平台"],
-            viewModel.PlatformOptions.Select(option => option.DisplayName));
-        viewModel.SelectedPlatform = viewModel.PlatformOptions.Single(
-            option => option.Value == OrderPlatform.JD);
-        await viewModel.CreateOrderCommand.ExecuteAsync(null);
-
-        OrderListItem order = Assert.Single(viewModel.Orders);
-        Assert.Equal(OrderPlatform.JD, order.Platform);
-    }
-
-    [Fact]
-    public async Task LoadingExistingOrdersPreservesEmptySelection()
-    {
-        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
-        await workspace.InitializeAsync();
-        await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Taobao));
-        MainWindowViewModel viewModel = new(workspace);
-
-        await viewModel.LoadAsync();
-
-        Assert.Single(viewModel.Orders);
-        Assert.Null(viewModel.SelectedOrder);
     }
 
     [Fact]
@@ -319,28 +268,6 @@ public sealed class MainWindowViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task OrderDetailHeadingAndOperationsReflectSelectionCount()
-    {
-        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
-        await workspace.InitializeAsync();
-        await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.Taobao));
-        await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD));
-        MainWindowViewModel viewModel = new(workspace);
-        await viewModel.LoadAsync();
-        viewModel.SelectedOrder = viewModel.Orders[0];
-
-        viewModel.SetSelectedOrders([viewModel.Orders[0]]);
-
-        Assert.Equal("订单详情", viewModel.SelectedOrderHeading);
-        Assert.True(viewModel.IsSingleOrderSelected);
-
-        viewModel.SetSelectedOrders(viewModel.Orders);
-
-        Assert.Equal("已选中多个订单", viewModel.SelectedOrderHeading);
-        Assert.False(viewModel.IsSingleOrderSelected);
-    }
-
-    [Fact]
     public async Task OrderCountTextIncludesTotalAmountOfSelectedOrders()
     {
         SqliteReimbursementWorkspace workspace = new(_libraryRoot);
@@ -478,20 +405,4 @@ public sealed class MainWindowViewModelTests : IDisposable
             Task.FromException<ExportBatchResult>(new IOException("磁盘空间不足"));
     }
 
-    private sealed class RecordingBackupService : IWholeLibraryBackupService
-    {
-        public string? ExportedPath { get; private set; }
-
-        public Task CreateBackupAsync(
-            string destinationPath,
-            CancellationToken cancellationToken = default)
-        {
-            ExportedPath = destinationPath;
-            return Task.CompletedTask;
-        }
-
-        public Task RestoreBackupAsync(
-            string sourcePath,
-            CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
 }

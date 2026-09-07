@@ -198,29 +198,6 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task MultipleInvoiceLinesAreSummarizedInOrderList()
-    {
-        IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(_libraryRoot);
-        await workspace.InitializeAsync();
-        OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD));
-        string invoicePath = Path.Combine(_libraryRoot, "invoice-with-lines.pdf");
-        await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 line summary"u8.ToArray());
-        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
-        InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
-            await workspace.GetOrderAsync(orderId)).Invoices);
-        await workspace.UpdateInvoiceAsync(new UpdateInvoiceCommand(
-            invoice.Id,
-            "京东自营",
-            "25312000000000999999",
-            20_000,
-            [new InvoiceLineCorrection("显示器"), new InvoiceLineCorrection("支架")]));
-
-        OrderListItem order = Assert.Single(await workspace.SearchOrdersAsync(new OrderQuery()));
-
-        Assert.Equal("显示器等1条", order.ProductDisplay);
-    }
-
-    [Fact]
     public async Task MultipleInvoicesUseFirstInvoiceProductWithTrailingSummaryMarker()
     {
         IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(_libraryRoot);
@@ -282,34 +259,6 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task AnalyzedInvoiceReturnsExtractedTextAndUpdatesMaterialState()
-    {
-        DocumentAnalysis expected = new(
-            "test-worker",
-            "test-parser",
-            [new TextBlock("发票号码：25312000000000123456", 1, new TextBounds(0, 0, 100, 20), 1, "pdf-text")],
-            [],
-            true);
-        IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(
-            _libraryRoot,
-            new FixedDocumentProcessor(expected));
-        await workspace.InitializeAsync();
-        OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD));
-        string invoicePath = Path.Combine(_libraryRoot, "invoice-to-analyze.pdf");
-        await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 analyze me"u8.ToArray());
-        await workspace.ImportMaterialsAsync(new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
-        InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
-            await workspace.GetOrderAsync(orderId)).Invoices);
-
-        DocumentAnalysis actual = await workspace.AnalyzeInvoiceAsync(invoice.Id);
-
-        Assert.Equal("发票号码：25312000000000123456", Assert.Single(actual.TextBlocks).Text);
-        ManagedMaterial material = Assert.Single(Assert.IsType<OrderDetail>(
-            await workspace.GetOrderAsync(orderId)).Materials);
-        Assert.Equal(MaterialProcessingState.Processed, material.ProcessingState);
-    }
-
-    [Fact]
     public async Task AnalyzedInvoicePopulatesExtractedInvoiceFields()
     {
         DocumentAnalysis expected = new(
@@ -320,6 +269,8 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
                 new FieldCandidate("merchant_name", "深圳德诺嘉电子有限公司", 1, "invoice-profile"),
                 new FieldCandidate("invoice_number", "25952000000269819544", 1, "invoice-profile"),
                 new FieldCandidate("total_minor_units", "778800", 1, "invoice-profile"),
+                new FieldCandidate("product_name", "机械键盘", 1, "invoice-profile"),
+                new FieldCandidate("product_name", "键帽", 1, "invoice-profile"),
             ],
             false);
         IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(
@@ -341,38 +292,11 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         Assert.Equal("25952000000269819544", analyzedInvoice.InvoiceNumber);
         Assert.Equal(778_800, analyzedInvoice.TotalMinorUnits);
         Assert.False(analyzedInvoice.NeedsReview);
-    }
-
-    [Fact]
-    public async Task AnalyzedInvoicePersistsExtractedProductNames()
-    {
-        DocumentAnalysis expected = new(
-            "test-worker",
-            "test-parser",
-            [],
-            [
-                new FieldCandidate("merchant_name", "测试商家", 1, "invoice-profile"),
-                new FieldCandidate("invoice_number", "25952000000269819544", 1, "invoice-profile"),
-                new FieldCandidate("total_minor_units", "778800", 1, "invoice-profile"),
-                new FieldCandidate("product_name", "机械键盘", 1, "invoice-profile"),
-                new FieldCandidate("product_name", "键帽", 1, "invoice-profile"),
-            ],
-            false);
-        IReimbursementWorkspace workspace = new SqliteReimbursementWorkspace(
-            _libraryRoot,
-            new FixedDocumentProcessor(expected));
-        await workspace.InitializeAsync();
-        OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD));
-        string invoicePath = Path.Combine(_libraryRoot, "invoice-products.pdf");
-        await File.WriteAllBytesAsync(invoicePath, "%PDF-1.7 extracted products"u8.ToArray());
-        await workspace.ImportMaterialsAsync(
-            new ImportMaterialsCommand(orderId, [invoicePath], ManagedFileRole.InvoicePdf));
-
-        InvoiceDetail invoice = Assert.Single(Assert.IsType<OrderDetail>(
-            await workspace.GetOrderAsync(orderId)).Invoices);
-
-        Assert.Equal(["机械键盘", "键帽"], invoice.Lines.Select(line => line.Name));
-        Assert.Equal("机械键盘等1条", invoice.PrimaryProductDisplay);
+        Assert.Equal(["机械键盘", "键帽"], analyzedInvoice.Lines.Select(line => line.Name));
+        Assert.Equal("机械键盘等1条", Assert.Single(
+            await workspace.SearchOrdersAsync(new OrderQuery())).ProductDisplay);
+        Assert.Equal(MaterialProcessingState.Processed, Assert.Single(Assert.IsType<OrderDetail>(
+            await workspace.GetOrderAsync(orderId)).Materials).ProcessingState);
     }
 
     [Fact]

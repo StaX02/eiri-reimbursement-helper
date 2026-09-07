@@ -490,4 +490,5 @@ __pycache__/
 .firecrawl/
 
 # Local examples
-/example/
+/examples/
+.scratch

@@ -17,6 +17,8 @@ dotnet build Eiri.ReimbursementHelper.sln --no-restore
 dotnet test Eiri.ReimbursementHelper.sln --no-build
 ```
 
+.NET 测试保留关键检查点：金额换算、材料导入与去重、字段提取与人工校正、订单批量操作、导出成败、备份恢复与完整性校验、数据库迁移及 worker 通信。桌面渲染仅做窗口加载和选择状态检查；文案、颜色、尺寸及作者信息排版通过人工验收。
+
 ## Run
 
 ```powershell
