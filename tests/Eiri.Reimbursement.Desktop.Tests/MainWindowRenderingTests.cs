@@ -302,6 +302,25 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(Visibility.Visible, reimbursementPanel.Visibility);
                 Assert.Equal(Visibility.Collapsed, detailPanel.Visibility);
                 Assert.Empty(ordersGrid.SelectedItems);
+                var reimbursementTabs = Assert.IsType<TabControl>(fields.FindName("ReimbursementDetailTabs"));
+                Assert.Equal(new[] { "附件材料", "报销单属性", "关联订单" }, reimbursementTabs.Items.Cast<TabItem>().Select(tab => tab.Header.ToString()));
+                Assert.Same(detailTabs.Style, reimbursementTabs.Style);
+                Assert.Same(ordersGrid.CellStyle, reimbursementGrid.CellStyle);
+                Assert.Same(ordersGrid.ColumnHeaderStyle, reimbursementGrid.ColumnHeaderStyle);
+                Assert.Equal(ordersGrid.GridLinesVisibility, reimbursementGrid.GridLinesVisibility);
+                var reimbursementDrop = Assert.IsType<Border>(fields.FindName("ReimbursementDropZone"));
+                var invoiceDrop = Assert.IsType<Border>(window.FindName("InvoiceDropZone"));
+                Assert.True(reimbursementDrop.AllowDrop);
+                Assert.Equal(invoiceDrop.Background, reimbursementDrop.Background);
+                Assert.Equal(invoiceDrop.BorderBrush, reimbursementDrop.BorderBrush);
+                Assert.True(reimbursementDrop.TranslatePoint(new Point(0, 0), window).Y < reimbursementTabs.TranslatePoint(new Point(0, 0), window).Y);
+                reimbursementGrid.ScrollIntoView(firstRow);
+                SavePreview(window, "reimbursement-tabs-attachments.png");
+                reimbursementTabs.SelectedIndex = 2;
+                window.UpdateLayout();
+                SavePreview(window, "reimbursement-tabs-orders.png");
+                reimbursementTabs.SelectedIndex = 1;
+                window.UpdateLayout();
                 Assert.Equal("5078.74", Assert.IsType<TextBox>(fields.FindName("AmountInput")).Text);
                 var contentInput = Assert.IsType<TextBox>(fields.FindName("ContentInput"));
                 contentInput.Text = "即时保存的报销内容";
@@ -319,6 +338,13 @@ public sealed class MainWindowRenderingTests
                 ThemeManager.Toggle(application.Resources);
                 window.UpdateLayout();
                 SavePreview(window, "reimbursement-sidebar-dark.png");
+                reimbursementTabs.SelectedIndex = 0;
+                viewModel.ReimbursementEditor!.Attachments =
+                [
+                    new(Guid.NewGuid(), "报销单附件名称较长时应在卡片中省略并可通过提示查看完整名称.pdf", "sample.pdf", "首页部分字段未识别，请检查报销单文件并在报销单属性中补充申请日期、报销类型、报销内容和总金额。"),
+                ];
+                window.UpdateLayout();
+                SavePreview(window, "reimbursement-tabs-attachments-dark.png");
                 ThemeManager.Toggle(application.Resources);
                 reimbursementGrid.SelectedItems.Add(secondRow);
                 window.UpdateLayout();

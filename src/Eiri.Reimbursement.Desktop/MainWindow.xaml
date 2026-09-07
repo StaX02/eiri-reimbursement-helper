@@ -91,66 +91,6 @@
             </Style.Triggers>
         </Style>
 
-        <Style x:Key="DetailTabControlStyle"
-               TargetType="TabControl"
-               BasedOn="{StaticResource {x:Type TabControl}}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabControl">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <TabPanel Grid.Row="0"
-                                      IsItemsHost="True"
-                                      Background="Transparent"
-                                      KeyboardNavigation.TabIndex="1" />
-                            <Border Grid.Row="1"
-                                    BorderBrush="{DynamicResource BorderBrush}"
-                                    BorderThickness="0,1,0,0">
-                                <ContentPresenter ContentSource="SelectedContent" />
-                            </Border>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="DetailTabItemStyle"
-               TargetType="TabItem"
-               BasedOn="{StaticResource {x:Type TabItem}}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="TabBorder"
-                                Padding="{TemplateBinding Padding}"
-                                Background="Transparent"
-                                BorderBrush="Transparent"
-                                BorderThickness="0,0,0,2">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              ContentSource="Header"
-                                              RecognizesAccessKey="True" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="TabBorder"
-                                        Property="Background"
-                                        Value="{DynamicResource HoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="TabBorder"
-                                        Property="BorderBrush"
-                                        Value="{DynamicResource PrimaryBrush}" />
-                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
-                                <Setter Property="FontWeight" Value="SemiBold" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </Window.Resources>
 
     <DockPanel>
@@ -402,19 +342,9 @@
                                       RowHeaderWidth="0"
                                       SelectionChanged="OrdersGrid_OnSelectionChanged"
                                       PreviewMouseRightButtonDown="OrdersGrid_OnPreviewMouseRightButtonDown"
-                                      AlternatingRowBackground="{DynamicResource AlternatingRowBrush}">
-                                <DataGrid.CellStyle>
-                                    <Style TargetType="DataGridCell"
-                                           BasedOn="{StaticResource {x:Type DataGridCell}}">
-                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
-                                    </Style>
-                                </DataGrid.CellStyle>
-                                <DataGrid.ColumnHeaderStyle>
-                                    <Style TargetType="DataGridColumnHeader"
-                                           BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
-                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
-                                    </Style>
-                                </DataGrid.ColumnHeaderStyle>
+                                      AlternatingRowBackground="{DynamicResource AlternatingRowBrush}"
+                                      CellStyle="{StaticResource CenteredDataGridCellStyle}"
+                                      ColumnHeaderStyle="{StaticResource CenteredDataGridColumnHeaderStyle}">
                                 <DataGrid.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem Header="创建报销单" Click="CreateReimbursement_OnClick" />
@@ -577,10 +507,16 @@
                     <Border Grid.Row="2" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <DockPanel Margin="16,10">
-                                <TextBlock Text="报销单" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            </DockPanel>
-                            <DataGrid x:Name="ReimbursementsGrid" Grid.Row="1" ItemsSource="{Binding Reimbursements}" SelectedItem="{Binding SelectedReimbursement}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Extended" SelectionUnit="FullRow" HeadersVisibility="Column" RowHeaderWidth="0" SelectionChanged="ReimbursementsGrid_OnSelectionChanged" BorderThickness="0" AutomationProperties.Name="报销单列表">
+                            <StackPanel Margin="16,12" MinHeight="36" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="报销单" FontFamily="Segoe UI Variable Display, Microsoft YaHei UI" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <TextBlock Text="报销信息与关联订单汇总" Margin="10,0,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <DataGrid x:Name="ReimbursementsGrid" Grid.Row="1" ItemsSource="{Binding Reimbursements}" SelectedItem="{Binding SelectedReimbursement}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Extended" SelectionUnit="FullRow" HeadersVisibility="Column" RowHeaderWidth="0" SelectionChanged="ReimbursementsGrid_OnSelectionChanged" BorderThickness="0" AutomationProperties.Name="报销单列表"
+                                      EnableColumnVirtualization="False" GridLinesVisibility="Horizontal"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                      AlternatingRowBackground="{DynamicResource AlternatingRowBrush}"
+                                      CellStyle="{StaticResource CenteredDataGridCellStyle}"
+                                      ColumnHeaderStyle="{StaticResource CenteredDataGridColumnHeaderStyle}">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="申请日期" Binding="{Binding ApplicationDateDisplay}" Width="110"/>
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="报销类型" Binding="{Binding ReimbursementType}" Width="110"/>
@@ -588,17 +524,28 @@
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="总金额" Binding="{Binding TotalAmount, StringFormat={}{0:N2}}" Width="110"/>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <TextBlock Grid.Row="1" Text="暂无报销单。选择订单后，右键创建报销单。" TextWrapping="Wrap" Margin="16" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
-                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasItems, ElementName=ReimbursementsGrid}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
-                            </TextBlock>
-                            <DockPanel Grid.Row="2" Margin="12,6">
-                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                    <Button Content="上一页" Click="PreviousReimbursements_OnClick"/>
-                                    <TextBlock Text="{Binding ReimbursementPageDisplay}" VerticalAlignment="Center" Margin="8,0"/>
-                                    <Button Content="下一页" Click="NextReimbursements_OnClick"/>
+                            <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Margin="16,40,16,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasItems, ElementName=ReimbursementsGrid}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text="还没有报销单" HorizontalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock Text="选择订单后，右键创建报销单。" Margin="0,6,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" />
+                            </StackPanel>
+                            <Grid Grid.Row="2" Margin="16,6">
+                                <TextBlock Text="{Binding Reimbursements.Count, StringFormat=本页 {0} 个报销单}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                                    <Button Content="上一页" Height="32" Click="PreviousReimbursements_OnClick"/>
+                                    <TextBlock Text="{Binding ReimbursementPageDisplay}" VerticalAlignment="Center" Margin="8,0" FontSize="12"/>
+                                    <Button Content="下一页" Height="32" Click="NextReimbursements_OnClick"/>
                                 </StackPanel>
-
-                            </DockPanel>
+                            </Grid>
                         </Grid>
                     </Border>
                 </Grid>
@@ -617,9 +564,9 @@
                                 <TextBlock Text="报销信息与附件" Margin="0,3,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
                             </StackPanel>
                         </Grid>
-                        <Grid Grid.Row="1" Margin="18,0,10,18" Visibility="{Binding IsSingleReimbursementSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid Grid.Row="1" Margin="0,0,0,12" Visibility="{Binding IsSingleReimbursementSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <Grid.Style><Style TargetType="Grid"><Setter Property="IsEnabled" Value="True"/><Style.Triggers><DataTrigger Binding="{Binding IsBusy}" Value="True"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Grid.Style>
-                            <TextBlock Text="{Binding ReimbursementDetailStatus}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding ReimbursementDetailStatus}" Margin="18,0" TextWrapping="Wrap"/>
                             <local:ReimbursementDetailView x:Name="ReimbursementDetailFields" DataContext="{Binding ReimbursementEditor}">
                                 <local:ReimbursementDetailView.Style><Style TargetType="local:ReimbursementDetailView"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></local:ReimbursementDetailView.Style>
                             </local:ReimbursementDetailView>
@@ -773,12 +720,7 @@
                                          HorizontalContentAlignment="Stretch">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Margin="0,0,0,8"
-                                                    Padding="11"
-                                                    Background="{DynamicResource SubtlePanelBrush}"
-                                                    BorderBrush="{DynamicResource BorderBrush}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="6">
+                                            <Border Style="{StaticResource DetailMaterialCardStyle}">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
