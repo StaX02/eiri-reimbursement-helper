@@ -652,6 +652,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task ReloadOrdersAsync(OrderId? selectedOrderId)
     {
+        await ReloadReimbursementsAsync();
         IReadOnlyList<OrderListItem> items = await _workspace.SearchOrdersAsync(new OrderQuery());
         Orders = new ObservableCollection<OrderListItem>(items);
         OnPropertyChanged(nameof(OrderCountText));

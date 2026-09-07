@@ -456,6 +456,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
             await using SqliteCommand setup = connection.CreateCommand();
             setup.CommandText =
                 """
+                CREATE TABLE orders (id TEXT PRIMARY KEY);
                 CREATE TABLE invoices (
                     id TEXT PRIMARY KEY,
                     merchant_name TEXT NOT NULL DEFAULT '',

@@ -2,7 +2,7 @@ namespace Eiri.Reimbursement.Infrastructure.Sqlite;
 
 internal static class Schema
 {
-    internal const int CurrentVersion = 3;
+    internal const int CurrentVersion = 4;
 
     internal const string Version1 =
         """
@@ -93,5 +93,33 @@ internal static class Schema
           AND json_type(candidates_json) = 'object'
           AND json_type(candidates_json, '$.candidates') = 'array';
         PRAGMA user_version = 3;
+        """;
+    internal const string Version4 =
+        """
+        BEGIN IMMEDIATE;
+        CREATE TABLE reimbursement_forms (
+            id TEXT PRIMARY KEY,
+            application_date TEXT NULL,
+            reimbursement_type TEXT NOT NULL DEFAULT '',
+            content TEXT NOT NULL DEFAULT '',
+            total_minor_units INTEGER NULL,
+            has_analysis INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
+        ALTER TABLE orders ADD COLUMN reimbursement_id TEXT NULL REFERENCES reimbursement_forms(id) ON DELETE RESTRICT;
+        CREATE INDEX idx_orders_reimbursement_id ON orders(reimbursement_id);
+        CREATE TABLE reimbursement_files (
+            id TEXT PRIMARY KEY,
+            reimbursement_id TEXT NOT NULL REFERENCES reimbursement_forms(id) ON DELETE RESTRICT,
+            original_file_name TEXT NOT NULL,
+            relative_path TEXT NOT NULL UNIQUE,
+            byte_length INTEGER NOT NULL,
+            sha256 TEXT NOT NULL,
+            processing_error TEXT NULL,
+            imported_at TEXT NOT NULL,
+            UNIQUE(reimbursement_id, sha256)
+        );
+        PRAGMA user_version = 4;
+        COMMIT;
         """;
 }

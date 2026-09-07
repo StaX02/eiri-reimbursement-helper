@@ -430,7 +430,10 @@ public sealed class WholeLibraryBackupService : IWholeLibraryBackupService
         }.ToString());
         await connection.OpenAsync(cancellationToken);
         await using SqliteCommand command = connection.CreateCommand();
-        command.CommandText = "SELECT relative_path, byte_length, sha256 FROM managed_files;";
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'reimbursement_files';";
+        bool hasReimbursementFiles = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken)) != 0;
+        command.CommandText = "SELECT relative_path, byte_length, sha256 FROM managed_files"
+            + (hasReimbursementFiles ? " UNION ALL SELECT relative_path, byte_length, sha256 FROM reimbursement_files" : "") + ";";
         await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {

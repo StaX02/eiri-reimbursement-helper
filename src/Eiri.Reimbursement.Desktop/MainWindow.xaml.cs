@@ -17,6 +17,46 @@ public partial class MainWindow : Window
         DataContext = viewModel;
     }
 
+    private async void CreateReimbursement_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm && await vm.CreateReimbursementAsync(GetSelectedOrderIds()) is Guid id)
+            await OpenReimbursementAsync(id);
+    }
+
+    private async Task OpenReimbursementAsync(Guid id)
+    {
+        if (DataContext is not MainWindowViewModel vm || vm.IsBusy || vm.ReimbursementWorkspace is not { } workspace) return;
+        try
+        {
+            vm.IsBusy = true;
+            ReimbursementEditorViewModel editor = new(workspace, id);
+            await editor.LoadAsync();
+            vm.IsBusy = false;
+            new ReimbursementDetailWindow(editor) { Owner = this }.ShowDialog();
+            await vm.RefreshCommand.ExecuteAsync(null);
+        }
+        catch (Exception exception) { vm.StatusMessage = $"无法打开报销单：{exception.Message}"; }
+        finally { vm.IsBusy = false; }
+    }
+    private async void OpenReimbursement_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm && vm.SelectedReimbursement is { } form)
+            await OpenReimbursementAsync(form.Id);
+    }
+    private void Reimbursements_OnDoubleClick(object sender, MouseButtonEventArgs e) => OpenReimbursement_OnClick(sender, e);
+    private void Reimbursements_OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) { OpenReimbursement_OnClick(sender, e); e.Handled = true; }
+    }
+    private async Task ChangeReimbursementPageAsync(int delta)
+    {
+        if (DataContext is not MainWindowViewModel vm || vm.IsBusy) return;
+        try { await vm.ReloadReimbursementsAsync(vm.ReimbursementPage + delta); }
+        catch (Exception exception) { vm.StatusMessage = $"加载报销单失败：{exception.Message}"; }
+    }
+    private async void PreviousReimbursements_OnClick(object sender, RoutedEventArgs e) => await ChangeReimbursementPageAsync(-1);
+    private async void NextReimbursements_OnClick(object sender, RoutedEventArgs e) => await ChangeReimbursementPageAsync(1);
+
     public void RefreshOrdersList() => OrdersGrid.Items.Refresh();
 
     private void MinimizeWindowButton_OnClick(object sender, RoutedEventArgs e) =>

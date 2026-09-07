@@ -34,8 +34,12 @@ public sealed record OrderListItem(
     DateTimeOffset? ExportedAt,
     DateTimeOffset? SubmittedAt,
     DateTimeOffset? RefundedAt,
-    DateTimeOffset CreatedAt)
+    DateTimeOffset CreatedAt,
+    Guid? ReimbursementId = null,
+    string? ReimbursementContent = null)
 {
+    public string ReimbursementDisplay => ReimbursementId is null ? "暂未绑定" : string.IsNullOrWhiteSpace(ReimbursementContent) ? "报销内容待填写" : ReimbursementContent;
+
     public decimal TotalAmount => TotalMinorUnits / 100m;
 
     public string PlatformDisplay => Platform.ToDisplayName();

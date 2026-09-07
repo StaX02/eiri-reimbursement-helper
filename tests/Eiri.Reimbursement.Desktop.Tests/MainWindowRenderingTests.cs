@@ -278,6 +278,35 @@ public sealed class MainWindowRenderingTests
                     batchWindow.FindName("BatchInvoiceDropZone"));
                 Assert.True(batchDropZone.AllowDrop);
                 batchWindow.Close();
+                DataGrid reimbursementGrid = Assert.IsType<DataGrid>(window.FindName("ReimbursementsGrid"));
+                Assert.Equal(new[] { "申请日期", "报销类型", "报销内容", "总金额" }, reimbursementGrid.Columns.Select(c => c.Header.ToString()));
+                Assert.True(reimbursementGrid.TranslatePoint(new Point(0, 0), window).Y > ordersGrid.TranslatePoint(new Point(0, 0), window).Y);
+                Assert.NotNull(window.FindName("OrderReimbursementContent"));
+                viewModel.SetSelectedOrders([selectedOrder]);
+                viewModel.Reimbursements = [new(Guid.NewGuid(), new DateOnly(2026, 8, 25), "材料费", "IGCT驱动芯片测试PCB", 507874, [selectedOrder.Id])];
+                viewModel.StatusMessage = "已创建报销单，绑定 2 个订单。";
+                window.UpdateLayout();
+                SavePreview(window, "reimbursement-main.png");
+                window.Width = 980;
+                window.Height = 660;
+                window.UpdateLayout();
+                Assert.True(reimbursementGrid.ActualHeight >= 80);
+                SavePreview(window, "reimbursement-main-narrow.png");
+                ReimbursementEditorViewModel editor = new(workspace, Guid.NewGuid())
+                {
+                    ApplicationDate = "2026-08-25", ReimbursementType = "材料费",
+                    Content = "IGCT驱动芯片测试PCB", TotalAmount = "5078.74", OrderSummary = "已绑定 2 个订单",
+                };
+                ReimbursementDetailWindow formWindow = new(editor);
+                formWindow.Show();
+                formWindow.UpdateLayout();
+                Assert.Equal("5078.74", Assert.IsType<TextBox>(formWindow.FindName("AmountInput")).Text);
+                SavePreview(formWindow, "reimbursement-detail.png");
+                ThemeManager.Toggle(application.Resources);
+                formWindow.UpdateLayout();
+                SavePreview(formWindow, "reimbursement-detail-dark.png");
+                ThemeManager.Toggle(application.Resources);
+                formWindow.Close();
                 window.Close();
             }
             catch (Exception exception)
@@ -336,5 +365,17 @@ public sealed class MainWindowRenderingTests
         Directory.CreateDirectory(Path.GetDirectoryName(capturePath)!);
         using FileStream stream = File.Create(capturePath);
         encoder.Save(stream);
+    }
+    private static void SavePreview(Window window, string name)
+    {
+        string? output = Environment.GetEnvironmentVariable("EIRI_QA_OUTPUT");
+        if (output is null) return;
+        Directory.CreateDirectory(output);
+        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+        bitmap.Render(window);
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        using var file = File.Create(Path.Combine(output, name));
+        encoder.Save(file);
     }
 }

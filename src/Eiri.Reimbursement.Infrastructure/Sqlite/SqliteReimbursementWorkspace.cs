@@ -10,7 +10,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Eiri.Reimbursement.Infrastructure.Sqlite;
 
-public sealed class SqliteReimbursementWorkspace(
+public sealed partial class SqliteReimbursementWorkspace(
     string libraryRoot,
     IDocumentProcessor? documentProcessor = null) : IReimbursementWorkspace
 {
@@ -131,8 +131,9 @@ public sealed class SqliteReimbursementWorkspace(
                 o.exported_at,
                 o.submitted_at,
                 o.refunded_at,
-                o.created_at
+                o.created_at, o.reimbursement_id, r.content
             FROM orders o
+            LEFT JOIN reimbursement_forms r ON r.id = o.reimbursement_id
             WHERE ($platform IS NULL OR o.platform = $platform)
               AND ($searchText IS NULL
                    OR o.external_order_number LIKE '%' || $searchText || '%'
@@ -164,7 +165,9 @@ public sealed class SqliteReimbursementWorkspace(
                 ParseNullableTimestamp(reader, 8),
                 ParseNullableTimestamp(reader, 9),
                 ParseNullableTimestamp(reader, 10),
-                DateTimeOffset.Parse(reader.GetString(11), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)));
+                DateTimeOffset.Parse(reader.GetString(11), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+                reader.IsDBNull(12) ? null : Guid.Parse(reader.GetString(12)),
+                reader.IsDBNull(13) ? null : reader.GetString(13)));
         }
 
         return orders;
@@ -296,7 +299,8 @@ public sealed class SqliteReimbursementWorkspace(
         await using SqliteCommand orderSql = connection.CreateCommand();
         orderSql.CommandText =
             """
-            SELECT platform, external_order_number, notes
+            SELECT platform, external_order_number, notes, reimbursement_id,
+                   (SELECT content FROM reimbursement_forms WHERE id = orders.reimbursement_id)
             FROM orders
             WHERE id = $id;
             """;
@@ -305,6 +309,8 @@ public sealed class SqliteReimbursementWorkspace(
         OrderPlatform platform;
         string? externalOrderNumber;
         string? notes;
+        Guid? reimbursementId;
+        string? reimbursementContent;
         await using (SqliteDataReader reader = await orderSql.ExecuteReaderAsync(cancellationToken))
         {
             if (!await reader.ReadAsync(cancellationToken))
@@ -315,6 +321,8 @@ public sealed class SqliteReimbursementWorkspace(
             platform = Enum.Parse<OrderPlatform>(reader.GetString(0));
             externalOrderNumber = reader.IsDBNull(1) ? null : reader.GetString(1);
             notes = reader.IsDBNull(2) ? null : reader.GetString(2);
+            reimbursementId = reader.IsDBNull(3) ? null : Guid.Parse(reader.GetString(3));
+            reimbursementContent = reader.IsDBNull(4) ? null : reader.GetString(4);
         }
 
         List<ManagedMaterial> materials = [];
@@ -410,7 +418,7 @@ public sealed class SqliteReimbursementWorkspace(
                 lines));
         }
 
-        return new OrderDetail(orderId, platform, externalOrderNumber, notes, materials, invoices);
+        return new OrderDetail(orderId, platform, externalOrderNumber, notes, materials, invoices, reimbursementId, reimbursementContent);
     }
 
     public async Task UpdateInvoiceAsync(
@@ -505,6 +513,15 @@ public sealed class SqliteReimbursementWorkspace(
             if (!await OrderExistsAsync(connection, transaction, orderId, cancellationToken))
             {
                 throw new KeyNotFoundException($"Order '{orderId}' was not found.");
+            }
+
+            await using (SqliteCommand guard = connection.CreateCommand())
+            {
+                guard.Transaction = transaction;
+                guard.CommandText = "SELECT COUNT(*) FROM orders o WHERE o.id = $id AND o.reimbursement_id IS NOT NULL AND (SELECT COUNT(*) FROM orders members WHERE members.reimbursement_id = o.reimbursement_id) = 1;";
+                guard.Parameters.AddWithValue("$id", orderId.ToString());
+                if (Convert.ToInt64(await guard.ExecuteScalarAsync(cancellationToken)) > 0)
+                    throw new InvalidOperationException("该订单是报销单的唯一关联订单，无法删除。");
             }
 
             if (Directory.Exists(orderDirectory))
@@ -765,6 +782,12 @@ public sealed class SqliteReimbursementWorkspace(
         if (version == 2)
         {
             await ExecuteNonQueryAsync(connection, Schema.Version3, cancellationToken);
+            version = 3;
+        }
+
+        if (version == 3)
+        {
+            await ExecuteNonQueryAsync(connection, Schema.Version4, cancellationToken);
         }
     }
 

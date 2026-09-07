@@ -116,7 +116,7 @@ def find_product_names(text: str) -> list[str]:
     return product_names
 
 
-def extract_ocr_text_blocks(file_path: Path) -> tuple[list[dict[str, Any]], dict[int, tuple[float, float]]]:
+def extract_ocr_text_blocks(file_path: Path, page_limit: int | None = None) -> tuple[list[dict[str, Any]], dict[int, tuple[float, float]]]:
     from rapidocr import RapidOCR
 
     engine = RapidOCR()
@@ -124,7 +124,7 @@ def extract_ocr_text_blocks(file_path: Path) -> tuple[list[dict[str, Any]], dict
     page_sizes: dict[int, tuple[float, float]] = {}
     document = pdfium.PdfDocument(file_path)
     try:
-        for page_index in range(len(document)):
+        for page_index in range(min(len(document), page_limit) if page_limit is not None else len(document)):
             page = document[page_index]
             try:
                 width, height = page.get_size()
@@ -372,6 +372,73 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
     }
 
 
+def reimbursement_candidates(text: str, source: str, bounds: dict) -> list[dict[str, Any]]:
+    # Match semantic labels, allowing OCR whitespace inside Chinese labels.
+    labels = {
+        "application_date": r"申\s*请\s*日\s*期",
+        "reimbursement_type": r"报\s*销\s*类\s*型",
+        "reimbursement_content": r"报\s*销\s*内\s*容",
+        "total_minor_units": r"总\s*金\s*额(?:\s*[（(]\s*元\s*[）)])?",
+    }
+    boundary = "|".join(labels.values()) + r"|收款人|付款方式|附件|审批|备注|明细|费用归属|支付方式"
+    candidates = []
+    for field, label in labels.items():
+        match = re.search(label + r"\s*[:：]?\s*(.*?)(?=\r?\n|" + boundary + r"|$)", text)
+        if not match:
+            continue
+        if field == "reimbursement_content":
+            match = re.search(label + r"[ \t]*[:：]?[ \t]*(.*?)(?=\r?\n\s*(?:" + boundary + r"|[\u4e00-\u9fff]{2,10}[:：])|[ \t]+(?:" + "|".join(labels.values()) + r")[ \t]*[:：]|$)", text, re.DOTALL)
+        value = match.group(1).strip()
+        if field == "application_date":
+            date = re.fullmatch(r"(\d{4})\s*[-/年]\s*(\d{1,2})\s*[-/月]\s*(\d{1,2})日?", value)
+            if not date:
+                continue
+            from datetime import date as calendar_date
+            try:
+                value = calendar_date(*map(int, date.groups())).isoformat()
+            except ValueError:
+                continue
+        elif field == "total_minor_units":
+            amount = re.match(r"[¥￥]?\s*(-?(?:\d{1,3}(?:[,，]\d{3})+|\d+)(?:\.\d{1,2})?)(?![\d.])", value)
+            if not amount:
+                continue
+            value = str(int(Decimal(amount.group(1).replace(",", "").replace("，", "")) * 100))
+        if value:
+            candidates.append({"field": field, "value": value, "confidence": 0.95 if source == "ocr" else 0.99,
+                               "source": source, "page": 1, "bounds": bounds})
+    return candidates
+
+
+def analyze_reimbursement_pdf(file_path: Path) -> dict[str, Any]:
+    if file_path.suffix.lower() != ".pdf":
+        raise ValueError("Only PDF reimbursement forms can be recognized.")
+    document = pdfium.PdfDocument(file_path)
+    try:
+        page = document[0]
+        try:
+            width, height = page.get_size()
+            text_page = page.get_textpage()
+            try:
+                text = text_page.get_text_range().strip()
+            finally:
+                text_page.close()
+        finally:
+            page.close()
+    finally:
+        document.close()
+    bounds = {"x": 0.0, "y": 0.0, "width": width, "height": height}
+    blocks = [{"text": text, "page": 1, "bounds": bounds, "confidence": 1.0, "source": "pdf-text"}] if text else []
+    candidates = reimbursement_candidates(text, "pdf-text", bounds)
+    if len(candidates) < 4:
+        ocr_blocks, _ = extract_ocr_text_blocks(file_path, page_limit=1)
+        blocks.extend(ocr_blocks)
+        found = {c["field"] for c in candidates}
+        for semantic_page in build_semantic_pages(ocr_blocks):
+            candidates.extend(c for c in reimbursement_candidates(semantic_page["text"], "ocr", bounds) if c["field"] not in found)
+    return {"workerVersion": __version__, "parserVersion": "cn-reimbursement-semantic-1.0",
+            "textBlocks": blocks, "candidates": candidates, "needsReview": len(candidates) < 4}
+
+
 def render_pdf(file_path: Path, output_directory: Path) -> list[str]:
     if file_path.suffix.lower() != ".pdf":
         raise ValueError("The PDF renderer only accepts .pdf files.")
@@ -413,10 +480,12 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             "protocolVersion": PROTOCOL_VERSION,
             "renderedFiles": rendered_files,
         }
-    if job.get("kind") != 1:
-        raise ValueError("The current PoC only supports invoice PDFs.")
-
-    analysis = analyze_pdf(Path(job["filePath"]).resolve())
+    if job.get("kind") == 3:
+        analysis = analyze_reimbursement_pdf(Path(job["filePath"]).resolve())
+    elif job.get("kind") == 1:
+        analysis = analyze_pdf(Path(job["filePath"]).resolve())
+    else:
+        raise ValueError("Unsupported document kind.")
     return {"protocolVersion": PROTOCOL_VERSION, "analysis": analysis}
 
 

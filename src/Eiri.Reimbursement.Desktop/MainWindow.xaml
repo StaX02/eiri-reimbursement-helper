@@ -9,7 +9,7 @@
         Width="1240"
         Height="760"
         MinWidth="980"
-        MinHeight="600"
+        MinHeight="660"
         WindowStyle="None"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource SurfaceBrush}">
@@ -23,6 +23,12 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <Style x:Key="ReimbursementCellTextStyle" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+        </Style>
 
         <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
             <Setter Property="Margin" Value="0,0,0,5" />
@@ -330,6 +336,12 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
+                <Grid Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="3*" MinHeight="160"/>
+                        <RowDefinition Height="8"/>
+                        <RowDefinition Height="2*" MinHeight="200"/>
+                    </Grid.RowDefinitions>
                 <Border Grid.Column="0"
                         Background="{DynamicResource PanelBrush}"
                         BorderBrush="{DynamicResource BorderBrush}"
@@ -404,6 +416,8 @@
                                 </DataGrid.ColumnHeaderStyle>
                                 <DataGrid.ContextMenu>
                                     <ContextMenu>
+                                        <MenuItem Header="创建报销单" Click="CreateReimbursement_OnClick" />
+                                        <Separator />
                                         <MenuItem Header="设为已提交"
                                                   Click="SetOrdersSubmittedMenuItem_OnClick" />
                                         <MenuItem Header="设为已返款"
@@ -417,6 +431,7 @@
                                     </ContextMenu>
                                 </DataGrid.ContextMenu>
                                 <DataGrid.Columns>
+                                    <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="所属报销单" Binding="{Binding ReimbursementDisplay}" Width="150" />
                                     <DataGridTemplateColumn Width="72" Header="平台">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
@@ -557,6 +572,37 @@
                     </Grid>
                 </Border>
 
+                    <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" Background="{DynamicResource BorderBrush}"/>
+                    <Border Grid.Row="2" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <DockPanel Margin="16,10">
+                                <Button DockPanel.Dock="Right" Content="打开详情" Click="OpenReimbursement_OnClick"/>
+                                <TextBlock Text="报销单" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <DataGrid x:Name="ReimbursementsGrid" Grid.Row="1" ItemsSource="{Binding Reimbursements}" SelectedItem="{Binding SelectedReimbursement}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" HeadersVisibility="Column" RowHeaderWidth="0" MouseDoubleClick="Reimbursements_OnDoubleClick" PreviewKeyDown="Reimbursements_OnKeyDown" BorderThickness="0" AutomationProperties.Name="报销单列表">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="申请日期" Binding="{Binding ApplicationDateDisplay}" Width="110"/>
+                                    <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="报销类型" Binding="{Binding ReimbursementType}" Width="110"/>
+                                    <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="报销内容" Binding="{Binding ContentDisplay}" Width="*" MinWidth="150"/>
+                                    <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="总金额" Binding="{Binding TotalAmount, StringFormat={}{0:N2}}" Width="110"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock Grid.Row="1" Text="暂无报销单。选择订单后，右键创建报销单。" TextWrapping="Wrap" Margin="16" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasItems, ElementName=ReimbursementsGrid}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                            </TextBlock>
+                            <DockPanel Grid.Row="2" Margin="12,6">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Button Content="上一页" Click="PreviousReimbursements_OnClick"/>
+                                    <TextBlock Text="{Binding ReimbursementPageDisplay}" VerticalAlignment="Center" Margin="8,0"/>
+                                    <Button Content="下一页" Click="NextReimbursements_OnClick"/>
+                                </StackPanel>
+
+                            </DockPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+
                 <Border x:Name="OrderDetailPanel"
                         Grid.Column="1"
                         Width="380"
@@ -602,6 +648,8 @@
                                            FontSize="12"
                                            Foreground="{DynamicResource SecondaryTextBrush}"
                                            Text="材料、发票与报销进度" />
+                                <TextBlock Text="所属报销单" Margin="0,8,0,2" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <TextBlock x:Name="OrderReimbursementContent" Text="{Binding SelectedOrder.ReimbursementDisplay}" TextWrapping="Wrap" />
                             </StackPanel>
                             <Button Grid.Column="2"
                                     Width="58"

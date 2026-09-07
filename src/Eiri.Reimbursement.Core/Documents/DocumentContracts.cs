@@ -10,6 +10,7 @@ public enum DocumentKind
 {
     InvoicePdf = 1,
     OrderScreenshot = 2,
+    ReimbursementPdf = 3,
 }
 
 public sealed record TextBounds(double X, double Y, double Width, double Height);

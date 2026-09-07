@@ -69,8 +69,12 @@ public sealed record OrderDetail(
     string? ExternalOrderNumber,
     string? Notes,
     IReadOnlyList<ManagedMaterial> Materials,
-    IReadOnlyList<InvoiceDetail> Invoices)
+    IReadOnlyList<InvoiceDetail> Invoices,
+    Guid? ReimbursementId = null,
+    string? ReimbursementContent = null)
 {
+    public string ReimbursementDisplay => ReimbursementId is null ? "暂未绑定" : string.IsNullOrWhiteSpace(ReimbursementContent) ? "报销内容待填写" : ReimbursementContent;
+
     public string ProductDisplay
     {
         get
