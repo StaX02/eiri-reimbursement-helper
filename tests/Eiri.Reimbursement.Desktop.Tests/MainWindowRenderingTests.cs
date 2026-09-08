@@ -97,7 +97,7 @@ public sealed class MainWindowRenderingTests
                 workspace.UpdateReimbursementAsync(new(firstId, new DateOnly(2026, 8, 25), "材料费", "IGCT驱动芯片测试PCB", 507874)).GetAwaiter().GetResult();
                 viewModel.LoadAsync().GetAwaiter().GetResult();
                 DataGrid reimbursementGrid = Assert.IsType<DataGrid>(window.FindName("ReimbursementsGrid"));
-                Assert.Equal(new[] { "申请日期", "报销类型", "报销内容", "总金额" }, reimbursementGrid.Columns.Select(c => c.Header.ToString()));
+                Assert.Equal(new[] { "申请日期", "报销类型", "报销内容", "总金额", "已导出", "已提交", "已返款" }, reimbursementGrid.Columns.Select(c => c.Header.ToString()));
                 Assert.Equal(DataGridSelectionMode.Extended, reimbursementGrid.SelectionMode);
                 Assert.True(reimbursementGrid.TranslatePoint(new Point(0, 0), window).Y > ordersGrid.TranslatePoint(new Point(0, 0), window).Y);
                 Border reimbursementPanel = Assert.IsType<Border>(window.FindName("ReimbursementDetailPanel"));
@@ -125,6 +125,22 @@ public sealed class MainWindowRenderingTests
                 Assert.Equal(invoiceDrop.BorderBrush, reimbursementDrop.BorderBrush);
                 Assert.True(reimbursementDrop.TranslatePoint(new Point(0, 0), window).Y < reimbursementTabs.TranslatePoint(new Point(0, 0), window).Y);
                 reimbursementGrid.ScrollIntoView(firstRow);
+                window.UpdateLayout();
+                string[] incompleteStatuses = ["未导出", "未提交", "未返款"];
+                for (int index = 0; index < incompleteStatuses.Length; index++)
+                {
+                    Assert.Equal(incompleteStatuses[index], Assert.IsType<TextBlock>(reimbursementGrid.Columns[index + 4].GetCellContent(firstRow)).Text);
+                }
+                var originalForm = firstRow.Form;
+                var milestoneDate = new DateTimeOffset(2026, 9, 8, 12, 0, 0, TimeSpan.FromHours(8));
+                firstRow.Form = originalForm with { ExportedAt = milestoneDate, SubmittedAt = milestoneDate, RefundedAt = milestoneDate };
+                window.UpdateLayout();
+                for (int index = 4; index < 7; index++)
+                {
+                    Assert.Equal("2026-09-08", Assert.IsType<TextBlock>(reimbursementGrid.Columns[index].GetCellContent(firstRow)).Text);
+                }
+                firstRow.Form = originalForm;
+                window.UpdateLayout();
                 SavePreview(window, "reimbursement-tabs-attachments.png");
                 reimbursementTabs.SelectedIndex = 3;
                 window.UpdateLayout();

@@ -282,7 +282,7 @@
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="VerticalGridLinesBrush" Value="Transparent" />
-            <Setter Property="RowHeight" Value="48" />
+            <Setter Property="RowHeight" Value="28" />
             <Setter Property="ColumnHeaderHeight" Value="40" />
         </Style>
         <Style TargetType="DataGridRow">

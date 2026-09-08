@@ -41,6 +41,8 @@
             <Setter Property="FontFamily" Value="Cascadia Mono, Microsoft YaHei UI" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="TextAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="CaptionButtonStyle" TargetType="Button">
@@ -362,8 +364,8 @@
                                     </ContextMenu>
                                 </DataGrid.ContextMenu>
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="所属报销单" Binding="{Binding ReimbursementDisplay}" Width="150" />
-                                    <DataGridTemplateColumn Width="72" Header="平台">
+                                    <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="所属报销单" Binding="{Binding ReimbursementDisplay}" Width="100" />
+                                    <DataGridTemplateColumn Width="60" Header="平台">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock VerticalAlignment="Center"
@@ -422,7 +424,7 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Width="104" Header="已导出">
+                                    <DataGridTemplateColumn Width="80" Header="已导出">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock VerticalAlignment="Center"
@@ -432,7 +434,7 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Width="104" Header="已提交">
+                                    <DataGridTemplateColumn Width="80" Header="已提交">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock VerticalAlignment="Center"
@@ -442,7 +444,7 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Width="104" Header="已返款">
+                                    <DataGridTemplateColumn Width="80" Header="已返款">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock VerticalAlignment="Center"
@@ -509,6 +511,9 @@
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="报销类型" Binding="{Binding ReimbursementType}" Width="110"/>
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="报销内容" Binding="{Binding ContentDisplay}" Width="*" MinWidth="150"/>
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="总金额" Binding="{Binding TotalAmount, StringFormat={}{0:N2}}" Width="110"/>
+                                    <DataGridTextColumn ElementStyle="{StaticResource DataTextStyle}" Header="已导出" Binding="{Binding Form.ExportedAt, TargetNullValue=未导出, StringFormat={}{0:yyyy-MM-dd}}" Width="104"/>
+                                    <DataGridTextColumn ElementStyle="{StaticResource DataTextStyle}" Header="已提交" Binding="{Binding Form.SubmittedAt, TargetNullValue=未提交, StringFormat={}{0:yyyy-MM-dd}}" Width="104"/>
+                                    <DataGridTextColumn ElementStyle="{StaticResource DataTextStyle}" Header="已返款" Binding="{Binding Form.RefundedAt, TargetNullValue=未返款, StringFormat={}{0:yyyy-MM-dd}}" Width="104"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                             <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Margin="16,40,16,0">
@@ -602,10 +607,6 @@
                                            FontWeight="SemiBold"
                                            TextWrapping="Wrap"
                                            Text="{Binding SelectedOrderHeading}" />
-                                <TextBlock Margin="0,3,0,0"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource SecondaryTextBrush}"
-                                           Text="材料、发票与报销进度" />
                                 <TextBlock Text="所属报销单" Margin="0,8,0,2" Foreground="{DynamicResource SecondaryTextBrush}" />
                                 <TextBlock x:Name="OrderReimbursementContent" Text="{Binding SelectedOrder.ReimbursementDisplay}" TextWrapping="Wrap" />
                             </StackPanel>
