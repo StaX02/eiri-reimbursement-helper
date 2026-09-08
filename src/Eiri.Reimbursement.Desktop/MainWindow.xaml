@@ -723,8 +723,11 @@
                                     ItemContainerStyle="{StaticResource DetailTabItemStyle}"
                                     Visibility="{Binding IsSingleOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <TabItem Header="材料">
-                                <ListBox Margin="6,10,6,0"
+                                <ListBox x:Name="OrderMaterialList" Margin="6,10,6,0"
                                          ItemsSource="{Binding Materials}"
+                                         MouseDoubleClick="OrderMaterials_OnDoubleClick"
+                                         KeyDown="OrderMaterials_OnKeyDown"
+                                         AutomationProperties.Name="订单附件"
                                          BorderThickness="0"
                                          HorizontalContentAlignment="Stretch">
                                     <ListBox.ItemTemplate>
@@ -746,6 +749,9 @@
                                                             <Run Text=" · " />
                                                             <Run Text="{Binding SizeDisplay, Mode=OneWay}" />
                                                         </TextBlock>
+                                                        <TextBlock Text="双击或按 Enter 打开" Margin="0,4,0,0"
+                                                                   FontSize="12"
+                                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
                                                     </StackPanel>
                                                     <TextBlock Grid.Column="1"
                                                                Margin="10,0,0,0"

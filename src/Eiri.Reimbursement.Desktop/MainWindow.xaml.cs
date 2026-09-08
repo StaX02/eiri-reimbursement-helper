@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,6 +24,35 @@ public partial class MainWindow : Window
 
     private bool _closingAfterSave;
     private bool _waitingToClose;
+
+    private void OrderMaterials_OnDoubleClick(object sender, MouseButtonEventArgs e) => OpenOrderMaterial();
+
+    private void OrderMaterials_OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            OpenOrderMaterial();
+            e.Handled = true;
+        }
+    }
+
+    private void OpenOrderMaterial()
+    {
+        if (DataContext is not MainWindowViewModel viewModel
+            || OrderMaterialList.SelectedItem is not MaterialItemViewModel file)
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(file.Material.ManagedPath) { UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            viewModel.StatusMessage = $"无法打开附件：{exception.Message}";
+        }
+    }
 
     private async void MainWindow_OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
