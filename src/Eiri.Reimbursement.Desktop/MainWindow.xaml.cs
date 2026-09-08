@@ -7,15 +7,21 @@ using Eiri.Reimbursement.Core.Materials;
 using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Desktop.ViewModels;
 using Microsoft.Win32;
+using Eiri.Reimbursement.Core.DingTalk;
 
 namespace Eiri.Reimbursement.Desktop;
 
 public partial class MainWindow : Window
 {
-    public MainWindow(MainWindowViewModel viewModel)
+    private readonly IDingTalkAccessTokenClient? _dingTalkClient;
+    private readonly IDingTalkConnectionStore? _dingTalkStore;
+
+    public MainWindow(MainWindowViewModel viewModel, IDingTalkAccessTokenClient? dingTalkClient = null, IDingTalkConnectionStore? dingTalkStore = null)
     {
         InitializeComponent();
         DataContext = viewModel;
+        _dingTalkClient = dingTalkClient;
+        _dingTalkStore = dingTalkStore;
         viewModel.OrderRowsUpdated += RestoreOrderSelection;
         Closed += (_, _) => viewModel.OrderRowsUpdated -= RestoreOrderSelection;
         Closing += MainWindow_OnClosing;

@@ -7,11 +7,21 @@ using Eiri.Reimbursement.Infrastructure.DataTransfer;
 using Eiri.Reimbursement.Infrastructure.Documents;
 using Eiri.Reimbursement.Infrastructure.Export;
 using Eiri.Reimbursement.Infrastructure.Sqlite;
+using Eiri.Reimbursement.Infrastructure.DingTalk;
+using System.Net.Http;
 
 namespace Eiri.Reimbursement.Desktop;
 
 public partial class App : Application
 {
+    private readonly HttpClient _dingTalkHttpClient = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(30) };
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _dingTalkHttpClient.Dispose();
+        base.OnExit(e);
+    }
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -31,7 +41,7 @@ public partial class App : Application
                 : null;
             WholeLibraryBackupService backupPackageService = new(libraryRoot);
             MainWindowViewModel viewModel = new(workspace, batchExporter, backupPackageService);
-            MainWindow window = new(viewModel);
+            MainWindow window = new(viewModel, new DingTalkAccessTokenClient(_dingTalkHttpClient), workspace);
             MainWindow = window;
             window.Show();
             await viewModel.LoadAsync();

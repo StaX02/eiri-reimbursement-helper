@@ -6,6 +6,7 @@ using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Desktop;
 using Eiri.Reimbursement.Desktop.ViewModels;
 using Eiri.Reimbursement.Infrastructure.Sqlite;
+using Eiri.Reimbursement.Core.DingTalk;
 
 namespace Eiri.Reimbursement.Desktop.Tests;
 
@@ -28,6 +29,24 @@ public sealed class MainWindowRenderingTests
                 MainWindow window = new(viewModel);
                 window.Show();
                 window.UpdateLayout();
+                Menu topMenu = Assert.IsType<Menu>(window.FindName("TopMenuBar"));
+                Assert.Equal("钉钉", Assert.IsType<MenuItem>(topMenu.Items[0]).Header);
+                Assert.Equal("选项", Assert.IsType<MenuItem>(topMenu.Items[1]).Header);
+                DingTalkConnectionWindow connectionWindow = new(new TestTokenClient(), workspace) { Owner = window };
+                connectionWindow.Show();
+                Button connect = Assert.IsType<Button>(connectionWindow.FindName("ConnectButton"));
+                connect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Contains("请填写", Assert.IsType<TextBlock>(connectionWindow.FindName("StatusText")).Text);
+                Assert.IsType<TextBox>(connectionWindow.FindName("ClientIdInput")).Text = "test-client";
+                Assert.IsType<PasswordBox>(connectionWindow.FindName("ClientSecretInput")).Password = "test-secret";
+                connect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(TestTokenClient.Token, Assert.IsType<TextBox>(connectionWindow.FindName("AccessTokenOutput")).Text);
+                Assert.Equal(TestTokenClient.Token, workspace.GetDingTalkConnectionAsync().GetAwaiter().GetResult()!.AccessToken);
+                SavePreview(connectionWindow, "dingtalk-connection.png");
+                ThemeManager.Toggle(application.Resources);
+                SavePreview(connectionWindow, "dingtalk-connection-dark.png");
+                ThemeManager.Toggle(application.Resources);
+                connectionWindow.Close();
                 viewModel.Orders =
                 [
                     new OrderListItem(
@@ -217,5 +236,11 @@ public sealed class MainWindowRenderingTests
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
         using var file = File.Create(Path.Combine(output, name));
         encoder.Save(file);
+    }
+
+    private sealed class TestTokenClient : IDingTalkAccessTokenClient
+    {
+        public static readonly string Token = string.Concat(Enumerable.Repeat("test-access-token-", 16));
+        public Task<string> GetAccessTokenAsync(string clientId, string clientSecret, CancellationToken cancellationToken = default) => Task.FromResult(Token);
     }
 }

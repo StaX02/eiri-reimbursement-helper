@@ -106,6 +106,7 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanBatchImportInvoices))]
     [NotifyPropertyChangedFor(nameof(CanExport))]
     [NotifyPropertyChangedFor(nameof(CanManageData))]
+    [NotifyPropertyChangedFor(nameof(CanConnectDingTalk))]
     private bool _isBusy;
 
     public string OrderCountText => SelectedOrderCount > 0
@@ -127,6 +128,8 @@ public partial class MainWindowViewModel : ObservableObject
     public bool CanExport => (SelectedOrderCount > 0 || SelectedReimbursementCount > 0) && !IsBusy && _batchExporter is not null;
 
     public bool CanManageData => !IsBusy && _backupPackageService is not null && !_reimbursementEditors.Values.Any(editor => editor.IsBusy);
+
+    public bool CanConnectDingTalk => !IsBusy;
 
     public bool HasOrders => Orders.Count > 0;
 

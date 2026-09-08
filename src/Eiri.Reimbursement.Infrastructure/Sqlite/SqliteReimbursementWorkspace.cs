@@ -795,6 +795,12 @@ public sealed partial class SqliteReimbursementWorkspace(
         if (version == 4)
         {
             await ExecuteNonQueryAsync(connection, Schema.Version5, cancellationToken);
+            version = 5;
+        }
+
+        if (version == 5)
+        {
+            await ExecuteNonQueryAsync(connection, Schema.Version6, cancellationToken);
         }
     }
 
