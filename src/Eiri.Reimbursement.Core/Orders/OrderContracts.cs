@@ -62,7 +62,13 @@ public sealed record OrderListItem(
 
     public string ProductDisplay => JoinOrPlaceholder(ProductNames);
 
-    public string InvoiceNumberDisplay => JoinOrPlaceholder(InvoiceNumbers);
+    public string InvoiceNumberDisplay => InvoiceCount > 1
+        ? "多张发票..."
+        : InvoiceNumbers.FirstOrDefault() ?? "待提取";
+
+    public string? InvoiceNumbersToolTip => InvoiceCount > 1
+        ? InvoiceNumbers.Count == 0 ? "待提取" : string.Join(Environment.NewLine, InvoiceNumbers)
+        : null;
 
     private static string JoinOrPlaceholder(IReadOnlyList<string> values) =>
         values.Count == 0 ? "待提取" : string.Join("、", values);
