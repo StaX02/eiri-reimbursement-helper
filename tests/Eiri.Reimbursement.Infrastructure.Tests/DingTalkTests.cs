@@ -23,7 +23,7 @@ public sealed class DingTalkTests
             Assert.Equal("test-secret", body.RootElement.GetProperty("appSecret").GetString());
             return new(HttpStatusCode.OK) { Content = new StringContent("{\"accessToken\":\"test-token\",\"expireIn\":7200}", Encoding.UTF8, "application/json") };
         }));
-        Assert.Equal("test-token", await new DingTalkAccessTokenClient(http).GetAccessTokenAsync("test-client", "test-secret"));
+        Assert.Equal(new DingTalkAccessToken("test-token", 7200), await new DingTalkAccessTokenClient(http).GetAccessTokenAsync("test-client", "test-secret"));
     }
 
     [Theory]
@@ -32,6 +32,10 @@ public sealed class DingTalkTests
     [InlineData(200, "{\"accessToken\":\" \"}")]
     [InlineData(200, "{\"accessToken\":123}")]
     [InlineData(200, "not-json")]
+    [InlineData(200, "{\"accessToken\":\"valid\",\"expireIn\":0}")]
+    [InlineData(200, "{\"accessToken\":\"valid\",\"expireIn\":-1}")]
+    [InlineData(200, "{\"accessToken\":\"valid\",\"expireIn\":\"7200\"}")]
+    [InlineData(200, "{\"accessToken\":\"valid\"}")]
     public async Task FailedOrMalformedResponsesDoNotReturnTokensOrExposeResponseBody(int status, string body)
     {
         using HttpClient http = new(new Handler(_ => Task.FromResult(new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(body) })));
@@ -57,7 +61,7 @@ public sealed class DingTalkTests
             await workspace.CreateOrderAsync(new(OrderPlatform.Other));
             Assert.Null(await workspace.GetDingTalkConnectionAsync());
             await workspace.SaveDingTalkConnectionAsync(new("test-one", "test-secret-one", "test-token-one"));
-            DingTalkConnection replacement = new("test-two", "test-secret-two", "test-token-two");
+            DingTalkConnection replacement = new("test-two", "test-secret-two", "test-token-two", DateTimeOffset.UtcNow.AddHours(2));
             await workspace.SaveDingTalkConnectionAsync(replacement);
             SqliteReimbursementWorkspace reopened = new(root);
             await reopened.InitializeAsync();

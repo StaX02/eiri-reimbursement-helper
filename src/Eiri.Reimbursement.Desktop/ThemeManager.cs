@@ -115,6 +115,7 @@ public static class ThemeManager
         SetBrush(resources, "SelectionBrush", selection);
         SetBrush(resources, "HoverBrush", hover);
         SetBrush(resources, "DangerBrush", danger);
+        SetBrush(resources, "WarningBrush", isDark ? "#E6B85C" : "#966000");
         SetBrush(resources, "DangerSoftBrush", dangerSoft);
         SetBrush(resources, "DangerHoverBrush", dangerHover);
         SetBrush(resources, "FocusBrush", focus);

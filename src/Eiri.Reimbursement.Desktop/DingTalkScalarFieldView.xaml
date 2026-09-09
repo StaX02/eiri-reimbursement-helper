@@ -1,0 +1,22 @@
+<UserControl x:Class="Eiri.Reimbursement.Desktop.DingTalkScalarFieldView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{Binding Label}">
+            <TextBox.Style><Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsText}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                    <DataTrigger Binding="{Binding IsMultiline}" Value="True"><Setter Property="Height" Value="88"/><Setter Property="AcceptsReturn" Value="True"/><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="VerticalScrollBarVisibility" Value="Auto"/></DataTrigger>
+                </Style.Triggers>
+            </Style></TextBox.Style>
+        </TextBox>
+        <ComboBox ItemsSource="{Binding Choices}" DisplayMemberPath="Value" Text="待选择..." SelectedItem="{Binding SelectedChoice}" MaxDropDownHeight="260" AutomationProperties.Name="{Binding Label}">
+            <ComboBox.Style><Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding IsSingleChoice}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></ComboBox.Style>
+        </ComboBox>
+        <ComboBox ItemsSource="{Binding Choices}" Text="{Binding SelectionSummary, Mode=OneWay}" SelectionChanged="MultiChoice_OnSelectionChanged" MaxDropDownHeight="260" AutomationProperties.Name="{Binding Label}">
+            <ComboBox.Style><Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding IsMultipleChoice}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></ComboBox.Style>
+            <ComboBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Value}" IsChecked="{Binding IsSelected}"/></DataTemplate></ComboBox.ItemTemplate>
+        </ComboBox>
+    </StackPanel>
+</UserControl>

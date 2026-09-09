@@ -1,0 +1,113 @@
+<Window x:Class="Eiri.Reimbursement.Desktop.DingTalkApprovalWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Eiri.Reimbursement.Desktop"
+        Title="钉钉提审" Width="720" Height="820" MinWidth="440" MinHeight="420"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner" Background="{DynamicResource SurfaceBrush}">
+    <Window.Resources><BooleanToVisibilityConverter x:Key="VisibleWhenTrue"/></Window.Resources>
+    <Grid Margin="24">
+        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <ScrollViewer x:Name="FormScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,12,0">
+                <StackPanel IsEnabled="{Binding CanEdit}">
+                    <TextBlock Text="日常报销（电子发票）" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,18" TextWrapping="Wrap"/>
+                    <Label Content="报销人所属部门*" Target="{Binding ElementName=DepartmentInput}" Padding="0,0,0,6"/>
+                    <ComboBox x:Name="DepartmentInput" ItemsSource="{Binding Directory.Departments}" DisplayMemberPath="Name"
+                              Text="待选择..." SelectedItem="{Binding Directory.SelectedDepartment, Mode=OneWay}"
+                              IsEnabled="{Binding Directory.CanSelectDepartment}" MaxDropDownHeight="260"
+                              DropDownOpened="Department_OnOpened" SelectionChanged="Department_OnChanged" AutomationProperties.Name="报销人所属部门"/>
+                    <ItemsControl x:Name="FieldsList" ItemsSource="{Binding Fields}">
+                        <ItemsControl.ItemTemplate><DataTemplate>
+                            <StackPanel Margin="0,14,0,0">
+                                <TextBlock Text="{Binding Label}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                <Grid Visibility="{Binding IsInput, Converter={StaticResource VisibleWhenTrue}}">
+                                    <local:DingTalkScalarFieldView DataContext="{Binding Input}"/>
+                                </Grid>
+                                <TextBlock Text="暂不处理" Foreground="{DynamicResource SecondaryTextBrush}" Visibility="{Binding IsDeferred, Converter={StaticResource VisibleWhenTrue}}"/>
+                                <TextBlock Text="{Binding Note}" TextWrapping="Wrap" Visibility="{Binding IsNote, Converter={StaticResource VisibleWhenTrue}}"/>
+                                <ComboBox ItemsSource="{Binding DataContext.Directory.Users, RelativeSource={RelativeSource AncestorType=Window}}" DisplayMemberPath="Name"
+                                          SelectedItem="{Binding DataContext.Directory.SelectedUser, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"
+                                          Text="待选择..." MaxDropDownHeight="260" AutomationProperties.Name="报销人"
+                                          IsEnabled="{Binding DataContext.Directory.CanSelectUser, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          Visibility="{Binding IsApplicant, Converter={StaticResource VisibleWhenTrue}}"
+                                          DropDownOpened="User_OnOpened" SelectionChanged="User_OnChanged"/>
+                                <StackPanel Visibility="{Binding IsPhoto, Converter={StaticResource VisibleWhenTrue}}">
+                                    <ItemsControl ItemsSource="{Binding Images}"><ItemsControl.ItemTemplate><DataTemplate>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <Image Source="{Binding Path, Converter={x:Static local:LocalImageConverter.Instance}}" Width="140" Height="100" Stretch="Uniform"/>
+                                            <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding FileName}" ToolTip="{Binding Path}" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Margin="0,6,0,0" AutomationProperties.LiveSetting="Polite">
+                                                    <TextBlock.Style><Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Uploaded}" Value="{x:Null}"><Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/></DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsUploading}" Value="True"><Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/></DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style></TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Uploaded.MediaId}" ToolTip="{Binding Uploaded.Url}" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="2" Content="移除" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Click="RemoveImage_OnClick" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                    <Button Content="添加图片" HorizontalAlignment="Left" MinWidth="100" Click="AddImage_OnClick"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate></ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+                <TextBlock Text="审批流程" FontWeight="SemiBold" Margin="0,24,0,8"/>
+                <ItemsControl x:Name="WorkflowList" ItemsSource="{Binding WorkflowNodes}" IsEnabled="{Binding CanEdit}">
+                    <ItemsControl.ItemTemplate><DataTemplate>
+                        <StackPanel Margin="0,0,0,16">
+                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap" ToolTip="{Binding ActorKey}"/>
+                            <TextBlock Text="{Binding Details}" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,6"/>
+                            <ItemsControl ItemsSource="{Binding People}" Visibility="{Binding IsSelectable, Converter={StaticResource VisibleWhenTrue}}">
+                                <ItemsControl.ItemTemplate><DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <ComboBox ItemsSource="{Binding Departments}" SelectedItem="{Binding SelectedDepartment}" DisplayMemberPath="Name"
+                                                      Text="{Binding SelectedDepartment.Name, Mode=OneWay, TargetNullValue=待选择部门..., FallbackValue=待选择部门...}" MaxDropDownHeight="260" Margin="0,0,0,6" AutomationProperties.Name="审批人员部门"
+                                                      IsEnabled="{Binding CanSelectDepartment}" DropDownOpened="WorkflowDepartment_OnOpened"
+                                                      Visibility="{Binding ShowDepartment, Converter={StaticResource VisibleWhenTrue}}"/>
+                                            <ComboBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate}" DisplayMemberPath="DisplayName"
+                                                      Text="{Binding SelectedCandidate.DisplayName, Mode=OneWay, TargetNullValue=待选择..., FallbackValue=待选择...}" MaxDropDownHeight="260" AutomationProperties.Name="审批人员"
+                                                      IsEnabled="{Binding CanSelectPerson}" DropDownOpened="WorkflowPerson_OnOpened"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding StatusMessage}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+                                        <Button Grid.Column="1" Content="移除" Height="Auto" MinHeight="36" Margin="8,0,0,0" VerticalAlignment="Stretch" Click="RemoveWorkflowPerson_OnClick"
+                                                Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Visibility="{Binding CanRemove, Converter={StaticResource VisibleWhenTrue}}"/>
+                                        <Button Grid.Column="1" Content="修改" Height="Auto" MinHeight="36" Margin="8,0,0,0" VerticalAlignment="Stretch" Click="ModifyWorkflowPerson_OnClick"
+                                                Visibility="{Binding CanModify, Converter={StaticResource VisibleWhenTrue}}"/>
+                                    </Grid>
+                                </DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="添加人员" HorizontalAlignment="Left" Click="AddWorkflowPerson_OnClick"
+                                    Visibility="{Binding CanAdd, Converter={StaticResource VisibleWhenTrue}}"/>
+                        </StackPanel>
+                    </DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button x:Name="SubmitApprovalButton" Content="提交报销审批" IsEnabled="{Binding CanSubmit}" Click="SubmitApproval_OnClick"
+                        HorizontalAlignment="Left" Margin="0,16,0,12"/>
+                <TextBlock Text="{Binding SubmissionStatus}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+                <Button Content="重试保存提交记录" HorizontalAlignment="Left" Margin="0,8,0,0" Click="SaveSubmission_OnClick"
+                        Visibility="{Binding CanSaveSubmission, Converter={StaticResource VisibleWhenTrue}}"/>
+                <Button Content="核对未创建后允许重试" HorizontalAlignment="Left" Margin="0,8,0,0" Click="ResetSubmission_OnClick"
+                        Visibility="{Binding CanResetSubmission, Converter={StaticResource VisibleWhenTrue}}"/>
+            </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="1" Margin="0,12,0,12">
+            <TextBlock Text="{Binding Directory.StatusMessage}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+        </StackPanel>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="重试加载" Click="Retry_OnClick" IsEnabled="{Binding CanRetryLoad}" MinWidth="88"/>
+            <Button Content="关闭" Click="Close_OnClick" MinWidth="88" Margin="8,0,0,0"/>
+        </StackPanel>
+    </Grid>
+</Window>

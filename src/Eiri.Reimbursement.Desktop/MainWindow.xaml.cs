@@ -19,11 +19,21 @@ public partial class MainWindow : Window
     private readonly IDingTalkSubmissionInfoStore? _submissionInfoStore;
     private readonly IDingTalkFormClient? _dingTalkFormClient;
     private readonly IDingTalkFormPrefillStore? _dingTalkFormStore;
+    private readonly IDingTalkInvoiceImages? _dingTalkInvoiceImages;
+    private readonly IDingTalkImagePublisher? _dingTalkImagePublisher;
+    private readonly IDingTalkForecastClient? _dingTalkForecastClient;
+    private readonly IDingTalkApprovalClient? _dingTalkApprovalClient;
+    public DingTalkConnectionViewModel ConnectionState { get; }
+    private readonly CancellationTokenSource _connectionLifetime = new();
+    private readonly System.Windows.Threading.DispatcherTimer _connectionTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
     public MainWindow(MainWindowViewModel viewModel, IDingTalkAccessTokenClient? dingTalkClient = null, IDingTalkConnectionStore? dingTalkStore = null,
         IDingTalkDirectoryClient? dingTalkDirectory = null, IDingTalkSubmissionInfoStore? submissionInfoStore = null,
-        IDingTalkFormClient? dingTalkFormClient = null, IDingTalkFormPrefillStore? dingTalkFormStore = null)
+        IDingTalkFormClient? dingTalkFormClient = null, IDingTalkFormPrefillStore? dingTalkFormStore = null,
+        IDingTalkInvoiceImages? dingTalkInvoiceImages = null, IDingTalkImagePublisher? dingTalkImagePublisher = null,
+        IDingTalkForecastClient? dingTalkForecastClient = null, IDingTalkApprovalClient? dingTalkApprovalClient = null)
     {
+        ConnectionState = new(dingTalkClient, dingTalkStore);
         InitializeComponent();
         DataContext = viewModel;
         _dingTalkClient = dingTalkClient;
@@ -32,6 +42,13 @@ public partial class MainWindow : Window
         _submissionInfoStore = submissionInfoStore;
         _dingTalkFormClient = dingTalkFormClient;
         _dingTalkFormStore = dingTalkFormStore;
+        _dingTalkInvoiceImages = dingTalkInvoiceImages;
+        _dingTalkImagePublisher = dingTalkImagePublisher;
+        _dingTalkForecastClient = dingTalkForecastClient;
+        _dingTalkApprovalClient = dingTalkApprovalClient;
+        _connectionTimer.Tick += (_, _) => ConnectionState.CheckExpiration();
+        Loaded += async (_, _) => { await ConnectionState.InitializeAsync(_connectionLifetime.Token); if (!_connectionLifetime.IsCancellationRequested) _connectionTimer.Start(); };
+        Closed += (_, _) => { _connectionTimer.Stop(); _connectionLifetime.Cancel(); };
         viewModel.OrderRowsUpdated += RestoreOrderSelection;
         Closed += (_, _) => viewModel.OrderRowsUpdated -= RestoreOrderSelection;
         Closing += MainWindow_OnClosing;
@@ -315,6 +332,7 @@ public partial class MainWindow : Window
         try
         {
             await viewModel.ImportDataAsync(dialog.FileName);
+            await ConnectionState.InitializeAsync(_connectionLifetime.Token);
             RefreshOrdersList();
             MessageBox.Show(
                 this,

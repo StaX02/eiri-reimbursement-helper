@@ -14,7 +14,9 @@ public sealed class DingTalkFormTests
         using var json = JsonDocument.Parse("""
             {"result":{"schemaContent":{"items":[
               {"componentName":"DDSelectField","props":{"id":"choice","label":"研究方向","options":["{\"key\":\"one\",\"value\":\"方向一\"}",{"key":"two","value":"方向二"},"其他"]}},
-              {"componentName":"TextareaField","props":{"id":"text","label":"报销内容"}},
+              {"componentName":"TextareaField","props":{"id":"text","label":"备注"}},
+              {"componentName":"DDSelectField","props":{"id":"expense-type","label":"报销类型","options":["材料费"]}},
+              {"componentName":"TextareaField","props":{"id":"expense-content","label":"报销内容"}},
               {"componentName":"InnerContactField","props":{"id":"applicant","label":"报销人"}},
               {"componentName":"DDDateField","props":{"id":"date","label":"日期"}},
               {"componentName":"DDDateRangeField","props":{"id":"range","label":"时间段"}},
@@ -31,6 +33,23 @@ public sealed class DingTalkFormTests
         Assert.Equal(["choice", "text"], schema.Fields.Select(f => f.Id));
         Assert.Equal(["方向一", "方向二", "其他"], schema.Fields[0].Options.Select(o => o.Value));
         Assert.Equal("applicant", schema.ApplicantFieldId);
+    }
+
+    [Theory]
+    [InlineData("报销类型")]
+    [InlineData("报销内容")]
+    [InlineData(" 报销类型 ")]
+    [InlineData(" 报销内容 ")]
+    public void SchemaExcludesReimbursementFieldsRegardlessOfControlType(string label)
+    {
+        foreach (string type in new[] { "TextField", "TextareaField", "NumberField", "PhoneField", "DDSelectField", "DDMultiSelectField" })
+        {
+            var response = JsonSerializer.SerializeToElement(new
+            {
+                result = new { schemaContent = new { items = new[] { new { componentName = type, props = new { id = "excluded", label, options = new[] { "选项" } } } } } }
+            });
+            Assert.Empty(DingTalkFormSchema.Parse("process", response).Fields);
+        }
     }
 
     [Fact]

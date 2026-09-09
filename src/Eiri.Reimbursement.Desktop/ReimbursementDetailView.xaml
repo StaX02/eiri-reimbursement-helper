@@ -9,9 +9,11 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Button Grid.Row="0" Width="84" Height="32" Margin="18,0,18,12"
-                HorizontalAlignment="Right" Content="添加文件"
-                IsEnabled="{Binding CanEdit}" Click="AddFiles_OnClick" />
+        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="18,0,18,12">
+            <Button x:Name="DingTalkApprovalButton" Content="钉钉提审" Height="32" MinWidth="90" Margin="0,0,8,0"
+                    IsEnabled="{Binding CanEdit}" Click="DingTalkApproval_OnClick"/>
+            <Button Width="84" Height="32" Content="添加文件" IsEnabled="{Binding CanEdit}" Click="AddFiles_OnClick"/>
+        </StackPanel>
 
         <Border x:Name="ReimbursementDropZone" Grid.Row="1"
                 Margin="18,0,18,14" MinHeight="70" Padding="10"
@@ -93,6 +95,9 @@
                         <TextBox x:Name="AmountInput" Margin="0,0,0,12"
                                  FontFamily="Cascadia Mono, Microsoft YaHei UI"
                                  Text="{Binding TotalAmount, UpdateSourceTrigger=PropertyChanged}" />
+                        <Label Content="钉钉审批实例 ID" Style="{StaticResource DetailFieldLabelStyle}" Target="{Binding ElementName=DingTalkInstanceIdOutput}"/>
+                        <TextBox x:Name="DingTalkInstanceIdOutput" Text="{Binding DingTalkInstanceId, Mode=OneWay}" IsReadOnly="True"
+                                 TextWrapping="Wrap" AutomationProperties.Name="钉钉审批实例 ID"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

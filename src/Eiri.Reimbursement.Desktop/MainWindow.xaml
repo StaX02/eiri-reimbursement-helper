@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Eiri.Reimbursement.Desktop"
+        xmlns:vm="clr-namespace:Eiri.Reimbursement.Desktop.ViewModels"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         mc:Ignorable="d"
         Title="发票报销助手"
@@ -231,11 +232,21 @@
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center">
-                    <Button Width="74"
-                            Margin="0,0,8,0"
-                            Style="{StaticResource GhostButtonStyle}"
-                            Command="{Binding RefreshCommand}"
-                            Content="刷新" />
+                    <Button x:Name="DingTalkConnectionStatusButton" Width="140" Margin="0,0,12,0"
+                            IsEnabled="{Binding CanConnectDingTalk}" Click="ConnectDingTalk_OnClick"
+                            ToolTip="{Binding ConnectionState.ExpirationText, RelativeSource={RelativeSource AncestorType=Window}}"
+                            AutomationProperties.Name="钉钉连接状态，点击重新连接">
+                        <TextBlock Text="{Binding ConnectionState.StatusText, RelativeSource={RelativeSource AncestorType=Window}}" AutomationProperties.LiveSetting="Polite">
+                            <TextBlock.Style><Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ConnectionState.State, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static vm:DingTalkConnectionState.Connected}"><Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding ConnectionState.State, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static vm:DingTalkConnectionState.Error}"><Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding ConnectionState.State, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static vm:DingTalkConnectionState.Expired}"><Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/></DataTrigger>
+                                </Style.Triggers>
+                            </Style></TextBlock.Style>
+                        </TextBlock>
+                    </Button>
                     <Button x:Name="ExportReimbursementFilesButton"
                             Width="126"
                             Margin="0,0,8,0"

@@ -11,6 +11,11 @@ namespace Eiri.Reimbursement.Desktop;
 public partial class ReimbursementDetailView : UserControl
 {
     public ReimbursementDetailView() => InitializeComponent();
+    private async void DingTalkApproval_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is ReimbursementEditorViewModel { CanEdit: true } editor && Window.GetWindow(this) is MainWindow window)
+            await window.OpenDingTalkApprovalAsync(editor);
+    }
     private async void Milestone_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox box && DataContext is ReimbursementEditorViewModel editor && Window.GetWindow(this)?.DataContext is MainWindowViewModel vm &&

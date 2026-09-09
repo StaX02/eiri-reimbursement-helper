@@ -9,10 +9,10 @@ public sealed partial class SqliteReimbursementWorkspace : IDingTalkConnectionSt
     {
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken);
         await using SqliteCommand sql = connection.CreateCommand();
-        sql.CommandText = "SELECT client_id, client_secret, access_token FROM dingtalk_connection WHERE id = 1;";
+        sql.CommandText = "SELECT client_id, client_secret, access_token, expires_at FROM dingtalk_connection WHERE id = 1;";
         await using SqliteDataReader reader = await sql.ExecuteReaderAsync(cancellationToken);
         return await reader.ReadAsync(cancellationToken)
-            ? new(reader.GetString(0), reader.GetString(1), reader.GetString(2)) : null;
+            ? new(reader.GetString(0), reader.GetString(1), reader.GetString(2), ParseNullableTimestamp(reader, 3)) : null;
     }
 
     public async Task SaveDingTalkConnectionAsync(DingTalkConnection record, CancellationToken cancellationToken = default)
@@ -28,15 +28,16 @@ public sealed partial class SqliteReimbursementWorkspace : IDingTalkConnectionSt
                 (SELECT 1 FROM dingtalk_connection WHERE client_id <> $clientId);
             DELETE FROM dingtalk_submission_info WHERE EXISTS
                 (SELECT 1 FROM dingtalk_connection WHERE client_id <> $clientId);
-            INSERT INTO dingtalk_connection (id, client_id, client_secret, access_token)
-            VALUES (1, $clientId, $clientSecret, $accessToken)
+            INSERT INTO dingtalk_connection (id, client_id, client_secret, access_token, expires_at)
+            VALUES (1, $clientId, $clientSecret, $accessToken, $expiresAt)
             ON CONFLICT(id) DO UPDATE SET client_id = excluded.client_id,
-                client_secret = excluded.client_secret, access_token = excluded.access_token;
+                client_secret = excluded.client_secret, access_token = excluded.access_token, expires_at = excluded.expires_at;
             COMMIT;
             """;
         sql.Parameters.AddWithValue("$clientId", record.ClientId);
         sql.Parameters.AddWithValue("$clientSecret", record.ClientSecret);
         sql.Parameters.AddWithValue("$accessToken", record.AccessToken);
+        sql.Parameters.AddWithValue("$expiresAt", record.ExpiresAt is { } expiresAt ? Format(expiresAt) : DBNull.Value);
         await sql.ExecuteNonQueryAsync(cancellationToken);
     }
 

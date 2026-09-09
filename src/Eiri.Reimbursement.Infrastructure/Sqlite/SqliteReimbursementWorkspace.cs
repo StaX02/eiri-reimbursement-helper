@@ -813,7 +813,14 @@ public sealed partial class SqliteReimbursementWorkspace(
         if (version == 7)
         {
             await ExecuteNonQueryAsync(connection, Schema.Version8, cancellationToken);
+            version = 8;
         }
+        if (version == 8)
+        {
+            await ExecuteNonQueryAsync(connection, Schema.Version9, cancellationToken);
+            version = 9;
+        }
+        if (version == 9) await ExecuteNonQueryAsync(connection, Schema.Version10, cancellationToken);
     }
 
     private static async Task CopyFileAsync(

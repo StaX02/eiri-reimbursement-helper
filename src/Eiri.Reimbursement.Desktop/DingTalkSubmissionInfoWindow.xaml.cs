@@ -53,11 +53,6 @@ public partial class DingTalkSubmissionInfoWindow : Window
     private async void SaveForm_OnClick(object sender, RoutedEventArgs e) => await _viewModel.SaveFormAsync();
     private async void ReloadForm_OnClick(object sender, RoutedEventArgs e) => await _viewModel.LoadFormAsync(_lifetime.Token);
 
-    private void MultiChoice_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (sender is ComboBox comboBox) comboBox.GetBindingExpression(ComboBox.TextProperty)?.UpdateTarget();
-    }
-
     private async void Department_OnOpened(object? sender, EventArgs e)
     {
         if (_reopening || _viewModel.IsBusy) return;

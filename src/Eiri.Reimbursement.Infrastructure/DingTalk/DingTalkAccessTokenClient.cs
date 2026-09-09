@@ -6,7 +6,7 @@ namespace Eiri.Reimbursement.Infrastructure.DingTalk;
 
 public sealed class DingTalkAccessTokenClient(HttpClient httpClient) : IDingTalkAccessTokenClient
 {
-    public async Task<string> GetAccessTokenAsync(string clientId, string clientSecret, CancellationToken cancellationToken = default)
+    public async Task<DingTalkAccessToken> GetAccessTokenAsync(string clientId, string clientSecret, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
         ArgumentException.ThrowIfNullOrWhiteSpace(clientSecret);
@@ -23,10 +23,12 @@ public sealed class DingTalkAccessTokenClient(HttpClient httpClient) : IDingTalk
             if (body.RootElement.ValueKind == JsonValueKind.Object
                 && body.RootElement.TryGetProperty("accessToken", out JsonElement token)
                 && token.ValueKind == JsonValueKind.String
-                && !string.IsNullOrWhiteSpace(token.GetString()))
-                return token.GetString()!;
+                && !string.IsNullOrWhiteSpace(token.GetString())
+                && body.RootElement.TryGetProperty("expireIn", out var expiry)
+                && expiry.ValueKind == JsonValueKind.Number && expiry.TryGetInt64(out long seconds) && seconds is > 0 and <= int.MaxValue)
+                return new(token.GetString()!, seconds);
         }
         catch (JsonException) { }
-        throw new InvalidOperationException("钉钉返回的 AccessToken 无效，请重试。");
+        throw new InvalidOperationException("钉钉返回的 AccessToken 或过期秒数 expireIn 无效，请重试。");
     }
 }
