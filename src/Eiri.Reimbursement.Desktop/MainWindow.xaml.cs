@@ -15,13 +15,18 @@ public partial class MainWindow : Window
 {
     private readonly IDingTalkAccessTokenClient? _dingTalkClient;
     private readonly IDingTalkConnectionStore? _dingTalkStore;
+    private readonly IDingTalkDirectoryClient? _dingTalkDirectory;
+    private readonly IDingTalkSubmissionInfoStore? _submissionInfoStore;
 
-    public MainWindow(MainWindowViewModel viewModel, IDingTalkAccessTokenClient? dingTalkClient = null, IDingTalkConnectionStore? dingTalkStore = null)
+    public MainWindow(MainWindowViewModel viewModel, IDingTalkAccessTokenClient? dingTalkClient = null, IDingTalkConnectionStore? dingTalkStore = null,
+        IDingTalkDirectoryClient? dingTalkDirectory = null, IDingTalkSubmissionInfoStore? submissionInfoStore = null)
     {
         InitializeComponent();
         DataContext = viewModel;
         _dingTalkClient = dingTalkClient;
         _dingTalkStore = dingTalkStore;
+        _dingTalkDirectory = dingTalkDirectory;
+        _submissionInfoStore = submissionInfoStore;
         viewModel.OrderRowsUpdated += RestoreOrderSelection;
         Closed += (_, _) => viewModel.OrderRowsUpdated -= RestoreOrderSelection;
         Closing += MainWindow_OnClosing;

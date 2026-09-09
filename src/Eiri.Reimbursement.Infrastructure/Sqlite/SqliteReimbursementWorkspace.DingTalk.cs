@@ -23,10 +23,14 @@ public sealed partial class SqliteReimbursementWorkspace : IDingTalkConnectionSt
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken);
         await using SqliteCommand sql = connection.CreateCommand();
         sql.CommandText = """
+            BEGIN;
+            DELETE FROM dingtalk_submission_info WHERE EXISTS
+                (SELECT 1 FROM dingtalk_connection WHERE client_id <> $clientId);
             INSERT INTO dingtalk_connection (id, client_id, client_secret, access_token)
             VALUES (1, $clientId, $clientSecret, $accessToken)
             ON CONFLICT(id) DO UPDATE SET client_id = excluded.client_id,
                 client_secret = excluded.client_secret, access_token = excluded.access_token;
+            COMMIT;
             """;
         sql.Parameters.AddWithValue("$clientId", record.ClientId);
         sql.Parameters.AddWithValue("$clientSecret", record.ClientSecret);

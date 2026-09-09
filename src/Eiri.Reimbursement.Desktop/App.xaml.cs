@@ -41,7 +41,8 @@ public partial class App : Application
                 : null;
             WholeLibraryBackupService backupPackageService = new(libraryRoot);
             MainWindowViewModel viewModel = new(workspace, batchExporter, backupPackageService);
-            MainWindow window = new(viewModel, new DingTalkAccessTokenClient(_dingTalkHttpClient), workspace);
+            MainWindow window = new(viewModel, new DingTalkAccessTokenClient(_dingTalkHttpClient), workspace,
+                new DingTalkDirectoryClient(_dingTalkHttpClient), workspace);
             MainWindow = window;
             window.Show();
             await viewModel.LoadAsync();

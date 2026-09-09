@@ -1,0 +1,40 @@
+<Window x:Class="Eiri.Reimbursement.Desktop.DingTalkSubmissionInfoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="报销提审信息" Width="480" Height="330" MinWidth="400" MinHeight="330"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SurfaceBrush}">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Label Content="报销人所属部门" Target="{Binding ElementName=DepartmentInput}" Padding="0,0,0,6"/>
+        <Grid Grid.Row="1">
+            <ComboBox x:Name="DepartmentInput" Height="36" ItemsSource="{Binding Departments}" DisplayMemberPath="Name"
+                      SelectedItem="{Binding SelectedDepartment, Mode=OneWay}" IsEnabled="{Binding CanSelectDepartment}"
+                      AutomationProperties.Name="报销人所属部门" MaxDropDownHeight="260"
+                      DropDownOpened="Department_OnOpened" SelectionChanged="Department_OnChanged"/>
+            <TextBlock Text="待选择..." Margin="10,0,32,0" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{DynamicResource SecondaryTextBrush}">
+                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers><DataTrigger Binding="{Binding SelectedDepartment}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                </Style></TextBlock.Style>
+            </TextBlock>
+        </Grid>
+        <Label Grid.Row="2" Content="报销人" Target="{Binding ElementName=UserInput}" Padding="0,14,0,6"/>
+        <Grid Grid.Row="3">
+            <ComboBox x:Name="UserInput" Height="36" ItemsSource="{Binding Users}" DisplayMemberPath="Name"
+                      SelectedItem="{Binding SelectedUser, Mode=OneWay}" IsEnabled="{Binding CanSelectUser}"
+                      AutomationProperties.Name="报销人" MaxDropDownHeight="260"
+                      DropDownOpened="User_OnOpened" SelectionChanged="User_OnChanged"/>
+            <TextBlock Text="待选择..." Margin="10,0,32,0" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{DynamicResource SecondaryTextBrush}">
+                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers><DataTrigger Binding="{Binding SelectedUser}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                </Style></TextBlock.Style>
+            </TextBlock>
+        </Grid>
+        <TextBlock Grid.Row="4" Text="{Binding StatusMessage}" Margin="0,12,0,12" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+        <Button Grid.Row="5" Content="关闭" MinWidth="88" HorizontalAlignment="Right" IsCancel="True"/>
+    </Grid>
+</Window>

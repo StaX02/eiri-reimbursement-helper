@@ -47,6 +47,35 @@ public sealed class MainWindowRenderingTests
                 SavePreview(connectionWindow, "dingtalk-connection-dark.png");
                 ThemeManager.Toggle(application.Resources);
                 connectionWindow.Close();
+                DingTalkSubmissionInfoViewModel submissionVm = new(new TestDirectoryClient(), workspace, "test-token");
+                submissionVm.InitializeAsync().GetAwaiter().GetResult();
+                DingTalkSubmissionInfoWindow submissionWindow = new(submissionVm) { Owner = window };
+                submissionWindow.Show();
+                submissionWindow.UpdateLayout();
+                ComboBox departmentInput = Assert.IsType<ComboBox>(submissionWindow.FindName("DepartmentInput"));
+                ComboBox userInput = Assert.IsType<ComboBox>(submissionWindow.FindName("UserInput"));
+                Assert.Null(departmentInput.SelectedItem);
+                Assert.False(userInput.IsEnabled);
+                SavePreview(submissionWindow, "dingtalk-submission-empty.png");
+                departmentInput.IsDropDownOpen = true;
+                Assert.Equal(2, departmentInput.Items.Count);
+                departmentInput.SelectedIndex = 0;
+                departmentInput.IsDropDownOpen = false;
+                Assert.Equal(2, submissionVm.SelectedDepartment!.DeptId);
+                Assert.True(userInput.IsEnabled);
+                userInput.IsDropDownOpen = true;
+                Assert.Single(userInput.Items);
+                userInput.SelectedIndex = 0;
+                userInput.IsDropDownOpen = false;
+                Assert.Equal("first", workspace.GetSubmissionInfoAsync().GetAwaiter().GetResult().User!.UserId);
+                SavePreview(submissionWindow, "dingtalk-submission-selected.png");
+                ThemeManager.Toggle(application.Resources);
+                SavePreview(submissionWindow, "dingtalk-submission-dark.png");
+                ThemeManager.Toggle(application.Resources);
+                departmentInput.SelectedIndex = 1;
+                Assert.Null(submissionVm.SelectedUser);
+                Assert.Null(userInput.SelectedItem);
+                submissionWindow.Close();
                 viewModel.Orders =
                 [
                     new OrderListItem(
@@ -221,7 +250,7 @@ public sealed class MainWindowRenderingTests
 
         uiThread.Start();
 
-        Assert.True(uiThread.Join(TimeSpan.FromSeconds(5)), "UI rendering did not complete in time.");
+        Assert.True(uiThread.Join(TimeSpan.FromSeconds(15)), "UI rendering did not complete in time.");
         Assert.Null(renderingException);
     }
     private static void SavePreview(Window window, string name)
@@ -242,5 +271,13 @@ public sealed class MainWindowRenderingTests
     {
         public static readonly string Token = string.Concat(Enumerable.Repeat("test-access-token-", 16));
         public Task<string> GetAccessTokenAsync(string clientId, string clientSecret, CancellationToken cancellationToken = default) => Task.FromResult(Token);
+    }
+
+    private sealed class TestDirectoryClient : IDingTalkDirectoryClient
+    {
+        public Task<IReadOnlyList<DingTalkDepartment>> GetDepartmentsAsync(string accessToken, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<DingTalkDepartment>>([new(2, "研发部"), new(3, "财务部")]);
+        public Task<IReadOnlyList<DingTalkUser>> GetUsersAsync(string accessToken, long deptId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<DingTalkUser>>([new("first", "张三")]);
     }
 }
