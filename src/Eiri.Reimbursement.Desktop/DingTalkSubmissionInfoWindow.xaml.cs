@@ -16,7 +16,32 @@ public partial class DingTalkSubmissionInfoWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+        Loaded += async (_, _) => await viewModel.LoadFormAsync(_lifetime.Token);
+        Closing += OnClosing;
         Closed += (_, _) => _lifetime.Cancel();
+    }
+
+    private bool _closeReady;
+    private bool _savingToClose;
+    private async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_closeReady) return;
+        e.Cancel = true;
+        if (_savingToClose) return;
+        _savingToClose = true;
+        try
+        {
+            if (await _viewModel.SaveFormAsync()) { _lifetime.Cancel(); _closeReady = true; Close(); }
+        }
+        finally { _savingToClose = false; }
+    }
+
+    private async void SaveForm_OnClick(object sender, RoutedEventArgs e) => await _viewModel.SaveFormAsync();
+    private async void ReloadForm_OnClick(object sender, RoutedEventArgs e) => await _viewModel.LoadFormAsync(_lifetime.Token);
+
+    private void MultiChoice_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox comboBox) comboBox.GetBindingExpression(ComboBox.TextProperty)?.UpdateTarget();
     }
 
     private async void Department_OnOpened(object? sender, EventArgs e)

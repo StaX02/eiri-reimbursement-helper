@@ -2,7 +2,20 @@ namespace Eiri.Reimbursement.Infrastructure.Sqlite;
 
 internal static class Schema
 {
-    internal const int CurrentVersion = 7;
+    internal const int CurrentVersion = 8;
+
+    internal const string Version8 =
+        """
+        BEGIN;
+        CREATE TABLE IF NOT EXISTS dingtalk_form_prefill (
+            connection_id INTEGER NOT NULL REFERENCES dingtalk_connection(id) ON DELETE CASCADE,
+            process_code TEXT NOT NULL,
+            values_json TEXT NOT NULL,
+            PRIMARY KEY (connection_id, process_code)
+        );
+        PRAGMA user_version = 8;
+        COMMIT;
+        """;
 
     internal const string Version7 =
         """

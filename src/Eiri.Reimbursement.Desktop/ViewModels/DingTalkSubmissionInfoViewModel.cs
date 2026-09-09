@@ -3,7 +3,8 @@ using Eiri.Reimbursement.Core.DingTalk;
 
 namespace Eiri.Reimbursement.Desktop.ViewModels;
 
-public sealed class DingTalkSubmissionInfoViewModel(IDingTalkDirectoryClient client, IDingTalkSubmissionInfoStore store, string accessToken) : ObservableObject
+public sealed partial class DingTalkSubmissionInfoViewModel(IDingTalkDirectoryClient client, IDingTalkSubmissionInfoStore store, string accessToken,
+    IDingTalkFormClient? formClient = null, IDingTalkFormPrefillStore? formStore = null) : ObservableObject
 {
     private DingTalkSubmissionInfo _selection = new(null, null);
     private IReadOnlyList<DingTalkDepartment> _departments = [];

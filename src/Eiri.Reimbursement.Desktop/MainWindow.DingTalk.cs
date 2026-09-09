@@ -18,7 +18,7 @@ public partial class MainWindow
                 MessageBox.Show(this, "请先通过“钉钉 → 连接接口”保存应用连接。", "报销提审信息", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            DingTalkSubmissionInfoViewModel editor = new(_dingTalkDirectory, _submissionInfoStore, connection.AccessToken);
+            DingTalkSubmissionInfoViewModel editor = new(_dingTalkDirectory, _submissionInfoStore, connection.AccessToken, _dingTalkFormClient, _dingTalkFormStore);
             await editor.InitializeAsync();
             if (!string.IsNullOrEmpty(editor.StatusMessage))
             {

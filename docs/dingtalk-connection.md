@@ -4,6 +4,12 @@
 
 ## 报销提审信息
 
+打开窗口时调用[获取模板 code](https://open.dingtalk.com/document/development/obtain-the-template-code)，按名称“日常报销（电子发票）”查询 `result.processCode`，随后调用[获取表单 schema](https://open.dingtalk.com/document/development/obtain-the-form-schema)。两个 GET 请求均通过 `x-acs-dingtalk-access-token` 请求头鉴权，需要工作流模板读权限。窗口加载失败可点击“重新加载”，不回退到示例模板。
+
+从 `schemaContent.items` 构建预填字段：单选、多选、文本、多行文本、普通数字和电话；选择项兼容普通字符串、对象和 JSON 编码字符串。日期/日期区间、金额、图片、关联、文件附件、隐藏项和说明文字被排除；明细表及其他未知复合控件不作为静态默认值展开。模板的“报销人”联系人控件复用现有人员选择。样例生成研究方向、报销类型、报销内容、收款人名称、收款人账号、开户行名称和备注。
+
+数据库版本 8 增加模板预填表，按 processCode 与控件 ID 保存控件类型、文本或选项 key；模板更新后仅恢复类型相同且仍存在的选项，字段删除后不再显示或写入。编辑自动保存，“保存”可重试；关闭等待保存完成。切换应用或清除连接同步清除模板预填值。`examples/form-schema` 只用于本地核对，不随程序发布、不加入 Git。
+
 通过“钉钉 → 报销提审信息”选择报销部门与报销人，选择后立即保存到同一数据库，供后续钉钉提审预填读取。部门保存 `dept_id` 与名称，报销人保存 `user_id` 与名称。此切片提供预填配置存取，实际提审流程尚未接入。
 
 - [部门列表](https://open.dingtalk.com/document/development/obtain-the-department-list-v2)：POST `/topapi/v2/department/listsub`，从 `dept_id=1` 开始逐级获取全部可访问子部门。该 API 每次仅返回下一级部门。

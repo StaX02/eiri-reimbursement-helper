@@ -17,9 +17,12 @@ public partial class MainWindow : Window
     private readonly IDingTalkConnectionStore? _dingTalkStore;
     private readonly IDingTalkDirectoryClient? _dingTalkDirectory;
     private readonly IDingTalkSubmissionInfoStore? _submissionInfoStore;
+    private readonly IDingTalkFormClient? _dingTalkFormClient;
+    private readonly IDingTalkFormPrefillStore? _dingTalkFormStore;
 
     public MainWindow(MainWindowViewModel viewModel, IDingTalkAccessTokenClient? dingTalkClient = null, IDingTalkConnectionStore? dingTalkStore = null,
-        IDingTalkDirectoryClient? dingTalkDirectory = null, IDingTalkSubmissionInfoStore? submissionInfoStore = null)
+        IDingTalkDirectoryClient? dingTalkDirectory = null, IDingTalkSubmissionInfoStore? submissionInfoStore = null,
+        IDingTalkFormClient? dingTalkFormClient = null, IDingTalkFormPrefillStore? dingTalkFormStore = null)
     {
         InitializeComponent();
         DataContext = viewModel;
@@ -27,6 +30,8 @@ public partial class MainWindow : Window
         _dingTalkStore = dingTalkStore;
         _dingTalkDirectory = dingTalkDirectory;
         _submissionInfoStore = submissionInfoStore;
+        _dingTalkFormClient = dingTalkFormClient;
+        _dingTalkFormStore = dingTalkFormStore;
         viewModel.OrderRowsUpdated += RestoreOrderSelection;
         Closed += (_, _) => viewModel.OrderRowsUpdated -= RestoreOrderSelection;
         Closing += MainWindow_OnClosing;

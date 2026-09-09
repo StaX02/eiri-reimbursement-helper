@@ -24,6 +24,8 @@ public sealed partial class SqliteReimbursementWorkspace : IDingTalkConnectionSt
         await using SqliteCommand sql = connection.CreateCommand();
         sql.CommandText = """
             BEGIN;
+            DELETE FROM dingtalk_form_prefill WHERE EXISTS
+                (SELECT 1 FROM dingtalk_connection WHERE client_id <> $clientId);
             DELETE FROM dingtalk_submission_info WHERE EXISTS
                 (SELECT 1 FROM dingtalk_connection WHERE client_id <> $clientId);
             INSERT INTO dingtalk_connection (id, client_id, client_secret, access_token)

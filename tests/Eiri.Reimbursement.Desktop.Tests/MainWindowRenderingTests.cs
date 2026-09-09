@@ -47,11 +47,16 @@ public sealed class MainWindowRenderingTests
                 SavePreview(connectionWindow, "dingtalk-connection-dark.png");
                 ThemeManager.Toggle(application.Resources);
                 connectionWindow.Close();
-                DingTalkSubmissionInfoViewModel submissionVm = new(new TestDirectoryClient(), workspace, "test-token");
+                DingTalkSubmissionInfoViewModel submissionVm = new(new TestDirectoryClient(), workspace, "test-token", new TestFormClient(), workspace);
                 submissionVm.InitializeAsync().GetAwaiter().GetResult();
                 DingTalkSubmissionInfoWindow submissionWindow = new(submissionVm) { Owner = window };
                 submissionWindow.Show();
                 submissionWindow.UpdateLayout();
+                Assert.NotEmpty(submissionVm.FormFields);
+                var textPrefill = submissionVm.FormFields.First(f => f.IsText);
+                textPrefill.Text = "测试预填内容";
+                Assert.True(submissionVm.PendingFormSave.GetAwaiter().GetResult());
+                Assert.Equal("测试预填内容", workspace.GetFormPrefillAsync(submissionVm.ProcessCode!).GetAwaiter().GetResult()[textPrefill.Definition.Id].Values.Single());
                 ComboBox departmentInput = Assert.IsType<ComboBox>(submissionWindow.FindName("DepartmentInput"));
                 ComboBox userInput = Assert.IsType<ComboBox>(submissionWindow.FindName("UserInput"));
                 Assert.Null(departmentInput.SelectedItem);
@@ -71,7 +76,13 @@ public sealed class MainWindowRenderingTests
                 SavePreview(submissionWindow, "dingtalk-submission-selected.png");
                 ThemeManager.Toggle(application.Resources);
                 SavePreview(submissionWindow, "dingtalk-submission-dark.png");
+                var prefillScroll = Assert.IsType<ScrollViewer>(submissionWindow.FindName("PrefillScroll"));
+                prefillScroll.ScrollToBottom();
+                SavePreview(submissionWindow, "dingtalk-schema-bottom-dark.png");
                 ThemeManager.Toggle(application.Resources);
+                submissionWindow.Width = 400;
+                submissionWindow.Height = 440;
+                SavePreview(submissionWindow, "dingtalk-schema-narrow.png");
                 departmentInput.SelectedIndex = 1;
                 Assert.Null(submissionVm.SelectedUser);
                 Assert.Null(userInput.SelectedItem);
@@ -279,5 +290,22 @@ public sealed class MainWindowRenderingTests
             => Task.FromResult<IReadOnlyList<DingTalkDepartment>>([new(2, "研发部"), new(3, "财务部")]);
         public Task<IReadOnlyList<DingTalkUser>> GetUsersAsync(string accessToken, long deptId, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<DingTalkUser>>([new("first", "张三")]);
+    }
+
+    private sealed class TestFormClient : IDingTalkFormClient
+    {
+        public Task<DingTalkFormTemplate> GetReimbursementTemplateAsync(string accessToken, CancellationToken cancellationToken = default)
+        {
+            string? example = Environment.GetEnvironmentVariable("EIRI_SCHEMA_EXAMPLE");
+            string json = example is null ? """
+                {"result":{"schemaContent":{"items":[
+                {"componentName":"DDSelectField","props":{"id":"choice","label":"研究方向","options":["甲","乙"]}},
+                {"componentName":"TextareaField","props":{"id":"text","label":"报销内容"}},
+                {"componentName":"DDMultiSelectField","props":{"id":"multi","label":"多个选项","options":["甲","乙"]}}
+                ]}}}
+                """ : File.ReadAllText(example);
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            return Task.FromResult(DingTalkFormSchema.Parse("test-process", document.RootElement));
+        }
     }
 }
