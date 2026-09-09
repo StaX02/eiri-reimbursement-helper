@@ -10,6 +10,7 @@ public partial class MainWindow
         if (_dingTalkStore is null || _dingTalkDirectory is null || _submissionInfoStore is null
             || DataContext is not MainWindowViewModel vm || !vm.CanConnectDingTalk) return;
         vm.IsBusy = true;
+        bool showingDialog = false;
         try
         {
             var connection = await _dingTalkStore.GetDingTalkConnectionAsync();
@@ -25,9 +26,15 @@ public partial class MainWindow
                 MessageBox.Show(this, editor.StatusMessage, "报销提审信息", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+            showingDialog = true;
             new DingTalkSubmissionInfoWindow(editor) { Owner = this }.ShowDialog();
         }
-        catch (Exception) { vm.StatusMessage = "无法读取报销提审信息，请检查资料库访问权限。"; }
+        catch (Exception)
+        {
+            vm.StatusMessage = showingDialog
+                ? "报销提审信息窗口操作失败，请关闭窗口后重试。"
+                : "无法读取报销提审信息，请检查资料库访问权限。";
+        }
         finally { vm.IsBusy = false; }
     }
 

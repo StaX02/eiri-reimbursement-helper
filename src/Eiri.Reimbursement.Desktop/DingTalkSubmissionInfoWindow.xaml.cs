@@ -26,14 +26,28 @@ public partial class DingTalkSubmissionInfoWindow : Window
     private async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (_closeReady) return;
+        if (_savingToClose) { e.Cancel = true; return; }
+        Task<bool> save = _viewModel.SaveFormAsync();
+        // SQLite often completes synchronously: let the current close finish in that case.
+        if (save.IsCompletedSuccessfully)
+        {
+            e.Cancel = !save.Result;
+            if (!e.Cancel) { _lifetime.Cancel(); _closeReady = true; }
+            return;
+        }
         e.Cancel = true;
-        if (_savingToClose) return;
         _savingToClose = true;
+        IsEnabled = false;
         try
         {
-            if (await _viewModel.SaveFormAsync()) { _lifetime.Cancel(); _closeReady = true; Close(); }
+            if (await save)
+            {
+                _lifetime.Cancel();
+                _closeReady = true;
+                _ = Dispatcher.BeginInvoke(new Action(Close));
+            }
         }
-        finally { _savingToClose = false; }
+        finally { _savingToClose = false; if (!_closeReady) IsEnabled = true; }
     }
 
     private async void SaveForm_OnClick(object sender, RoutedEventArgs e) => await _viewModel.SaveFormAsync();

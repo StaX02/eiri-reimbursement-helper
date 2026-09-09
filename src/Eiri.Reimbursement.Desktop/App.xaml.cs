@@ -14,6 +14,10 @@ namespace Eiri.Reimbursement.Desktop;
 
 public partial class App : Application
 {
+    private readonly bool _startWorkspace = true;
+    public App() { }
+    internal App(bool startWorkspace) => _startWorkspace = startWorkspace;
+
     private readonly HttpClient _dingTalkHttpClient = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(30) };
 
     protected override void OnExit(ExitEventArgs e)
@@ -25,6 +29,7 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (!_startWorkspace) return;
 
         try
         {

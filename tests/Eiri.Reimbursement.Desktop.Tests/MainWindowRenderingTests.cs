@@ -20,13 +20,14 @@ public sealed class MainWindowRenderingTests
         {
             try
             {
-                App application = new();
+                // Modal tests pump startup events; use only the isolated test workspace.
+                App application = new(startWorkspace: false);
                 application.InitializeComponent();
                 string libraryRoot = Path.Combine(Path.GetTempPath(), "eiri-sidebar-render", Guid.NewGuid().ToString("N"));
                 SqliteReimbursementWorkspace workspace = new(libraryRoot);
                 workspace.InitializeAsync().GetAwaiter().GetResult();
                 MainWindowViewModel viewModel = new(workspace);
-                MainWindow window = new(viewModel);
+                MainWindow window = new(viewModel, new TestTokenClient(), workspace, new TestDirectoryClient(), workspace, new TestFormClient(), workspace);
                 window.Show();
                 window.UpdateLayout();
                 Menu topMenu = Assert.IsType<Menu>(window.FindName("TopMenuBar"));
@@ -249,6 +250,9 @@ public sealed class MainWindowRenderingTests
                 Assert.Empty(reimbursementGrid.SelectedItems);
                 Assert.Equal(Visibility.Collapsed, reimbursementPanel.Visibility);
                 Assert.Equal(Visibility.Visible, detailPanel.Visibility);
+                VerifyPendingSubmissionClose(window, workspace, failFirstSave: false);
+                VerifyPendingSubmissionClose(window, workspace, failFirstSave: true);
+                VerifySubmissionModalSaveAndClose(window, viewModel);
                 window.Close();
                 Directory.Delete(libraryRoot, recursive: true);
             }
@@ -276,6 +280,98 @@ public sealed class MainWindowRenderingTests
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
         using var file = File.Create(Path.Combine(output, name));
         encoder.Save(file);
+    }
+
+    private static void VerifySubmissionModalSaveAndClose(MainWindow owner, MainWindowViewModel vm)
+    {
+        bool timedOut = false;
+        bool saved = false;
+        DingTalkSubmissionInfoWindow? dialog = null;
+        var timeout = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        timeout.Tick += (_, _) => { timedOut = true; timeout.Stop(); dialog?.Close(); };
+        owner.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            dialog = Application.Current.Windows.OfType<DingTalkSubmissionInfoWindow>().Single();
+            var buttons = FindVisualChildren<Button>(dialog).ToArray();
+            buttons.Single(button => Equals(button.Content, "保存")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            saved = ((DingTalkSubmissionInfoViewModel)dialog.DataContext).StatusMessage == "已保存。";
+            var close = buttons.Single(button => Equals(button.Content, "关闭"));
+            var peer = new System.Windows.Automation.Peers.ButtonAutomationPeer(close);
+            ((System.Windows.Automation.Provider.IInvokeProvider)peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)).Invoke();
+        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        try
+        {
+            timeout.Start();
+            var menu = (MenuItem)owner.FindName("DingTalkMenu");
+            menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "报销提审信息")).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.True(saved, "Modal Save did not persist successfully.");
+            Assert.DoesNotContain("无法读取报销提审信息", vm.StatusMessage);
+            Assert.DoesNotContain("窗口操作失败", vm.StatusMessage);
+            Assert.False(timedOut, "Close button did not close the modal.");
+            Assert.False(dialog!.IsVisible, "Modal remained visible after Close.");
+        }
+        finally { timeout.Stop(); if (dialog?.IsVisible == true) dialog.Close(); }
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
+            if (child is T result) yield return result;
+            foreach (var descendant in FindVisualChildren<T>(child)) yield return descendant;
+        }
+    }
+
+    private static void VerifyPendingSubmissionClose(MainWindow owner, SqliteReimbursementWorkspace workspace, bool failFirstSave)
+    {
+        var store = new PendingFormStore();
+        var vm = new DingTalkSubmissionInfoViewModel(new TestDirectoryClient(), workspace, "test-token", new TestFormClient(), store);
+        using var lifetime = new CancellationTokenSource();
+        vm.InitializeAsync(lifetime.Token).GetAwaiter().GetResult();
+        var dialog = new DingTalkSubmissionInfoWindow(vm) { Owner = owner };
+        bool waitedForSave = false;
+        bool preservedOnFailure = false;
+        bool timedOut = false;
+        Exception? callbackError = null;
+        var timeout = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        timeout.Tick += (_, _) => { timedOut = true; timeout.Stop(); store.FirstSave.TrySetResult(); dialog.Close(); };
+        owner.Dispatcher.BeginInvoke(new Action(async () =>
+        {
+            try
+            {
+                Assert.True(vm.FormFields.Count > 0, "Form was not loaded: " + vm.StatusMessage);
+                dialog.Close();
+                waitedForSave = dialog.IsVisible && !dialog.IsEnabled;
+                if (failFirstSave) store.FirstSave.SetException(new IOException("Test storage failure"));
+                else store.FirstSave.SetResult();
+                await vm.PendingFormSave;
+                await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                if (failFirstSave)
+                {
+                    preservedOnFailure = dialog.IsVisible && dialog.IsEnabled && vm.StatusMessage.Contains("保存失败");
+                    dialog.Close();
+                }
+            }
+            catch (Exception exception) { callbackError = exception; store.FirstSave.TrySetResult(); dialog.Close(); }
+        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        try { timeout.Start(); dialog.ShowDialog(); }
+        finally { timeout.Stop(); }
+        Assert.Null(callbackError);
+        Assert.False(timedOut);
+        Assert.True(waitedForSave, "Window did not wait for its pending save.");
+        Assert.False(dialog.IsVisible);
+        if (failFirstSave) Assert.True(preservedOnFailure, "Failed save did not keep an editable dialog for retry.");
+    }
+
+    private sealed class PendingFormStore : IDingTalkFormPrefillStore
+    {
+        public TaskCompletionSource FirstSave { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _saveCount;
+        public Task<IReadOnlyDictionary<string, DingTalkPrefillValue>> GetFormPrefillAsync(string processCode, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyDictionary<string, DingTalkPrefillValue>>(new Dictionary<string, DingTalkPrefillValue>());
+        public Task SaveFormPrefillAsync(string processCode, IReadOnlyDictionary<string, DingTalkPrefillValue> values, CancellationToken cancellationToken = default)
+            => ++_saveCount == 1 ? FirstSave.Task : Task.CompletedTask;
     }
 
     private sealed class TestTokenClient : IDingTalkAccessTokenClient
