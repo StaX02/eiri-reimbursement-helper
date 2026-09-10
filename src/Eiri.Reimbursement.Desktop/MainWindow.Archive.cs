@@ -8,6 +8,8 @@ public partial class MainWindow
 {
     private void ConfigureArchiveWindow()
     {
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        SourceInitialized += (_, _) => PositionArchiveWindow();
         Title = "归档 · 发票报销助手";
         WindowTitle.Text = "归档";
         WindowSubtitle.Text = "只读查看";
@@ -30,7 +32,7 @@ public partial class MainWindow
             await vm.FlushReimbursementChangesAsync();
             var archive = vm.CreateArchiveViewModel();
             await archive.LoadAsync();
-            var window = new MainWindow(archive) { Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+            var window = new MainWindow(archive) { Owner = this };
             window.ShowDialog();
             await vm.LoadAsync();
         }

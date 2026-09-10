@@ -103,6 +103,8 @@ components:
 
 ## Elevation & Depth
 
+所有应用窗口显式引用 App.xaml 的共享 WindowFrameStyle，使用 1 DIP 细边框，颜色复用 SecondaryTextBrush（浅色 #66685F，深色 #B8BDB0），使窗口外缘在同色背景上清晰可见。归档窗口优先相对主窗口向右下错开 32 DIP；临近屏幕边缘时反向错开并限制在主窗口所在显示器的工作区内。
+
 层级依靠底色和 1px 边线表达。静态面板不使用阴影；菜单、系统弹窗等浮层沿用 WPF 平台层级。深色主题通过表面明度差建立分层。
 
 ## Shapes

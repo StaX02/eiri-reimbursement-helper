@@ -50,6 +50,11 @@
             </Setter>
         </Style>
 
+        <Style x:Key="WindowFrameStyle" TargetType="Window">
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
         <Style TargetType="Window">
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="FontFamily" Value="Segoe UI Variable Text, Microsoft YaHei UI" />

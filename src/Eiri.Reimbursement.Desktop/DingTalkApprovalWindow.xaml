@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:Eiri.Reimbursement.Desktop"
+        Style="{StaticResource WindowFrameStyle}"
         Title="钉钉提审" Width="720" Height="820" MinWidth="440" MinHeight="420"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner" Background="{DynamicResource SurfaceBrush}">
     <Window.Resources><BooleanToVisibilityConverter x:Key="VisibleWhenTrue"/></Window.Resources>

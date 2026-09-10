@@ -1,6 +1,7 @@
 <Window x:Class="Eiri.Reimbursement.Desktop.AuthorInfoWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource WindowFrameStyle}"
         Title="作者信息"
         Width="360"
         Height="360"

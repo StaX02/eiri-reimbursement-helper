@@ -1,6 +1,7 @@
 <Window x:Class="Eiri.Reimbursement.Desktop.DingTalkConnectionWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource WindowFrameStyle}"
         Title="连接钉钉接口" Width="520" Height="360" MinWidth="420" MinHeight="300"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner" Background="{DynamicResource SurfaceBrush}">
     <Window.Resources><BooleanToVisibilityConverter x:Key="VisibleWhenTrue"/></Window.Resources>

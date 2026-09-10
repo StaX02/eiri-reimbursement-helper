@@ -7,6 +7,7 @@
         xmlns:vm="clr-namespace:Eiri.Reimbursement.Desktop.ViewModels"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         mc:Ignorable="d"
+        Style="{StaticResource WindowFrameStyle}"
         Title="发票报销助手"
         Width="1240"
         Height="760"
