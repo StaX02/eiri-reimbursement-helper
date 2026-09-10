@@ -36,12 +36,23 @@ public partial class MainWindowViewModel : ObservableObject
     public MainWindowViewModel(
         IReimbursementWorkspace workspace,
         IReimbursementBatchExporter? batchExporter = null,
-        IWholeLibraryBackupService? backupPackageService = null)
+        IWholeLibraryBackupService? backupPackageService = null,
+        bool isArchive = false)
     {
+        IsArchive = isArchive;
         _workspace = workspace;
         _batchExporter = batchExporter;
         _backupPackageService = backupPackageService;
     }
+
+    public bool IsArchive { get; }
+    public bool IsEditable => !IsArchive;
+    public bool CanOpenArchive => !IsArchive && !IsBusy;
+    public string OrdersEmptyHint => IsArchive ? "已导出、已提交、已返款后自动归档。" : "新建订单，或批量导入已有发票。";
+    public string OrdersEmptyHeading => IsArchive ? "暂无归档订单" : "还没有订单";
+    public string ReimbursementsEmptyHeading => IsArchive ? "暂无归档报销单" : "还没有报销单";
+    public string ReimbursementEmptyHint => IsArchive ? "已导出、已提交、已返款后自动归档。" : "选择订单后，右键创建报销单。";
+    public MainWindowViewModel CreateArchiveViewModel() => new(_workspace, isArchive: true);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OrderCountText))]
@@ -58,6 +69,7 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SelectedOrderSubmissionStatusDisplay))]
     [NotifyPropertyChangedFor(nameof(SelectedOrderRefundStatusDisplay))]
     [NotifyPropertyChangedFor(nameof(IsSingleOrderSelected))]
+    [NotifyPropertyChangedFor(nameof(IsEditableOrderSelected))]
     [NotifyPropertyChangedFor(nameof(CanImport))]
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
     [NotifyPropertyChangedFor(nameof(CanEditOrderMilestones))]
@@ -66,6 +78,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedOrderHeading))]
     [NotifyPropertyChangedFor(nameof(IsSingleOrderSelected))]
+    [NotifyPropertyChangedFor(nameof(IsEditableOrderSelected))]
     [NotifyPropertyChangedFor(nameof(CanImport))]
     [NotifyPropertyChangedFor(nameof(CanDeleteOrder))]
     [NotifyPropertyChangedFor(nameof(CanExport))]
@@ -107,6 +120,7 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanExport))]
     [NotifyPropertyChangedFor(nameof(CanManageData))]
     [NotifyPropertyChangedFor(nameof(CanConnectDingTalk))]
+    [NotifyPropertyChangedFor(nameof(CanOpenArchive))]
     private bool _isBusy;
 
     public string OrderCountText => SelectedOrderCount > 0
@@ -115,23 +129,26 @@ public partial class MainWindowViewModel : ObservableObject
 
     public IReadOnlyList<OrderPlatformOption> PlatformOptions => AvailablePlatformOptions;
 
+    public bool IsEditableOrderSelected => !IsArchive && IsSingleOrderSelected;
+
     public bool IsSingleOrderSelected => SelectedOrder is not null && SelectedOrderCount == 1;
 
-    public bool CanImport => IsSingleOrderSelected && !IsBusy;
+    public bool CanImport => !IsArchive && IsSingleOrderSelected && !IsBusy;
 
-    public bool CanDeleteOrder => IsSingleOrderSelected && !IsBusy;
+    public bool CanDeleteOrder => !IsArchive && IsSingleOrderSelected && !IsBusy;
 
-    public bool CanEditOrderMilestones => SelectedOrder is not null && !IsBusy;
+    public bool CanEditOrderMilestones => !IsArchive && SelectedOrder is not null && !IsBusy;
 
-    public bool CanBatchImportInvoices => !IsBusy;
+    public bool CanBatchImportInvoices => !IsArchive && !IsBusy;
 
-    public bool CanExport => (SelectedOrderCount > 0 || SelectedReimbursementCount > 0) && !IsBusy && _batchExporter is not null;
+    public bool CanExport => !IsArchive && (SelectedOrderCount > 0 || SelectedReimbursementCount > 0) && !IsBusy && _batchExporter is not null;
 
-    public bool CanManageData => !IsBusy && _backupPackageService is not null && !_reimbursementEditors.Values.Any(editor => editor.IsBusy);
+    public bool CanManageData => !IsArchive && !IsBusy && _backupPackageService is not null && !_reimbursementEditors.Values.Any(editor => editor.IsBusy);
 
-    public bool CanConnectDingTalk => !IsBusy;
+    public bool CanConnectDingTalk => !IsArchive && !IsBusy;
 
-    public bool HasOrders => Orders.Count > 0;
+    private bool _hasOrdersOutsideView;
+    public bool HasOrders => Orders.Count > 0 || _hasOrdersOutsideView;
 
     public string SelectedOrderHeading => SelectedOrderCount > 1
         ? "已选中多个订单"
@@ -225,6 +242,7 @@ public partial class MainWindowViewModel : ObservableObject
         IReadOnlyList<OrderId> orderIds,
         string destinationDirectory)
     {
+        if (IsArchive) return;
         OrderId[] distinctOrderIds = orderIds.Distinct().ToArray();
         if (distinctOrderIds.Length == 0 || IsBusy || _batchExporter is null)
         {
@@ -263,6 +281,7 @@ public partial class MainWindowViewModel : ObservableObject
         IReadOnlyList<string> sourcePaths,
         ManagedFileRole role)
     {
+        if (IsArchive) return;
         if (SelectedOrder is null || sourcePaths.Count == 0 || IsBusy)
         {
             return;
@@ -307,7 +326,7 @@ public partial class MainWindowViewModel : ObservableObject
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        if (distinctPaths.Length == 0 || IsBusy)
+        if (IsArchive || distinctPaths.Length == 0 || IsBusy)
         {
             return new BatchInvoiceImportResult(0, []);
         }
@@ -374,6 +393,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public async Task DeleteOrdersAsync(IReadOnlyList<OrderId> orderIds)
     {
+        if (IsArchive) return;
         OrderId[] distinctOrderIds = orderIds.Distinct().ToArray();
         if (distinctOrderIds.Length == 0 || IsBusy)
         {
@@ -421,6 +441,7 @@ public partial class MainWindowViewModel : ObservableObject
         Milestone milestone,
         bool isReached)
     {
+        if (IsArchive) return;
         OrderId[] distinctOrderIds = orderIds.Distinct().ToArray();
         if (distinctOrderIds.Length == 0 || IsBusy)
         {
@@ -464,6 +485,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public async Task ClearOrdersSubmissionAndRefundAsync(IReadOnlyList<OrderId> orderIds)
     {
+        if (IsArchive) return;
         OrderId[] distinctOrderIds = orderIds.Distinct().ToArray();
         if (distinctOrderIds.Length == 0 || IsBusy)
         {
@@ -496,9 +518,10 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanRunCommand))]
+    [RelayCommand(CanExecute = nameof(CanCreateOrder))]
     private async Task CreateOrderAsync()
     {
+        if (IsArchive) return;
         IsBusy = true;
         StatusMessage = "正在创建订单…";
 
@@ -527,7 +550,9 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             await ReloadOrdersAsync(SelectedOrder?.Id);
-            StatusMessage = Orders.Count == 0
+            StatusMessage = IsArchive
+                ? (Orders.Count == 0 && Reimbursements.Count == 0 ? "暂无归档。三项里程碑全部完成后自动归档。" : "归档仅供查看；可右键报销单取消归档。")
+                : Orders.Count == 0
                 ? "还没有订单。点击“新建订单”开始整理报销材料。"
                 : "订单列表已更新。";
         }
@@ -544,6 +569,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanEditInvoice))]
     private async Task SaveInvoiceAsync()
     {
+        if (IsArchive) return;
         if (SelectedInvoice is null)
         {
             return;
@@ -595,6 +621,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanEditInvoice))]
     private async Task AnalyzeInvoiceAsync()
     {
+        if (IsArchive) return;
         if (SelectedInvoice is null)
         {
             return;
@@ -662,13 +689,16 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     private bool CanRunCommand() => !IsBusy;
+    private bool CanCreateOrder() => !IsArchive && !IsBusy;
 
-    private bool CanEditInvoice() => SelectedInvoice is not null && !IsBusy;
+    private bool CanEditInvoice() => !IsArchive && SelectedInvoice is not null && !IsBusy;
 
     private async Task ReloadOrdersAsync(OrderId? selectedOrderId)
     {
         await ReloadReimbursementsAsync();
-        IReadOnlyList<OrderListItem> items = await _workspace.SearchOrdersAsync(new OrderQuery());
+        IReadOnlyList<OrderListItem> items = await _workspace.SearchOrdersAsync(new OrderQuery(Archived: IsArchive));
+        _hasOrdersOutsideView = items.Count == 0 &&
+            (await _workspace.SearchOrdersAsync(new OrderQuery(Limit: 1))).Count > 0;
         Orders = new ObservableCollection<OrderListItem>(items);
         OnPropertyChanged(nameof(OrderCountText));
         OnPropertyChanged(nameof(HasOrders));

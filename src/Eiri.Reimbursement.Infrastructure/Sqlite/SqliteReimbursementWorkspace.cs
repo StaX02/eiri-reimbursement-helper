@@ -135,7 +135,8 @@ public sealed partial class SqliteReimbursementWorkspace(
                 o.created_at, o.reimbursement_id, r.content
             FROM orders o
             LEFT JOIN reimbursement_forms r ON r.id = o.reimbursement_id
-            WHERE ($platform IS NULL OR o.platform = $platform)
+            WHERE ($archived IS NULL OR (o.exported_at IS NOT NULL AND o.submitted_at IS NOT NULL AND o.refunded_at IS NOT NULL) = $archived)
+              AND ($platform IS NULL OR o.platform = $platform)
               AND ($searchText IS NULL
                    OR o.external_order_number LIKE '%' || $searchText || '%'
                    OR EXISTS (
@@ -146,6 +147,7 @@ public sealed partial class SqliteReimbursementWorkspace(
             ORDER BY o.created_at DESC
             LIMIT $limit OFFSET $offset;
             """;
+        sql.Parameters.AddWithValue("$archived", (object?)query.Archived ?? DBNull.Value);
         sql.Parameters.AddWithValue("$platform", query.Platform is null ? DBNull.Value : query.Platform.Value.ToString());
         sql.Parameters.AddWithValue("$searchText", (object?)Normalize(query.SearchText) ?? DBNull.Value);
         sql.Parameters.AddWithValue("$limit", query.Limit);

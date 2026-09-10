@@ -39,13 +39,14 @@ public sealed partial class SqliteReimbursementWorkspace : IReimbursementFormWor
         return id;
     }
 
-    public async Task<IReadOnlyList<ReimbursementForm>> ListReimbursementsAsync(int offset = 0, int limit = 100, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ReimbursementForm>> ListReimbursementsAsync(int offset = 0, int limit = 100, CancellationToken cancellationToken = default, bool? archived = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(offset);
         if (limit is < 1 or > 500) throw new ArgumentOutOfRangeException(nameof(limit));
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken);
         await using SqliteCommand sql = connection.CreateCommand();
-        sql.CommandText = "SELECT id FROM reimbursement_forms ORDER BY created_at DESC, id LIMIT $limit OFFSET $offset;";
+        sql.CommandText = "SELECT id FROM reimbursement_forms WHERE ($archived IS NULL OR (exported_at IS NOT NULL AND submitted_at IS NOT NULL AND refunded_at IS NOT NULL) = $archived) ORDER BY created_at DESC, id LIMIT $limit OFFSET $offset;";
+        sql.Parameters.AddWithValue("$archived", (object?)archived ?? DBNull.Value);
         sql.Parameters.AddWithValue("$limit", limit);
         sql.Parameters.AddWithValue("$offset", offset);
         List<Guid> ids = [];

@@ -77,7 +77,7 @@ public partial class MainWindowViewModel
 
     private async Task<ReimbursementEditorViewModel> LoadReimbursementEditorAsync(IReimbursementFormWorkspace workspace, Guid id)
     {
-        ReimbursementEditorViewModel editor = new(workspace, id);
+        ReimbursementEditorViewModel editor = new(workspace, id, isReadOnly: IsArchive);
         await editor.LoadAsync();
         editor.Saved += OnReimbursementSaved;
         editor.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(editor.IsBusy)) OnPropertyChanged(nameof(CanManageData)); };
@@ -106,8 +106,7 @@ public partial class MainWindowViewModel
     internal async Task RefreshAfterDingTalkApprovalAsync(ReimbursementEditorViewModel editor)
     {
         await editor.LoadAsync();
-        var detail = await ReimbursementWorkspace!.GetReimbursementAsync(editor.Id);
-        if (detail is not null) OnReimbursementSaved(detail.Form);
+        await ReloadOrdersAsync(SelectedOrder?.Id);
     }
 
     public async Task ReloadReimbursementsAsync(int? page = null)
@@ -115,15 +114,17 @@ public partial class MainWindowViewModel
         if (ReimbursementWorkspace is not { } workspace) return;
         int version = ++_reimbursementLoadVersion;
         int target = Math.Max(0, page ?? ReimbursementPage);
-        IReadOnlyList<ReimbursementForm> forms = await workspace.ListReimbursementsAsync(target * 100);
+        IReadOnlyList<ReimbursementForm> forms = await workspace.ListReimbursementsAsync(target * 100, archived: IsArchive);
         while (forms.Count == 0 && target > 0)
         {
             target--;
-            forms = await workspace.ListReimbursementsAsync(target * 100);
+            forms = await workspace.ListReimbursementsAsync(target * 100, archived: IsArchive);
         }
         if (version != _reimbursementLoadVersion) return;
         ReimbursementPage = target;
         var ids = forms.Select(form => form.Id).ToHashSet();
+        if (SelectedReimbursement is { } selected && !ids.Contains(selected.Id))
+            await SetSelectedReimbursementsAsync([]);
         for (int i = Reimbursements.Count - 1; i >= 0; i--)
             if (!ids.Contains(Reimbursements[i].Id)) Reimbursements.RemoveAt(i);
         for (int i = 0; i < forms.Count; i++)
@@ -164,7 +165,7 @@ public partial class MainWindowViewModel
 
     public async Task<Guid?> CreateReimbursementAsync(IReadOnlyList<OrderId> ids)
     {
-        if (IsBusy || ids.Count == 0 || ReimbursementWorkspace is not { } workspace) return null;
+        if (IsArchive || IsBusy || ids.Count == 0 || ReimbursementWorkspace is not { } workspace) return null;
         IsBusy = true;
         try
         {

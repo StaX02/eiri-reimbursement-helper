@@ -135,10 +135,13 @@ public sealed class ReimbursementEditorTests
             await vm.SetReimbursementsMilestoneAsync([id], Milestone.Submitted, true);
             await vm.SetReimbursementsMilestoneAsync([id], Milestone.Refunded, true);
             Assert.NotNull(Assert.Single(await workspace.SearchOrdersAsync(new())).SubmittedAt);
-            Assert.True(vm.ReimbursementEditor.IsRefunded);
+            Assert.Null(vm.ReimbursementEditor);
+            Assert.Empty(vm.Reimbursements);
+            Assert.NotNull((await workspace.GetReimbursementAsync(id))!.Form.RefundedAt);
             await vm.ClearReimbursementsStatusesAsync([id]);
+            await vm.SetSelectedReimbursementsAsync([Assert.Single(vm.Reimbursements)]);
             Assert.Null(Assert.Single(await workspace.SearchOrdersAsync(new())).RefundedAt);
-            Assert.False(vm.ReimbursementEditor.IsSubmitted);
+            Assert.False(vm.ReimbursementEditor!.IsSubmitted);
             Assert.NotNull(Assert.Single(await workspace.SearchOrdersAsync(new())).ExportedAt);
             vm.ReimbursementEditor.TotalAmount = "invalid";
             Assert.False(await vm.ReimbursementEditor.PendingSave);
@@ -181,6 +184,6 @@ public sealed class ReimbursementEditorTests
             return new(1, []);
         }
         public Task<Guid> CreateReimbursementAsync(IReadOnlyList<OrderId> orderIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IReadOnlyList<ReimbursementForm>> ListReimbursementsAsync(int offset = 0, int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ReimbursementForm>>([Form]);
+        public Task<IReadOnlyList<ReimbursementForm>> ListReimbursementsAsync(int offset = 0, int limit = 100, CancellationToken cancellationToken = default, bool? archived = null) => Task.FromResult<IReadOnlyList<ReimbursementForm>>([Form]);
     }
 }

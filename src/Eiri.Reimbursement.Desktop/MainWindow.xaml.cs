@@ -52,6 +52,7 @@ public partial class MainWindow : Window
         viewModel.OrderRowsUpdated += RestoreOrderSelection;
         Closed += (_, _) => viewModel.OrderRowsUpdated -= RestoreOrderSelection;
         Closing += MainWindow_OnClosing;
+        if (viewModel.IsArchive) ConfigureArchiveWindow();
 
     }
 

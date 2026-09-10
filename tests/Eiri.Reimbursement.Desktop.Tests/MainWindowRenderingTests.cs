@@ -33,7 +33,9 @@ public sealed class MainWindowRenderingTests
                 AssertApprovalWindow(application, window);
                 Menu topMenu = Assert.IsType<Menu>(window.FindName("TopMenuBar"));
                 Assert.Equal("钉钉", Assert.IsType<MenuItem>(topMenu.Items[0]).Header);
-                Assert.Equal("选项", Assert.IsType<MenuItem>(topMenu.Items[1]).Header);
+                Assert.Equal("归档", Assert.IsType<MenuItem>(topMenu.Items[1]).Header);
+                Assert.Equal("查看归档", Assert.IsType<MenuItem>(Assert.IsType<MenuItem>(topMenu.Items[1]).Items[0]).Header);
+                Assert.Equal("选项", Assert.IsType<MenuItem>(topMenu.Items[2]).Header);
                 window.ConnectionState.ConnectAsync(_ => Task.FromResult<DingTalkCredentials?>(new("test-client", "test-secret"))).GetAwaiter().GetResult();
                 DingTalkConnectionWindow connectionWindow = new(window.ConnectionState) { Owner = window };
                 connectionWindow.Show();
@@ -282,6 +284,7 @@ public sealed class MainWindowRenderingTests
                 VerifyPendingSubmissionClose(window, workspace, failFirstSave: false);
                 VerifyPendingSubmissionClose(window, workspace, failFirstSave: true);
                 VerifySubmissionModalSaveAndClose(window, viewModel);
+                VerifyArchiveWindow(window, workspace, application);
                 window.Close();
                 Directory.Delete(libraryRoot, recursive: true);
             }
@@ -309,6 +312,77 @@ public sealed class MainWindowRenderingTests
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
         using var file = File.Create(Path.Combine(output, name));
         encoder.Save(file);
+    }
+
+    private static void VerifyArchiveWindow(MainWindow owner, SqliteReimbursementWorkspace workspace, App application)
+    {
+        var order = workspace.CreateOrderAsync(new(OrderPlatform.JD)).GetAwaiter().GetResult();
+        var id = workspace.CreateReimbursementAsync([order]).GetAwaiter().GetResult();
+        workspace.UpdateReimbursementAsync(new(id, new DateOnly(2026, 9, 10), "材料费", "归档测试材料", 12000)).GetAwaiter().GetResult();
+        workspace.SetReimbursementMilestonesAsync(Enum.GetValues<Milestone>().Select(m =>
+            new Eiri.Reimbursement.Core.Reimbursements.SetReimbursementMilestoneCommand(id, m, DateTimeOffset.UtcNow)).ToArray()).GetAwaiter().GetResult();
+        var main = (MainWindowViewModel)owner.DataContext;
+        main.LoadAsync().GetAwaiter().GetResult();
+        Exception? failure = null;
+        bool opened = false;
+        owner.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            MainWindow? archiveWindow = null;
+            try
+            {
+                archiveWindow = application.Windows.OfType<MainWindow>().Single(w => w != owner);
+                opened = true;
+                var vm = (MainWindowViewModel)archiveWindow.DataContext;
+                Assert.True(vm.IsArchive);
+                Assert.Same(owner, archiveWindow.Owner);
+                archiveWindow.UpdateLayout();
+                Assert.False(((Button)archiveWindow.FindName("CreateOrderButton")).IsVisible);
+                var orders = (DataGrid)archiveWindow.FindName("OrdersGrid");
+                Assert.Null(orders.ContextMenu);
+                orders.SelectedItem = vm.Orders.Single(o => o.Id == order);
+                archiveWindow.UpdateLayout();
+                var orderTabs = (TabControl)archiveWindow.FindName("OrderDetailTabs");
+                orderTabs.SelectedIndex = 1;
+                archiveWindow.UpdateLayout();
+                Assert.True(((TextBox)archiveWindow.FindName("ProductNamesEditor")).IsReadOnly);
+                Assert.False(((ComboBox)archiveWindow.FindName("InvoicePlatformSelector")).IsEnabled);
+                Assert.False(((FrameworkElement)archiveWindow.FindName("MaterialDropZones")).IsVisible);
+                SavePreview(archiveWindow, "archive-order.png");
+                var forms = (DataGrid)archiveWindow.FindName("ReimbursementsGrid");
+                forms.SelectedItem = vm.Reimbursements.Single(r => r.Id == id);
+                archiveWindow.UpdateLayout();
+                var fields = (ReimbursementDetailView)archiveWindow.FindName("ReimbursementDetailFields");
+                var tabs = (TabControl)fields.FindName("ReimbursementDetailTabs");
+                tabs.SelectedIndex = 1;
+                archiveWindow.UpdateLayout();
+                Assert.True(((TextBox)fields.FindName("ContentInput")).IsReadOnly);
+                Assert.True(((TextBox)fields.FindName("ContentInput")).IsEnabled);
+                Assert.False(((FrameworkElement)fields.FindName("ReimbursementDropZone")).IsVisible);
+                Assert.False(((Button)fields.FindName("DingTalkApprovalButton")).IsVisible);
+                SavePreview(archiveWindow, "archive-form.png");
+                archiveWindow.Width = 980;
+                ThemeManager.Toggle(application.Resources);
+                SavePreview(archiveWindow, "archive-narrow-dark.png");
+                ThemeManager.Toggle(application.Resources);
+                var restore = Assert.IsType<MenuItem>(Assert.Single(forms.ContextMenu!.Items.Cast<object>()));
+                Assert.Equal("取消归档", restore.Header);
+                forms.ContextMenu.IsOpen = true;
+                archiveWindow.UpdateLayout();
+                SavePreview(archiveWindow, "archive-context-menu.png");
+                forms.ContextMenu.IsOpen = false;
+                restore.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                Assert.DoesNotContain(vm.Reimbursements, r => r.Id == id);
+                Assert.Null(main.Orders.Single(o => o.Id == order).RefundedAt);
+                SavePreview(archiveWindow, "archive-empty.png");
+            }
+            catch (Exception exception) { failure = exception; }
+            finally { archiveWindow?.Close(); }
+        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        var menu = (MenuItem)owner.FindName("ArchiveMenu");
+        ((MenuItem)menu.Items[0]).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        Assert.True(opened);
+        Assert.Null(failure);
+        Assert.Null(main.Reimbursements.Single(r => r.Id == id).Form.RefundedAt);
     }
 
     private static void VerifySubmissionModalSaveAndClose(MainWindow owner, MainWindowViewModel vm)

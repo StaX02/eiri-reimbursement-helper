@@ -6,6 +6,12 @@ namespace Eiri.Reimbursement.Desktop.ViewModels;
 
 public partial class MainWindowViewModel
 {
+    public Task UnarchiveReimbursementsAsync(IReadOnlyList<Guid> ids) =>
+        !IsArchive || ids.Count == 0 ? Task.CompletedTask : RunReimbursementActionAsync(
+            workspace => workspace.SetReimbursementMilestonesAsync(ids.Distinct()
+                .Select(id => new SetReimbursementMilestoneCommand(id, Milestone.Refunded, null)).ToArray()),
+            $"已取消归档 {ids.Distinct().Count()} 个报销单，报销单及关联订单已恢复至主窗口并设为未返款。", allowArchive: true);
+
     public Task SetReimbursementsMilestoneAsync(IReadOnlyList<Guid> ids, Milestone milestone, bool value) =>
         RunReimbursementActionAsync(async workspace =>
         {
@@ -36,9 +42,9 @@ public partial class MainWindowViewModel
             await SetSelectedReimbursementsAsync([]);
         }, "已删除报销单及其附件，关联订单已解绑。", discardDraftIds: ids);
 
-    private async Task RunReimbursementActionAsync(Func<IReimbursementFormWorkspace, Task> action, string success, IReadOnlyList<Guid>? discardDraftIds = null)
+    private async Task RunReimbursementActionAsync(Func<IReimbursementFormWorkspace, Task> action, string success, IReadOnlyList<Guid>? discardDraftIds = null, bool allowArchive = false)
     {
-        if (IsBusy || ReimbursementWorkspace is not { } workspace) return;
+        if ((IsArchive && !allowArchive) || IsBusy || ReimbursementWorkspace is not { } workspace) return;
         IsBusy = true;
         try
         {

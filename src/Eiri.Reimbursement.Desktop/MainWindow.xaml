@@ -169,17 +169,20 @@
                 <Menu x:Name="TopMenuBar"
                       HorizontalAlignment="Left"
                       VerticalAlignment="Center">
-                    <MenuItem x:Name="DingTalkMenu" Header="钉钉" IsEnabled="{Binding CanConnectDingTalk}">
+                    <MenuItem x:Name="DingTalkMenu" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}" Header="钉钉" IsEnabled="{Binding CanConnectDingTalk}">
                         <MenuItem Header="连接接口" Click="ConnectDingTalk_OnClick" />
                         <MenuItem Header="报销提审信息" Click="DingTalkSubmissionInfo_OnClick" />
                         <MenuItem Header="清除连接记录" Click="ClearDingTalk_OnClick" />
                     </MenuItem>
+                    <MenuItem x:Name="ArchiveMenu" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}" Header="归档" IsEnabled="{Binding CanOpenArchive}">
+                        <MenuItem Header="查看归档" Click="ViewArchive_OnClick" />
+                    </MenuItem>
                     <MenuItem x:Name="OptionsMenu" Header="选项">
-                        <MenuItem x:Name="ImportDataMenuItem"
+                        <MenuItem x:Name="ImportDataMenuItem" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
                                   Header="导入数据"
                                   IsEnabled="{Binding CanManageData}"
                                   Click="ImportDataMenuItem_OnClick" />
-                        <MenuItem x:Name="ExportDataMenuItem"
+                        <MenuItem x:Name="ExportDataMenuItem" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
                                   Header="导出数据"
                                   IsEnabled="{Binding CanManageData}"
                                   Click="ExportDataMenuItem_OnClick" />
@@ -232,7 +235,7 @@
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center">
-                    <Button x:Name="DingTalkConnectionStatusButton" Width="140" Margin="0,0,12,0"
+                    <Button x:Name="DingTalkConnectionStatusButton" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}" Width="140" Margin="0,0,12,0"
                             IsEnabled="{Binding CanConnectDingTalk}" Click="ConnectDingTalk_OnClick"
                             ToolTip="{Binding ConnectionState.ExpirationText, RelativeSource={RelativeSource AncestorType=Window}}"
                             AutomationProperties.Name="钉钉连接状态，点击重新连接">
@@ -247,19 +250,19 @@
                             </Style></TextBlock.Style>
                         </TextBlock>
                     </Button>
-                    <Button x:Name="ExportReimbursementFilesButton"
+                    <Button x:Name="ExportReimbursementFilesButton" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
                             Width="126"
                             Margin="0,0,8,0"
                             IsEnabled="{Binding CanExport}"
                             Click="ExportReimbursementFilesButton_OnClick"
                             Content="导出报销资料" />
-                    <Button x:Name="BatchImportInvoicesButton"
+                    <Button x:Name="BatchImportInvoicesButton" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
                             Width="120"
                             Margin="0,0,8,0"
                             IsEnabled="{Binding CanBatchImportInvoices}"
                             Click="BatchImportInvoicesButton_OnClick"
                             Content="批量导入发票" />
-                    <Button x:Name="CreateOrderButton"
+                    <Button x:Name="CreateOrderButton" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
                             Width="108"
                             Style="{StaticResource PrimaryButtonStyle}"
                             Command="{Binding CreateOrderCommand}">
@@ -330,12 +333,12 @@
                                            Text="发票与报销材料汇总" />
                             </StackPanel>
 
-                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <TextBlock Margin="0,0,8,0"
                                            VerticalAlignment="Center"
                                            Foreground="{DynamicResource SecondaryTextBrush}"
                                            Text="新订单来源平台" />
-                                <ComboBox x:Name="PlatformSelector"
+                                <ComboBox x:Name="PlatformSelector" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
                                           Width="142"
                                           ItemsSource="{Binding PlatformOptions}"
                                           SelectedItem="{Binding SelectedPlatform, Mode=TwoWay}"
@@ -489,11 +492,11 @@
                                 <TextBlock HorizontalAlignment="Center"
                                            FontSize="16"
                                            FontWeight="SemiBold"
-                                           Text="还没有订单" />
+                                           Text="{Binding OrdersEmptyHeading}" />
                                 <TextBlock Margin="0,6,0,0"
                                            HorizontalAlignment="Center"
                                            Foreground="{DynamicResource SecondaryTextBrush}"
-                                           Text="新建订单，或批量导入已有发票。" />
+                                           Text="{Binding OrdersEmptyHint}" />
                             </StackPanel>
                         </Grid>
                     </Grid>
@@ -543,8 +546,8 @@
                                         </Style.Triggers>
                                     </Style>
                                 </StackPanel.Style>
-                                <TextBlock Text="还没有报销单" HorizontalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
-                                <TextBlock Text="选择订单后，右键创建报销单。" Margin="0,6,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <TextBlock Text="{Binding ReimbursementsEmptyHeading}" HorizontalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding ReimbursementEmptyHint}" Margin="0,6,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" />
                             </StackPanel>
                             <Grid Grid.Row="2" Margin="16,6">
                                 <TextBlock Text="{Binding Reimbursements.Count, StringFormat=本页 {0} 个报销单}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
@@ -631,7 +634,7 @@
                                     Height="32"
                                     Style="{StaticResource DangerButtonStyle}"
                                     IsEnabled="{Binding CanDeleteOrder}"
-                                    Click="DeleteOrderButton_OnClick"
+                                    Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}" Click="DeleteOrderButton_OnClick"
                                     Content="删除" />
                         </Grid>
 
@@ -639,7 +642,7 @@
                                     Grid.Row="1"
                                     Margin="18,0,18,12"
                                     HorizontalAlignment="Right"
-                                    Visibility="{Binding IsSingleOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Visibility="{Binding IsEditableOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}"
                                     Orientation="Horizontal">
                             <Button Width="84"
                                     Height="32"
@@ -657,7 +660,7 @@
                         <Grid x:Name="MaterialDropZones"
                               Grid.Row="2"
                               Margin="18,0,18,14"
-                              Visibility="{Binding IsSingleOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                              Visibility="{Binding IsEditableOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="10" />
@@ -766,7 +769,7 @@
                                               VerticalScrollBarVisibility="Auto">
                                     <StackPanel Margin="4">
                                         <TextBlock Style="{StaticResource FieldLabelStyle}" Text="平台" />
-                                        <ComboBox x:Name="InvoicePlatformSelector"
+                                        <ComboBox x:Name="InvoicePlatformSelector" IsEnabled="{Binding IsEditable}"
                                                   Margin="0,0,0,12"
                                                   ItemsSource="{Binding PlatformOptions}"
                                                   SelectedItem="{Binding SelectedOrderPlatform, Mode=TwoWay}"
@@ -780,17 +783,17 @@
 
                                         <TextBlock Style="{StaticResource FieldLabelStyle}" Text="商家名称" />
                                         <TextBox Margin="0,0,0,12"
-                                                 Text="{Binding SelectedInvoice.MerchantName, UpdateSourceTrigger=PropertyChanged}" />
+                                                 IsReadOnly="{Binding IsArchive}" Text="{Binding SelectedInvoice.MerchantName, UpdateSourceTrigger=PropertyChanged}" />
 
                                         <TextBlock Style="{StaticResource FieldLabelStyle}" Text="发票号" />
                                         <TextBox Margin="0,0,0,12"
                                                  FontFamily="Cascadia Mono, Microsoft YaHei UI"
-                                                 Text="{Binding SelectedInvoice.InvoiceNumber, UpdateSourceTrigger=PropertyChanged}" />
+                                                 IsReadOnly="{Binding IsArchive}" Text="{Binding SelectedInvoice.InvoiceNumber, UpdateSourceTrigger=PropertyChanged}" />
 
                                         <TextBlock Style="{StaticResource FieldLabelStyle}" Text="发票金额（元）" />
                                         <TextBox Margin="0,0,0,12"
                                                  FontFamily="Cascadia Mono, Microsoft YaHei UI"
-                                                 Text="{Binding SelectedInvoice.AmountText, UpdateSourceTrigger=PropertyChanged}" />
+                                                 IsReadOnly="{Binding IsArchive}" Text="{Binding SelectedInvoice.AmountText, UpdateSourceTrigger=PropertyChanged}" />
 
                                         <TextBlock Style="{StaticResource FieldLabelStyle}"
                                                    Text="发票明细（每行一条）" />
@@ -799,9 +802,9 @@
                                                  Margin="0,0,0,12"
                                                  AcceptsReturn="True"
                                                  VerticalScrollBarVisibility="Auto"
-                                                 Text="{Binding SelectedInvoice.ProductNamesText, UpdateSourceTrigger=PropertyChanged}" />
+                                                 IsReadOnly="{Binding IsArchive}" Text="{Binding SelectedInvoice.ProductNamesText, UpdateSourceTrigger=PropertyChanged}" />
 
-                                        <StackPanel Margin="0,0,0,14"
+                                        <StackPanel Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,14"
                                                     Orientation="Horizontal"
                                                     HorizontalAlignment="Right">
                                             <Button Width="110"

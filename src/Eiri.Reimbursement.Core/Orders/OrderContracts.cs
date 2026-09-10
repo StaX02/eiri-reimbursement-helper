@@ -20,7 +20,8 @@ public sealed record OrderQuery(
     string? SearchText = null,
     OrderPlatform? Platform = null,
     int Offset = 0,
-    int Limit = 100);
+    int Limit = 100,
+    bool? Archived = null);
 
 public sealed record OrderListItem(
     OrderId Id,

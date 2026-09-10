@@ -5,7 +5,7 @@ using Eiri.Reimbursement.Core.Reimbursements;
 
 namespace Eiri.Reimbursement.Desktop.ViewModels;
 
-public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace workspace, Guid id) : ObservableObject
+public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace workspace, Guid id, bool isReadOnly = false) : ObservableObject
 {
     public Guid Id => id;
     public string DingTalkInstanceId => _original?.DingTalkInstanceId ?? "";
@@ -37,9 +37,13 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
     [ObservableProperty] private ObservableCollection<ReimbursementAttachment> _attachments = [];
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanEdit))]
+    [NotifyPropertyChangedFor(nameof(IsReadOnly))]
     private bool _isBusy;
-    public bool CanEdit => !IsBusy;
-    public bool HasChanges => _original is not null &&
+    public bool IsReadOnly => isReadOnly || IsBusy;
+    public string AttachmentsEmptyHint => isReadOnly ? "暂无附件。" : "暂无附件，将文件拖入上方区域。";
+    public bool IsEditable => !isReadOnly;
+    public bool CanEdit => !isReadOnly && !IsBusy;
+    public bool HasChanges => !isReadOnly && _original is not null &&
         (!TryGetUpdate(out UpdateReimbursementCommand? update, out _) || !MatchesOriginal(update!));
 
     partial void OnApplicationDateChanged(string value) => QueueSave();
@@ -49,7 +53,7 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
 
     private void QueueSave()
     {
-        if (!_loading && _original is not null) PendingSave = SaveAsync();
+        if (!isReadOnly && !_loading && _original is not null) PendingSave = SaveAsync();
     }
 
     public async Task LoadAsync()
@@ -99,6 +103,7 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
 
     public async Task<bool> SaveAsync()
     {
+        if (isReadOnly) return true;
         await _saveLock.WaitAsync();
         try
         {
@@ -133,7 +138,7 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
 
     public Task ImportAsync(IReadOnlyList<string> paths)
     {
-        if (IsBusy || paths.Count == 0) return Task.CompletedTask;
+        if (!CanEdit || paths.Count == 0) return Task.CompletedTask;
         return PendingImport = ImportCoreAsync(paths);
     }
 
