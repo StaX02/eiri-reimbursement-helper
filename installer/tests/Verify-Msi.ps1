@@ -57,6 +57,17 @@ $applicationShortcut = $shortcuts | Where-Object {
 }
 Assert-True ($null -ne $applicationShortcut) "The icon-backed Start menu shortcut is missing."
 
+$shortcutDirectories = @(Get-MsiQueryRows $database "SELECT ``Directory_`` FROM ``Shortcut``" 1) | ForEach-Object { $_.Values[0] }
+Assert-True ($shortcutDirectories -contains 'DesktopFolder') 'Desktop shortcut is missing.'
+$secureProperties = (Get-MsiProperty $database 'SecureCustomProperties').Split(';')
+foreach ($property in @('INSTALLFOLDER', 'DATADIRECTORY', 'ADDDESKTOPSHORTCUT', 'DELETEAPPDATA')) {
+    Assert-True ($secureProperties -contains $property) "Installer option does not survive elevation: $property"
+}
+$uiActions = @(Get-MsiQueryRows $database 'SELECT `Action` FROM `InstallUISequence`' 1) | ForEach-Object { $_.Values[0] }
+Assert-True ($uiActions -contains 'ConfigureInstall' -and $uiActions -contains 'ExecuteAction') 'The interactive installation flow is incomplete.'
+$cleanup = @(Get-MsiQueryRows $database 'SELECT `Condition` FROM `InstallExecuteSequence` WHERE `Action`=''DeleteApplicationData''' 1)
+Assert-True ($cleanup.Count -eq 1 -and $cleanup[0].Values[0].Contains('NOT UPGRADINGPRODUCTCODE') -and $cleanup[0].Values[0].Contains('DELETEAPPDATA = "1"')) 'Data cleanup must require consent and exclude upgrades.'
+
 $fileNames = @(Get-MsiQueryRows $database "SELECT ``FileName`` FROM ``File``" 1) |
     ForEach-Object { $_.Values[0].Split('|')[-1] }
 Assert-True ($fileNames -contains "Eiri.Reimbursement.Desktop.exe") "The desktop executable is missing."

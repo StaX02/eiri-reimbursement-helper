@@ -62,4 +62,8 @@ if (-not (Test-Path -LiteralPath $msiPath -PathType Leaf)) {
     -ExpectedVersion $Version `
     -PublishDirectory $publishDirectory
 
+& (Join-Path $PSScriptRoot "tests\Verify-InstallerOptions.ps1")
+$hash = (Get-FileHash -LiteralPath $msiPath -Algorithm SHA256).Hash.ToLowerInvariant()
+Set-Content -LiteralPath "$msiPath.sha256" -Encoding ascii -Value "$hash  $([IO.Path]::GetFileName($msiPath))"
+
 Write-Output $msiPath

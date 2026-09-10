@@ -33,7 +33,8 @@ public partial class App : Application
 
         try
         {
-            string libraryRoot = Path.Combine(
+            string libraryRoot = Microsoft.Win32.Registry.GetValue(
+                @"HKEY_CURRENT_USER\Software\StaX02\Eiri Reimbursement Helper", "DataDirectory", null) as string ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "EiriReimbursementHelper");
 

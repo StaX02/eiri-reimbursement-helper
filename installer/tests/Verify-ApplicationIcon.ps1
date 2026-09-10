@@ -1,56 +1,56 @@
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$ExecutablePath,
-
-    [Parameter(Mandatory = $true)]
-    [string]$IconPath
+    [Parameter(Mandatory = $true)][string]$ExecutablePath,
+    [Parameter(Mandatory = $true)][string]$IconPath
 )
-
-$ErrorActionPreference = "Stop"
-Add-Type -AssemblyName System.Drawing
-
-$resolvedExecutablePath = [System.IO.Path]::GetFullPath($ExecutablePath)
-$resolvedIconPath = [System.IO.Path]::GetFullPath($IconPath)
-if (-not (Test-Path -LiteralPath $resolvedExecutablePath -PathType Leaf)) {
-    throw "Executable does not exist: $resolvedExecutablePath"
+$ErrorActionPreference = 'Stop'
+# Read PE resources directly: shell-associated icons can be stale or theme-dependent.
+if (-not ('EiriIconResources' -as [type])) {
+    Add-Type -TypeDefinition @"
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+public static class EiriIconResources {
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    static extern IntPtr LoadLibraryEx(string name, IntPtr file, uint flags);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    static extern IntPtr FindResource(IntPtr module, IntPtr name, IntPtr type);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern IntPtr LoadResource(IntPtr module, IntPtr resource);
+    [DllImport("kernel32.dll")] static extern IntPtr LockResource(IntPtr resource);
+    [DllImport("kernel32.dll")] static extern uint SizeofResource(IntPtr module, IntPtr resource);
+    [DllImport("kernel32.dll")] static extern bool FreeLibrary(IntPtr module);
+    public static byte[] ReadIcon(string path, int id) {
+        IntPtr module = LoadLibraryEx(path, IntPtr.Zero, 2);
+        if (module == IntPtr.Zero) throw new Win32Exception();
+        try {
+            IntPtr resource = FindResource(module, (IntPtr)id, (IntPtr)3);
+            if (resource == IntPtr.Zero) throw new Win32Exception();
+            byte[] bytes = new byte[SizeofResource(module, resource)];
+            IntPtr address = LockResource(LoadResource(module, resource));
+            if (address == IntPtr.Zero) throw new Win32Exception();
+            Marshal.Copy(address, bytes, 0, bytes.Length);
+            return bytes;
+        } finally { FreeLibrary(module); }
+    }
 }
-if (-not (Test-Path -LiteralPath $resolvedIconPath -PathType Leaf)) {
-    throw "Icon does not exist: $resolvedIconPath"
+"@
 }
-
-$actualIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($resolvedExecutablePath)
-$expectedIcon = [System.Drawing.Icon]::new($resolvedIconPath)
-$actualBitmap = $actualIcon.ToBitmap()
-$expectedBitmap = [System.Drawing.Bitmap]::new($actualBitmap.Width, $actualBitmap.Height)
-$graphics = [System.Drawing.Graphics]::FromImage($expectedBitmap)
+$executable = [IO.Path]::GetFullPath($ExecutablePath)
+$icon = [IO.File]::ReadAllBytes([IO.Path]::GetFullPath($IconPath))
+if ($icon.Length -lt 6 -or [BitConverter]::ToUInt16($icon, 2) -ne 1) { throw 'Invalid ICO header.' }
+$count = [BitConverter]::ToUInt16($icon, 4)
+if ($count -eq 0) { throw 'The icon has no image frames.' }
+$sha = [Security.Cryptography.SHA256]::Create()
 try {
-    $graphics.DrawIcon(
-        $expectedIcon,
-        [System.Drawing.Rectangle]::new(0, 0, $expectedBitmap.Width, $expectedBitmap.Height))
-    $difference = 0L
-    $channelCount = $actualBitmap.Width * $actualBitmap.Height * 4
-    for ($y = 0; $y -lt $actualBitmap.Height; $y++) {
-        for ($x = 0; $x -lt $actualBitmap.Width; $x++) {
-            $actualPixel = $actualBitmap.GetPixel($x, $y)
-            $expectedPixel = $expectedBitmap.GetPixel($x, $y)
-            $difference += [Math]::Abs($actualPixel.A - $expectedPixel.A)
-            $difference += [Math]::Abs($actualPixel.R - $expectedPixel.R)
-            $difference += [Math]::Abs($actualPixel.G - $expectedPixel.G)
-            $difference += [Math]::Abs($actualPixel.B - $expectedPixel.B)
+    for ($index = 0; $index -lt $count; $index++) {
+        $entry = 6 + 16 * $index
+        $length = [BitConverter]::ToUInt32($icon, $entry + 8)
+        $offset = [BitConverter]::ToUInt32($icon, $entry + 12)
+        $expected = [byte[]]::new($length)
+        [Array]::Copy($icon, $offset, $expected, 0, $length)
+        $actual = [EiriIconResources]::ReadIcon($executable, $index + 1)
+        if ([Convert]::ToBase64String($sha.ComputeHash($expected)) -cne [Convert]::ToBase64String($sha.ComputeHash($actual))) {
+            throw "Executable icon frame $index does not match icon.ico."
         }
     }
-
-    $meanChannelDifference = $difference / $channelCount
-    if ($meanChannelDifference -gt 30) {
-        throw "Published executable does not visually match icon.ico. Mean channel difference: $meanChannelDifference."
-    }
-}
-finally {
-    $graphics.Dispose()
-    $actualBitmap.Dispose()
-    $expectedBitmap.Dispose()
-    $actualIcon.Dispose()
-    $expectedIcon.Dispose()
-}
-
-Write-Output "Application icon verified: $resolvedExecutablePath"
+} finally { $sha.Dispose() }
+Write-Output "Application icon verified ($count embedded frames): $executable"

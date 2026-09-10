@@ -9,6 +9,10 @@
     <SuppressIces>ICE60</SuppressIces>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="CustomActions\CustomActions.csproj" />
+  </ItemGroup>
+
   <Target Name="ValidateInstallerProperties" BeforeTargets="Build">
     <Error Condition="'$(ProductVersion)' == ''" Text="ProductVersion is required. Use installer/Build-Msi.ps1." />
     <Error Condition="'$(PublishDirectory)' == ''" Text="PublishDirectory is required. Use installer/Build-Msi.ps1." />

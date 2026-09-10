@@ -50,4 +50,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File installer/Build-Msi.ps1
 
 MSI 产物位于 `artifacts/release/Eiri-Reimbursement-Helper-v<version>-win-x64.msi`。构建脚本从桌面项目读取版本，使用 WiX Toolset 6，并将 `icon.ico` 用作应用、快捷方式和“已安装的应用”图标。构建结束时会自动校验图标、内嵌 CAB、升级规则和完整 payload。
 
+双击 MSI 后可选择应用安装位置、当前 Windows 用户的数据保存位置，以及是否添加桌面快捷方式。开始菜单快捷方式自动添加。应用默认安装在 Program Files，数据默认保存在 `%LOCALAPPDATA%\EiriReimbursementHelper`；选择其他磁盘时，数据保存在所选位置下的 `EiriReimbursementHelper` 专用文件夹。安装需要管理员权限，数据目录需允许当前用户写入。
+
+升级和修复沿用已有目录，保留资料库。更换数据位置不会自动搬移原数据；迁移请先在应用内导出备份包，再在新资料库中恢复。数据位置按 Windows 用户保存，其他用户首次启动使用各自的默认资料库。
+
+从 Windows“已安装的应用”卸载时，可选择保留或永久删除当前用户的应用数据，默认保留。删除范围包含数据库、原始材料、缓存、暂存和日志；外部导出、外部备份、其他用户的数据及资料库内无关文件会保留。清理失败会提示手动处理，并将详情写入 MSI 日志。
+
+无人值守安装与卸载也支持显式参数（静默卸载默认保留数据）：
+
+```powershell
+msiexec /i Eiri-Reimbursement-Helper-v0.4.0-win-x64.msi /qn INSTALLFOLDER="D:\Apps\Eiri" DATADIRECTORY="D:\Documents\EiriReimbursementHelper" ADDDESKTOPSHORTCUT=1
+msiexec /x Eiri-Reimbursement-Helper-v0.4.0-win-x64.msi /qn DELETEAPPDATA=1
+```
+
+安装动作使用 Windows 10/11 自带的 .NET Framework 4.8。发布前运行 `installer/tests/Verify-InstallerOptions.ps1` 和 `installer/tests/Test-MsiLifecycle.ps1`；后者仅允许在未安装本产品的环境运行，并使用临时测试数据。
+
 开发前先阅读 [领域词汇](./CONTEXT.md) 和 [架构规划](./docs/architecture.md)。
