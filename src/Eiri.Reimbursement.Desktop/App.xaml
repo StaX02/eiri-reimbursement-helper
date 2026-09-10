@@ -3,36 +3,38 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Eiri.Reimbursement.Desktop">
     <Application.Resources>
-        <SolidColorBrush x:Key="PrimaryBrush" Color="#176B5B" />
-        <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#125749" />
-        <SolidColorBrush x:Key="PrimarySoftBrush" Color="#E8F3F0" />
-        <SolidColorBrush x:Key="SurfaceBrush" Color="#F3F6F5" />
-        <SolidColorBrush x:Key="PanelBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="BorderBrush" Color="#DDE5E2" />
-        <SolidColorBrush x:Key="PrimaryTextBrush" Color="#17221F" />
-        <SolidColorBrush x:Key="PrimaryButtonTextBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#63716D" />
-        <SolidColorBrush x:Key="AlternatingRowBrush" Color="#F9FBFA" />
-        <SolidColorBrush x:Key="SubtlePanelBrush" Color="#F7F9F8" />
-        <SolidColorBrush x:Key="InvoiceDropBrush" Color="#EFF7F5" />
-        <SolidColorBrush x:Key="SupportingDropBrush" Color="#F7F9F8" />
-        <SolidColorBrush x:Key="InputBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="SelectionBrush" Color="#E1F0EC" />
-        <SolidColorBrush x:Key="HoverBrush" Color="#EDF2F0" />
-        <SolidColorBrush x:Key="DangerBrush" Color="#B4473B" />
-        <SolidColorBrush x:Key="WarningBrush" Color="#966000" />
-        <SolidColorBrush x:Key="DangerSoftBrush" Color="#FCF0EE" />
-        <SolidColorBrush x:Key="DangerHoverBrush" Color="#F7DDD9" />
-        <SolidColorBrush x:Key="FocusBrush" Color="#238671" />
-        <SolidColorBrush x:Key="ScrollBarTrackBrush" Color="#F7F9F8" />
-        <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#9AA8A3" />
-        <SolidColorBrush x:Key="ScrollBarThumbHoverBrush" Color="#63716D" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#17221F" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#17221F" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E1F0EC" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#17221F" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#E56833" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="#326D5E" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#AE4525" />
+        <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#90391F" />
+        <SolidColorBrush x:Key="PrimarySoftBrush" Color="#F8E8DC" />
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#F2F0E7" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#FFFDF7" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#D8D4C7" />
+        <SolidColorBrush x:Key="PrimaryTextBrush" Color="#292D2B" />
+        <SolidColorBrush x:Key="PrimaryButtonTextBrush" Color="#FFFDF7" />
+        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#66685F" />
+        <SolidColorBrush x:Key="AlternatingRowBrush" Color="#F8F6EE" />
+        <SolidColorBrush x:Key="SubtlePanelBrush" Color="#F5F2E8" />
+        <SolidColorBrush x:Key="InvoiceDropBrush" Color="#F9EDE2" />
+        <SolidColorBrush x:Key="SupportingDropBrush" Color="#F5F2E8" />
+        <SolidColorBrush x:Key="InputBrush" Color="#FFFDF7" />
+        <SolidColorBrush x:Key="SelectionBrush" Color="#E0EBE4" />
+        <SolidColorBrush x:Key="HoverBrush" Color="#ECE9DD" />
+        <SolidColorBrush x:Key="DangerBrush" Color="#922F27" />
+        <SolidColorBrush x:Key="WarningBrush" Color="#855B11" />
+        <SolidColorBrush x:Key="DangerSoftBrush" Color="#F8E8E2" />
+        <SolidColorBrush x:Key="DangerHoverBrush" Color="#F0D4CB" />
+        <SolidColorBrush x:Key="FocusBrush" Color="#AE4525" />
+        <SolidColorBrush x:Key="ScrollBarTrackBrush" Color="#F5F2E8" />
+        <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#8B8E81" />
+        <SolidColorBrush x:Key="ScrollBarThumbHoverBrush" Color="#66685F" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FFFDF7" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#292D2B" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FFFDF7" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#292D2B" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E0EBE4" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#292D2B" />
 
         <Style x:Key="KeyboardFocusStyle" TargetType="Control">
             <Setter Property="Template">

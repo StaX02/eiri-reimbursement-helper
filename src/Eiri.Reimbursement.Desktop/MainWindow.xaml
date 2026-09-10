@@ -215,7 +215,7 @@
                         <ColumnDefinition Width="4" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="2" />
+                    <Border Background="{DynamicResource AccentBrush}" CornerRadius="2" />
                     <StackPanel Grid.Column="1" Margin="14,0,0,0">
                         <TextBlock x:Name="ManagementHeading"
                                    FontFamily="Segoe UI Variable Display, Microsoft YaHei UI"
@@ -240,7 +240,7 @@
                             <TextBlock.Style><Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ConnectionState.State, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static vm:DingTalkConnectionState.Connected}"><Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding ConnectionState.State, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static vm:DingTalkConnectionState.Connected}"><Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/></DataTrigger>
                                     <DataTrigger Binding="{Binding ConnectionState.State, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static vm:DingTalkConnectionState.Error}"><Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/></DataTrigger>
                                     <DataTrigger Binding="{Binding ConnectionState.State, RelativeSource={RelativeSource AncestorType=Window}}" Value="{x:Static vm:DingTalkConnectionState.Expired}"><Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/></DataTrigger>
                                 </Style.Triggers>
@@ -263,7 +263,7 @@
                             Width="108"
                             Style="{StaticResource PrimaryButtonStyle}"
                             Command="{Binding CreateOrderCommand}">
-                        <TextBlock Foreground="White" Text="新建订单" />
+                        <TextBlock Foreground="{DynamicResource PrimaryButtonTextBrush}" Text="新建订单" />
                     </Button>
                 </StackPanel>
             </Grid>
@@ -566,7 +566,7 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <Grid Margin="18,16,18,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="4"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="2"/>
+                            <Border Background="{DynamicResource AccentBrush}" CornerRadius="2"/>
                             <StackPanel Grid.Column="1" Margin="10,0,0,0">
                                 <TextBlock x:Name="ReimbursementDetailHeading" Text="{Binding ReimbursementDetailHeading}" FontFamily="Segoe UI Variable Display, Microsoft YaHei UI" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                 <TextBlock Text="报销信息与附件" Margin="0,3,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"/>
@@ -615,7 +615,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Border Background="{DynamicResource PrimaryBrush}" CornerRadius="2" />
+                            <Border Background="{DynamicResource AccentBrush}" CornerRadius="2" />
                             <StackPanel Grid.Column="1" Margin="10,0,0,0">
                                 <TextBlock x:Name="OrderDetailHeading"
                                            FontFamily="Segoe UI Variable Display, Microsoft YaHei UI"

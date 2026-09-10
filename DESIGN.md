@@ -3,21 +3,24 @@ version: alpha
 name: "Eiri 发票报销助手"
 description: "面向个人本地报销整理的克制型 Windows 工作台，以账册脊线和高密度清单建立识别。"
 colors:
-  primary: "#176B5B"
-  primary-hover: "#125749"
-  primary-button-text: "#FFFFFF"
-  canvas: "#F3F6F5"
-  surface: "#FFFFFF"
-  surface-subtle: "#F7F9F8"
-  border: "#DDE5E2"
-  text-primary: "#17221F"
-  text-secondary: "#63716D"
-  focus: "#238671"
-  danger: "#B4473B"
-  danger-hover: "#F7DDD9"
-  scrollbar-track: "#F7F9F8"
-  scrollbar-thumb: "#9AA8A3"
-  scrollbar-thumb-hover: "#63716D"
+  primary: "#AE4525"
+  accent: "#E56833"
+  success: "#326D5E"
+  warning: "#855B11"
+  primary-hover: "#90391F"
+  primary-button-text: "#FFFDF7"
+  canvas: "#F2F0E7"
+  surface: "#FFFDF7"
+  surface-subtle: "#F5F2E8"
+  border: "#D8D4C7"
+  text-primary: "#292D2B"
+  text-secondary: "#66685F"
+  focus: "#AE4525"
+  danger: "#922F27"
+  danger-hover: "#F0D4CB"
+  scrollbar-track: "#F5F2E8"
+  scrollbar-thumb: "#8B8E81"
+  scrollbar-thumb-hover: "#66685F"
 typography:
   display:
     fontFamily: "Segoe UI Variable Display, Microsoft YaHei UI, sans-serif"
@@ -52,7 +55,7 @@ components:
 
 ### Creative North Star
 
-界面参考一本摊开的本地报销账册：左侧是可快速扫描的订单清单，右侧是当前条目的批注页。细窄的青绿色“账册脊线”只出现在工作区标题和关键状态处，成为主要识别元素。
+界面参考一本摊开的本地报销账册：左侧是可快速扫描的订单清单，右侧是当前条目的批注页。配色参考用户指定的莱茵生命「孤星」模板：暖白纸面、橘橙印刷色，以及薄荷绿、芥末黄、砖红辅助色。细窄的橘橙色“账册脊线”用于工作区标题，保留清单的信息密度。
 
 ### Product context and register
 
@@ -61,14 +64,34 @@ components:
 - **Locale(s) and language policy：** 首版使用简体中文，领域词汇遵循 `CONTEXT.md`，不混入未解释的英文界面词。
 - **Usage scene：** 本地文件密集操作，以桌面鼠标和键盘为主，需要同时扫描列表并编辑单个订单。
 - **Register：** 产品型界面。任务清晰度、稳定布局和信息密度优先。
-- **Memorable signature：** 4px 青绿色账册脊线，以及同色的当前选择和关键操作反馈。
+- **Memorable signature：** 4px 橘橙色账册脊线、暖白工作面与薄荷绿选择底。
 - **Restraint：** 表格、表单和次要操作保持安静；不叠加装饰性插画、渐变或多层卡片。
 - **Anti-references：** 避免营销式大数字仪表盘、玻璃拟态、过度圆润的胶囊按钮和大面积品牌色。
 - **Token ownership/runtime mapping：** 本文件是视觉意图和规范值来源；`src/Eiri.Reimbursement.Desktop/App.xaml` 实现共享资源，`ThemeManager.cs` 提供浅色与深色映射。变更三者时需同步核对。
 
 ## Colors
 
-浅色主题使用 `canvas` 承托白色工作面，`border` 划分层级。`primary` 仅用于主操作、焦点、选择和账册脊线。正文使用 `text-primary`，说明文字使用 `text-secondary`。危险操作使用 `danger` 并保持与安全主操作分离。深色主题保留同一语义层级，高对比模式交由系统颜色与原生 WPF 控件能力处理。
+浅色主题使用 `canvas` 承托白色工作面，`border` 划分层级。`primary` 用于主操作与焦点，`accent` 用于标题账册脊线。选择使用低饱和薄荷绿底，`success` 独立表示连接成功，品牌橘橙不承担成功语义。正文使用 `text-primary`，说明文字使用 `text-secondary`。危险操作使用 `danger` 并保持与安全主操作分离。深色主题保留同一语义层级，高对比模式交由系统颜色与原生 WPF 控件能力处理。
+
+### Reference and theme mapping
+
+参考：[Mikukawaii2 · 孤星 Latex 模板](https://xhslink.cn/o/4LXehn5Gzl7)，通过 Firecrawl 读取并查看配图（2026-09-10）。仅提炼配色，未复制模板图案或标志。橘橙原色用于结构强调；小字号按钮使用加深橘色以保证可读性。
+
+| 语义 / WPF 资源 | 浅色 | 深色 |
+| --- | --- | --- |
+| 主操作 / PrimaryBrush | #AE4525 | #ED986F |
+| 主按钮文字 / PrimaryButtonTextBrush | #FFFDF7 | #252A26 |
+| 标题脊线 / AccentBrush | #E56833 | #ED986F |
+| 连接成功 / SuccessBrush | #326D5E | #83B9A9 |
+| 警告 / WarningBrush | #855B11 | #E5B54F |
+| 危险 / DangerBrush | #922F27 | #F09B8E |
+| 窗口背景 / SurfaceBrush | #F2F0E7 | #1C211F |
+| 工作面 / PanelBrush | #FFFDF7 | #262C28 |
+| 正文 / PrimaryTextBrush | #292D2B | #F6F1E3 |
+| 辅助文字 / SecondaryTextBrush | #66685F | #B8BDB0 |
+| 选择 / SelectionBrush | #E0EBE4 | #344C42 |
+
+资源路径：本文件 → App.xaml 启动默认值 / ThemeManager.Apply 主题切换 → 所有窗口的 DynamicResource 引用。按钮、输入框、表格、下拉框、滚动条的样式归 App.xaml 统一管理；订单与报销单详情复用。行为规范继续由本文件 Components 与领域文档维护。
 
 ## Typography
 
@@ -90,11 +113,11 @@ components:
 
 ### Foundational visual states
 
-可交互控件具有明确的悬停、按下、焦点和禁用状态。焦点使用 `focus` 色 2px 轮廓。选中行使用低饱和青绿色底，文字保持高对比。加载时保持控件尺寸不变；当前实现未引入骨架屏。
+可交互控件具有明确的悬停、按下、焦点和禁用状态。焦点使用 `focus` 色 2px 轮廓。选中行使用低饱和薄荷绿底，文字保持高对比。加载时保持控件尺寸不变；当前实现未引入骨架屏。
 
 ### Buttons and actions
 
-主按钮为实心 `primary` 并固定使用纯白文字，普通操作为描边表面按钮，低优先级操作使用透明按钮。危险操作使用 `danger` 文本和浅色危险底，只在确认步骤提高强调。常规高度为 36px。
+主按钮为实心 `primary`，浅色主题使用暖白文字，深色主题使用深墨色文字，普通操作为描边表面按钮，低优先级操作使用透明按钮。危险操作使用 `danger` 文本和浅色危险底，只在确认步骤提高强调。常规高度为 36px。
 
 ### Navigation and data display
 
@@ -111,6 +134,8 @@ components:
 流程区域展示节点名称、审批方式和人员；多选节点使用可增删的人员条目，单选固定一条。非空范围仅从候选列表选择，空范围按部门选择成员。无范围的默认人员隐藏部门选择，单选旁显示“修改”，点击展开部门；多选保留移除按钮，新增条目显示部门。移除按钮与部门和人员两行输入总高度一致，默认人员仅一行时随之缩短。固定节点只读，必选标注 `*`。不展示调试 JSON 或手动获取流程、生成请求按钮；初始化及研究方向变化自动获取流程，其他字段修改保留人员选择，提交使用最新值。
 
 “提交报销审批”在流程就绪后启用，点击后完整校验并构造请求。提交期间禁用编辑及重复提交并阻止关闭；成功后显示结果，不在提审窗口显示实例 ID。实例 ID 位于报销单详情“报销单属性”末尾，只读可复制。结果不明保留待核对状态，本地保存失败仅重试保存回执。审批查询和表单加载遵循关闭取消规则。
+
+报销单详情的“钉钉提审”与提审窗口的“提交报销审批”统一复用 `PrimaryButtonStyle`，与主界面“新建订单”的强调色及交互状态一致。“提交报销审批”固定在窗口底部操作栏，按“重试加载、提交报销审批、关闭”顺序排列，不随表单滚动。
 
 报销单侧栏“钉钉提审”使用独立确认窗口，按完整 schema 显示字段，名称后以 `*` 标注必填。共用 DingTalkScalarFieldView 和全局主题；申请人选择仅作用于本次确认。图片固定尺寸，加入即上传，显示状态、媒体 ID 并缓存 URL。完整表单下方展示流程节点，状态和关闭固定于底部，窄窗口单列滚动。初始化等待图片上传后预测流程；失败图片阻止请求并提示修正。关联、附件和发送到聊天暂不处理，未发起审批前不改变里程碑。
 

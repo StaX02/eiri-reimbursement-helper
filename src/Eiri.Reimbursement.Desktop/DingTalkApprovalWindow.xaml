@@ -92,8 +92,6 @@
                         </StackPanel>
                     </DataTemplate></ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <Button x:Name="SubmitApprovalButton" Content="提交报销审批" IsEnabled="{Binding CanSubmit}" Click="SubmitApproval_OnClick"
-                        HorizontalAlignment="Left" Margin="0,16,0,12"/>
                 <TextBlock Text="{Binding SubmissionStatus}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
                 <Button Content="重试保存提交记录" HorizontalAlignment="Left" Margin="0,8,0,0" Click="SaveSubmission_OnClick"
                         Visibility="{Binding CanSaveSubmission, Converter={StaticResource VisibleWhenTrue}}"/>
@@ -107,6 +105,10 @@
         </StackPanel>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="重试加载" Click="Retry_OnClick" IsEnabled="{Binding CanRetryLoad}" MinWidth="88"/>
+            <Button x:Name="SubmitApprovalButton" IsEnabled="{Binding CanSubmit}" Click="SubmitApproval_OnClick"
+                    Style="{StaticResource PrimaryButtonStyle}" MinWidth="120" Margin="8,0,0,0">
+                <TextBlock Foreground="{DynamicResource PrimaryButtonTextBrush}" Text="提交报销审批"/>
+            </Button>
             <Button Content="关闭" Click="Close_OnClick" MinWidth="88" Margin="8,0,0,0"/>
         </StackPanel>
     </Grid>

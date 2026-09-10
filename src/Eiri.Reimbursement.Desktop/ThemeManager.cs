@@ -10,29 +10,29 @@ public static class ThemeManager
     public static void ApplyLightTheme(ResourceDictionary resources) => Apply(
         resources,
         isDark: false,
-        primary: "#176B5B",
-        primaryHover: "#125749",
-        primarySoft: "#E8F3F0",
-        surface: "#F3F6F5",
-        panel: "#FFFFFF",
-        border: "#DDE5E2",
-        primaryText: "#17221F",
-        primaryButtonText: "#FFFFFF",
-        secondaryText: "#63716D",
-        alternatingRow: "#F9FBFA",
-        subtlePanel: "#F7F9F8",
-        invoiceDrop: "#EFF7F5",
-        supportingDrop: "#F7F9F8",
-        input: "#FFFFFF",
-        selection: "#E1F0EC",
-        hover: "#EDF2F0",
-        danger: "#B4473B",
-        dangerSoft: "#FCF0EE",
-        dangerHover: "#F7DDD9",
-        focus: "#238671",
-        scrollBarTrack: "#F7F9F8",
-        scrollBarThumb: "#9AA8A3",
-        scrollBarThumbHover: "#63716D");
+        primary: "#AE4525",
+        primaryHover: "#90391F",
+        primarySoft: "#F8E8DC",
+        surface: "#F2F0E7",
+        panel: "#FFFDF7",
+        border: "#D8D4C7",
+        primaryText: "#292D2B",
+        primaryButtonText: "#FFFDF7",
+        secondaryText: "#66685F",
+        alternatingRow: "#F8F6EE",
+        subtlePanel: "#F5F2E8",
+        invoiceDrop: "#F9EDE2",
+        supportingDrop: "#F5F2E8",
+        input: "#FFFDF7",
+        selection: "#E0EBE4",
+        hover: "#ECE9DD",
+        danger: "#922F27",
+        dangerSoft: "#F8E8E2",
+        dangerHover: "#F0D4CB",
+        focus: "#AE4525",
+        scrollBarTrack: "#F5F2E8",
+        scrollBarThumb: "#8B8E81",
+        scrollBarThumbHover: "#66685F");
 
     public static void Toggle(ResourceDictionary resources)
     {
@@ -45,29 +45,29 @@ public static class ThemeManager
         Apply(
             resources,
             isDark: true,
-            primary: "#58B29D",
-            primaryHover: "#72C3B0",
-            primarySoft: "#173A33",
-            surface: "#111715",
-            panel: "#18211E",
-            border: "#33413C",
-            primaryText: "#F1F6F4",
-            primaryButtonText: "#F1F6F4",
-            secondaryText: "#AAB8B3",
-            alternatingRow: "#1B2622",
-            subtlePanel: "#202C28",
-            invoiceDrop: "#173A33",
-            supportingDrop: "#202C28",
-            input: "#111715",
-            selection: "#23483F",
-            hover: "#283630",
-            danger: "#F08B80",
-            dangerSoft: "#432722",
-            dangerHover: "#5A302A",
-            focus: "#72C3B0",
-            scrollBarTrack: "#111715",
-            scrollBarThumb: "#52625C",
-            scrollBarThumbHover: "#6B7D76");
+            primary: "#ED986F",
+            primaryHover: "#F5B38F",
+            primarySoft: "#403027",
+            surface: "#1C211F",
+            panel: "#262C28",
+            border: "#495047",
+            primaryText: "#F6F1E3",
+            primaryButtonText: "#252A26",
+            secondaryText: "#B8BDB0",
+            alternatingRow: "#2A312C",
+            subtlePanel: "#30372F",
+            invoiceDrop: "#403027",
+            supportingDrop: "#30372F",
+            input: "#1C211F",
+            selection: "#344C42",
+            hover: "#3A4137",
+            danger: "#F09B8E",
+            dangerSoft: "#492E29",
+            dangerHover: "#603930",
+            focus: "#F5B38F",
+            scrollBarTrack: "#1C211F",
+            scrollBarThumb: "#788273",
+            scrollBarThumbHover: "#A1AE9B");
     }
 
     private static void Apply(
@@ -99,6 +99,8 @@ public static class ThemeManager
     {
         resources[DarkThemeStateKey] = isDark;
         SetBrush(resources, "PrimaryBrush", primary);
+        SetBrush(resources, "AccentBrush", isDark ? "#ED986F" : "#E56833");
+        SetBrush(resources, "SuccessBrush", isDark ? "#83B9A9" : "#326D5E");
         SetBrush(resources, "PrimaryHoverBrush", primaryHover);
         SetBrush(resources, "PrimarySoftBrush", primarySoft);
         SetBrush(resources, "SurfaceBrush", surface);
@@ -115,7 +117,7 @@ public static class ThemeManager
         SetBrush(resources, "SelectionBrush", selection);
         SetBrush(resources, "HoverBrush", hover);
         SetBrush(resources, "DangerBrush", danger);
-        SetBrush(resources, "WarningBrush", isDark ? "#E6B85C" : "#966000");
+        SetBrush(resources, "WarningBrush", isDark ? "#E5B54F" : "#855B11");
         SetBrush(resources, "DangerSoftBrush", dangerSoft);
         SetBrush(resources, "DangerHoverBrush", dangerHover);
         SetBrush(resources, "FocusBrush", focus);

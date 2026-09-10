@@ -29,7 +29,7 @@
                 Padding="24"
                 AllowDrop="True"
                 Background="{DynamicResource InvoiceDropBrush}"
-                BorderBrush="#1570EF"
+                BorderBrush="{DynamicResource PrimaryBrush}"
                 BorderThickness="1"
                 CornerRadius="8"
                 DragOver="BatchInvoiceDropZone_OnDragOver"

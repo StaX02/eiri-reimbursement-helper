@@ -10,8 +10,11 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="18,0,18,12">
-            <Button x:Name="DingTalkApprovalButton" Content="钉钉提审" Height="32" MinWidth="90" Margin="0,0,8,0"
-                    IsEnabled="{Binding CanEdit}" Click="DingTalkApproval_OnClick"/>
+            <Button x:Name="DingTalkApprovalButton" Height="32" MinWidth="90" Margin="0,0,8,0"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    IsEnabled="{Binding CanEdit}" Click="DingTalkApproval_OnClick">
+                <TextBlock Foreground="{DynamicResource PrimaryButtonTextBrush}" Text="钉钉提审"/>
+            </Button>
             <Button Width="84" Height="32" Content="添加文件" IsEnabled="{Binding CanEdit}" Click="AddFiles_OnClick"/>
         </StackPanel>
 
