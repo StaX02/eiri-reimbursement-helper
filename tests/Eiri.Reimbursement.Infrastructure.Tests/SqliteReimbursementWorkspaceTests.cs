@@ -28,6 +28,25 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ReopensVersionTenLibraryWithoutLosingExistingData()
+    {
+        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
+        await workspace.InitializeAsync();
+        OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD, "schema-regression"));
+        await using (SqliteConnection connection = new($"Data Source={Path.Combine(_libraryRoot, "library.db")};Pooling=False"))
+        {
+            await connection.OpenAsync();
+            await using SqliteCommand sql = connection.CreateCommand();
+            sql.CommandText = "PRAGMA user_version = 10;";
+            await sql.ExecuteNonQueryAsync();
+        }
+
+        SqliteReimbursementWorkspace reopened = new(_libraryRoot);
+        await reopened.InitializeAsync();
+        Assert.Equal(orderId, Assert.Single(await reopened.SearchOrdersAsync(new OrderQuery())).Id);
+    }
+
+    [Fact]
     public async Task CreatesSearchesAndUpdatesOrderMilestones()
     {
         SqliteReimbursementWorkspace workspace = new(_libraryRoot);
