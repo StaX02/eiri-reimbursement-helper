@@ -1,6 +1,8 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Core.Reimbursements;
 using Eiri.Reimbursement.Desktop;
@@ -34,6 +36,7 @@ public sealed class MainWindowRenderingTests
                 main = new MainWindow(vm);
                 main.Show();
                 main.UpdateLayout();
+                AssertMaximizeRespectsWorkAreaAndRestores(main);
                 var menu = (Menu)main.FindName("TopMenuBar");
                 Assert.Equal("归档", ((MenuItem)menu.Items[1]).Header);
                 var orders = (DataGrid)main.FindName("OrdersGrid");
@@ -52,6 +55,7 @@ public sealed class MainWindowRenderingTests
                 archiveVm.LoadAsync().GetAwaiter().GetResult();
                 archive = new MainWindow(archiveVm) { Owner = main };
                 archive.Show();
+                AssertMaximizeRespectsWorkAreaAndRestores(archive);
                 var forms = (DataGrid)archive.FindName("ReimbursementsGrid");
                 forms.SelectedItem = Assert.Single(archiveVm.Reimbursements);
                 archive.UpdateLayout();
@@ -75,5 +79,46 @@ public sealed class MainWindowRenderingTests
         thread.Start();
         Assert.True(thread.Join(TimeSpan.FromSeconds(15)), "Window smoke test did not finish.");
         Assert.Null(failure);
+    }
+
+    private static void AssertMaximizeRespectsWorkAreaAndRestores(Window window)
+    {
+        window.UpdateLayout();
+        var originalSize = new Size(window.ActualWidth, window.ActualHeight);
+        var originalOrigin = window.PointToScreen(new Point());
+        var monitor = MonitorFromWindow(new WindowInteropHelper(window).Handle, 2);
+        var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+        Assert.True(GetMonitorInfo(monitor, ref info));
+        var expectedTopLeft = new Point(info.WorkLeft, info.WorkTop);
+        var expectedBottomRight = new Point(info.WorkRight, info.WorkBottom);
+        window.WindowState = WindowState.Maximized;
+        window.UpdateLayout();
+        var topLeft = window.PointToScreen(new Point());
+        var bottomRight = window.PointToScreen(new Point(window.ActualWidth, window.ActualHeight));
+        Assert.True(Math.Abs(bottomRight.Y - expectedBottomRight.Y) <= 1,
+            $"Maximized content bottom {bottomRight.Y} must meet work-area bottom {expectedBottomRight.Y}.");
+        Assert.InRange(Math.Abs(topLeft.X - expectedTopLeft.X), 0, 1);
+        Assert.InRange(Math.Abs(topLeft.Y - expectedTopLeft.Y), 0, 1);
+        Assert.InRange(Math.Abs(bottomRight.X - expectedBottomRight.X), 0, 1);
+        window.WindowState = WindowState.Normal;
+        window.UpdateLayout();
+        Assert.Equal(originalSize, new Size(window.ActualWidth, window.ActualHeight));
+        Assert.Equal(originalOrigin, window.PointToScreen(new Point()));
+    }
+
+    [DllImport("user32.dll")]
+    private static extern nint MonitorFromWindow(nint window, uint flags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(nint monitor, ref MonitorInfo info);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MonitorInfo
+    {
+        public int Size;
+        public int MonitorLeft, MonitorTop, MonitorRight, MonitorBottom;
+        public int WorkLeft, WorkTop, WorkRight, WorkBottom;
+        public uint Flags;
     }
 }

@@ -6,6 +6,32 @@ namespace Eiri.Reimbursement.Desktop;
 
 public partial class MainWindow
 {
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(ConstrainMaximizedBounds);
+    }
+
+    private nint ConstrainMaximizedBounds(nint window, int message, nint wParam, nint lParam, ref bool handled)
+    {
+        const int wmGetMinMaxInfo = 0x0024;
+        if (message != wmGetMinMaxInfo) return 0;
+
+        var monitor = MonitorFromWindow(window, 2 /* MONITOR_DEFAULTTONEAREST */);
+        var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfo(monitor, ref info)) return 0;
+
+        // Win32 expects physical pixels relative to the current monitor, including at mixed DPI.
+        var bounds = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+        bounds.MaxPosition.X = info.Work.Left - info.Monitor.Left;
+        bounds.MaxPosition.Y = info.Work.Top - info.Monitor.Top;
+        bounds.MaxSize.X = info.Work.Right - info.Work.Left;
+        bounds.MaxSize.Y = info.Work.Bottom - info.Work.Top;
+        Marshal.StructureToPtr(bounds, lParam, false);
+        // Let WPF continue applying its minimum/maximum resize constraints.
+        return 0;
+    }
+
     private void PositionArchiveWindow()
     {
         if (Owner is null) return;
@@ -45,6 +71,23 @@ public partial class MainWindow
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetMonitorInfo(nint monitor, ref MonitorInfo info);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MinMaxInfo
+    {
+        public NativePoint Reserved;
+        public NativePoint MaxSize;
+        public NativePoint MaxPosition;
+        public NativePoint MinTrackSize;
+        public NativePoint MaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MonitorInfo
