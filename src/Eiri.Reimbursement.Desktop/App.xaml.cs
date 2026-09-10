@@ -7,14 +7,29 @@ using Eiri.Reimbursement.Infrastructure.DataTransfer;
 using Eiri.Reimbursement.Infrastructure.Documents;
 using Eiri.Reimbursement.Infrastructure.Export;
 using Eiri.Reimbursement.Infrastructure.Sqlite;
+using Eiri.Reimbursement.Infrastructure.DingTalk;
+using System.Net.Http;
 
 namespace Eiri.Reimbursement.Desktop;
 
 public partial class App : Application
 {
+    private readonly bool _startWorkspace = true;
+    public App() { }
+    internal App(bool startWorkspace) => _startWorkspace = startWorkspace;
+
+    private readonly HttpClient _dingTalkHttpClient = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(30) };
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _dingTalkHttpClient.Dispose();
+        base.OnExit(e);
+    }
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (!_startWorkspace) return;
 
         try
         {
@@ -31,7 +46,11 @@ public partial class App : Application
                 : null;
             WholeLibraryBackupService backupPackageService = new(libraryRoot);
             MainWindowViewModel viewModel = new(workspace, batchExporter, backupPackageService);
-            MainWindow window = new(viewModel);
+            MainWindow window = new(viewModel, new DingTalkAccessTokenClient(_dingTalkHttpClient), workspace,
+                new DingTalkDirectoryClient(_dingTalkHttpClient), workspace, new DingTalkFormClient(_dingTalkHttpClient), workspace,
+                new DingTalkInvoiceImagePreparer(workspace, documentProcessor as IPdfPageRenderer),
+                new DingTalkMediaUploadClient(_dingTalkHttpClient, new DingTalkImageMetadataReader()), new DingTalkForecastClient(_dingTalkHttpClient),
+                new DingTalkApprovalClient(_dingTalkHttpClient));
             MainWindow = window;
             window.Show();
             await viewModel.LoadAsync();

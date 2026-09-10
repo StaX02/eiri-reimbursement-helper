@@ -492,3 +492,17 @@ __pycache__/
 # Local examples
 /examples/
 .scratch
+
+# Private databases, managed libraries and backup packages must never be published.
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+**/EiriReimbursementHelper/
+**/originals/
+**/staging/
+**/cache/
+*.eirbackup
+*.zip

@@ -2,7 +2,68 @@ namespace Eiri.Reimbursement.Infrastructure.Sqlite;
 
 internal static class Schema
 {
-    internal const int CurrentVersion = 5;
+    internal const int CurrentVersion = 10;
+
+    internal const string Version10 =
+        """
+        BEGIN;
+        ALTER TABLE dingtalk_connection ADD COLUMN expires_at TEXT NULL;
+        PRAGMA user_version = 10;
+        COMMIT;
+        """;
+
+    internal const string Version9 =
+        """
+        BEGIN;
+        CREATE TABLE IF NOT EXISTS dingtalk_approval_submissions (
+            reimbursement_id TEXT PRIMARY KEY REFERENCES reimbursement_forms(id) ON DELETE CASCADE,
+            instance_id TEXT NULL,
+            created_at TEXT NOT NULL
+        );
+        PRAGMA user_version = 9;
+        COMMIT;
+        """;
+
+    internal const string Version8 =
+        """
+        BEGIN;
+        CREATE TABLE IF NOT EXISTS dingtalk_form_prefill (
+            connection_id INTEGER NOT NULL REFERENCES dingtalk_connection(id) ON DELETE CASCADE,
+            process_code TEXT NOT NULL,
+            values_json TEXT NOT NULL,
+            PRIMARY KEY (connection_id, process_code)
+        );
+        PRAGMA user_version = 8;
+        COMMIT;
+        """;
+
+    internal const string Version7 =
+        """
+        BEGIN;
+        CREATE TABLE IF NOT EXISTS dingtalk_submission_info (
+            id INTEGER PRIMARY KEY CHECK (id = 1) REFERENCES dingtalk_connection(id) ON DELETE CASCADE,
+            dept_id INTEGER NOT NULL CHECK (dept_id > 0),
+            department_name TEXT NOT NULL,
+            user_id TEXT NULL,
+            user_name TEXT NULL,
+            CHECK ((user_id IS NULL) = (user_name IS NULL))
+        );
+        PRAGMA user_version = 7;
+        COMMIT;
+        """;
+
+    internal const string Version6 =
+        """
+        BEGIN;
+        CREATE TABLE IF NOT EXISTS dingtalk_connection (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            client_id TEXT NOT NULL,
+            client_secret TEXT NOT NULL,
+            access_token TEXT NOT NULL
+        );
+        PRAGMA user_version = 6;
+        COMMIT;
+        """;
 
     internal const string Version1 =
         """

@@ -11,7 +11,8 @@ public sealed record ReimbursementForm(
     IReadOnlyList<OrderId> OrderIds,
     DateTimeOffset? ExportedAt = null,
     DateTimeOffset? SubmittedAt = null,
-    DateTimeOffset? RefundedAt = null)
+    DateTimeOffset? RefundedAt = null,
+    string? DingTalkInstanceId = null)
 {
     public string ApplicationDateDisplay => ApplicationDate?.ToString("yyyy-MM-dd") ?? "待填写";
     public decimal? TotalAmount => TotalMinorUnits / 100m;

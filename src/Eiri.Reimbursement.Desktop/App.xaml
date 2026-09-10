@@ -20,6 +20,7 @@
         <SolidColorBrush x:Key="SelectionBrush" Color="#E1F0EC" />
         <SolidColorBrush x:Key="HoverBrush" Color="#EDF2F0" />
         <SolidColorBrush x:Key="DangerBrush" Color="#B4473B" />
+        <SolidColorBrush x:Key="WarningBrush" Color="#966000" />
         <SolidColorBrush x:Key="DangerSoftBrush" Color="#FCF0EE" />
         <SolidColorBrush x:Key="DangerHoverBrush" Color="#F7DDD9" />
         <SolidColorBrush x:Key="FocusBrush" Color="#238671" />

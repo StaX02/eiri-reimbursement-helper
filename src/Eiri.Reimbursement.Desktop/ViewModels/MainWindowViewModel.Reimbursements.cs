@@ -103,6 +103,13 @@ public partial class MainWindowViewModel
         finally { IsUpdatingOrderRows = false; }
     }
 
+    internal async Task RefreshAfterDingTalkApprovalAsync(ReimbursementEditorViewModel editor)
+    {
+        await editor.LoadAsync();
+        var detail = await ReimbursementWorkspace!.GetReimbursementAsync(editor.Id);
+        if (detail is not null) OnReimbursementSaved(detail.Form);
+    }
+
     public async Task ReloadReimbursementsAsync(int? page = null)
     {
         if (ReimbursementWorkspace is not { } workspace) return;

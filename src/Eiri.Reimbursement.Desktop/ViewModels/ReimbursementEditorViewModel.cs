@@ -8,6 +8,7 @@ namespace Eiri.Reimbursement.Desktop.ViewModels;
 public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace workspace, Guid id) : ObservableObject
 {
     public Guid Id => id;
+    public string DingTalkInstanceId => _original?.DingTalkInstanceId ?? "";
     public bool IsExported => _original?.ExportedAt is not null;
     public bool IsSubmitted => _original?.SubmittedAt is not null;
     public bool IsRefunded => _original?.RefundedAt is not null;
@@ -17,6 +18,7 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
     private static string StatusDisplay(DateTimeOffset? time) => time?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "暂未设置";
     private void NotifyMilestones()
     {
+        OnPropertyChanged(nameof(DingTalkInstanceId));
         foreach (string property in new[] { nameof(IsExported), nameof(IsSubmitted), nameof(IsRefunded), nameof(ExportedDisplay), nameof(SubmittedDisplay), nameof(RefundedDisplay) }) OnPropertyChanged(property);
     }
     private ReimbursementForm? _original;
@@ -124,7 +126,7 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
 
     public void RefreshOrderSummary(ReimbursementForm form)
     {
-        if (_original is not null) _original = _original with { OrderIds = form.OrderIds, ExportedAt = form.ExportedAt, SubmittedAt = form.SubmittedAt, RefundedAt = form.RefundedAt };
+        if (_original is not null) _original = _original with { OrderIds = form.OrderIds, ExportedAt = form.ExportedAt, SubmittedAt = form.SubmittedAt, RefundedAt = form.RefundedAt, DingTalkInstanceId = form.DingTalkInstanceId };
         NotifyMilestones();
         OrderSummary = $"已绑定 {form.OrderIds.Count} 个订单\n" + string.Join("\n", form.OrderIds);
     }
