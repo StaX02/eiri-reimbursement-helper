@@ -60,10 +60,12 @@
 
 ## 审批流程状态
 
-使用[获取单个审批实例详情](https://open.dingtalk.com/document/development/obtains-the-details-of-a-single-approval-instance-pop)接口：GET `https://api.dingtalk.com/v1.0/workflow/processInstances`，查询参数 `processInstanceId` 为已保存的实例 ID，请求头 `x-acs-dingtalk-access-token` 使用当前连接令牌。应用需要工作流实例读权限。直接读取 `result.status`：`RUNNING` 显示“审批中”、`TERMINATED` 显示“已撤销”、`COMPLETED` 显示“审批完成”；审批结果 `result.result` 不参与此映射。
+使用[获取单个审批实例详情](https://open.dingtalk.com/document/development/obtains-the-details-of-a-single-approval-instance-pop)接口：GET `https://api.dingtalk.com/v1.0/workflow/processInstances`，查询参数 `processInstanceId` 为已保存的实例 ID，请求头 `x-acs-dingtalk-access-token` 使用当前连接令牌。应用需要工作流实例读权限。直接读取 `result.status`：`RUNNING` 显示“审批中”、`TERMINATED` 显示“已撤销”、`COMPLETED` 继续读取 `result.result`：`agree` 显示“已同意”，`refuse` 显示“已拒绝”。已完成但结果缺失或未知时提示获取失败，不猜测结果。
 
 数据库版本 11 在 `dingtalk_approval_submissions` 中增加可空的 `status`，保存最近一次成功查询的原始值，随整库备份恢复。报销单未提交时显示“未提交”；已提交但缺少实例 ID 显示“无审批实例”，有实例但未查询成功显示“待获取”。
 
-软件启动及两个“刷新流程”按钮均查询全库符合条件的报销单：未归档、已提交、具有实例 ID、尚未审批完成，包含当前页之外的记录。已撤销仍参与刷新。保存前重新检查候选条件与实例 ID，避免迟到响应更新已经归档或取消提交的记录。刷新不改变已提交、已返款等里程碑。
+软件启动及两个“刷新流程”按钮均查询全库符合条件的报销单：未归档、已提交、具有实例 ID、尚未取得完整审批结果，包含当前页之外的记录。已同意、已拒绝不重复查询，已撤销仍参与刷新；旧 COMPLETED 记录缺少结果时显示“结果待获取”并补查。保存前重新检查候选条件与实例 ID，避免迟到响应更新已经归档或取消提交的记录。刷新不改变已提交、已返款等里程碑。
 
 刷新过程中禁用重复操作，关闭窗口取消请求；单项失败保留上次状态并继续其他条目，结果在主窗口状态区显示成功、失败和跳过数量及失败条目。令牌缺失、过期或无到期时间时提示先通过“钉钉 → 连接接口”更新连接。验证使用隔离 SQLite、模拟 HTTP 响应和 WPF 窗口，尚未使用真实审批实例联调。
+
+数据库版本 12 增加 result 与 pending。已拒绝或已撤销的未归档报销单允许重新提审；进入提交时原子设置 pending，保留旧实例和结果，阻止并发提审及状态刷新。新审批创建成功后更新实例 ID、提交时间并清空旧状态和结果；钉钉明确拒绝请求时解除 pending 并保留旧记录，结果不明时必须先核对。

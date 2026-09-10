@@ -18,7 +18,7 @@
             </Button>
             <Button x:Name="RefreshApprovalStatusesButton" Width="90" Height="32" Margin="0,0,8,0" Content="刷新流程"
                     Command="{Binding DataContext.RefreshApprovalStatusesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                    ToolTip="刷新所有已提交、有审批实例且尚未审批完成的未归档报销单"/>
+                    ToolTip="刷新已提交且有审批实例的未归档报销单；已取得同意或拒绝结果的实例不重复查询"/>
             <Button Width="84" Height="32" Content="添加文件" IsEnabled="{Binding CanEdit}" Click="AddFiles_OnClick"/>
         </StackPanel>
 

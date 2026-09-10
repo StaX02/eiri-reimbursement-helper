@@ -33,8 +33,8 @@ public partial class MainWindowViewModel
                 StatusMessage = $"正在刷新审批流程（{refreshed + skipped + errors.Count + 1}/{candidates.Count}）…";
                 try
                 {
-                    string status = await _approvalStatusClient!.GetInstanceStatusAsync(connection.AccessToken, candidate.InstanceId, cancellationToken);
-                    if (await store.SaveApprovalStatusAsync(candidate.Id, candidate.InstanceId, status, cancellationToken)) refreshed++;
+                    var state = await _approvalStatusClient!.GetInstanceStatusAsync(connection.AccessToken, candidate.InstanceId, cancellationToken);
+                    if (await store.SaveApprovalStatusAsync(candidate.Id, candidate.InstanceId, state.Status, state.Result, cancellationToken)) refreshed++;
                     else skipped++;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }

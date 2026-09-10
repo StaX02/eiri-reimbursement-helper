@@ -125,7 +125,7 @@ public sealed class MainWindowRenderingTests
 
     private sealed class RenderStatusClient : Eiri.Reimbursement.Core.DingTalk.IDingTalkApprovalStatusClient
     {
-        public Task<string> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default) => Task.FromResult("RUNNING");
+        public Task<Eiri.Reimbursement.Core.DingTalk.DingTalkApprovalState> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default) => Task.FromResult(new Eiri.Reimbursement.Core.DingTalk.DingTalkApprovalState("RUNNING"));
     }
 
     private static void CaptureIfRequested(Window window, string name)

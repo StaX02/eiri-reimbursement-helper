@@ -513,7 +513,7 @@
                                 <Button x:Name="RefreshApprovalStatusesButton" DockPanel.Dock="Right" Width="96" Height="32" Margin="8,0,0,0"
                                         Content="刷新流程" Command="{Binding RefreshApprovalStatusesCommand}"
                                         Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                        ToolTip="刷新所有已提交、有审批实例且尚未审批完成的未归档报销单"/>
+                                        ToolTip="刷新已提交且有审批实例的未归档报销单；已取得同意或拒绝结果的实例不重复查询"/>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="报销单" FontFamily="Segoe UI Variable Display, Microsoft YaHei UI" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                 <TextBlock Text="报销信息与关联订单汇总" Margin="10,0,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>

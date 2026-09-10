@@ -133,7 +133,7 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
 
     public void RefreshOrderSummary(ReimbursementForm form)
     {
-        if (_original is not null) _original = _original with { OrderIds = form.OrderIds, ExportedAt = form.ExportedAt, SubmittedAt = form.SubmittedAt, RefundedAt = form.RefundedAt, DingTalkInstanceId = form.DingTalkInstanceId, DingTalkApprovalStatus = form.DingTalkApprovalStatus };
+        if (_original is not null) _original = _original with { OrderIds = form.OrderIds, ExportedAt = form.ExportedAt, SubmittedAt = form.SubmittedAt, RefundedAt = form.RefundedAt, DingTalkInstanceId = form.DingTalkInstanceId, DingTalkApprovalStatus = form.DingTalkApprovalStatus, DingTalkApprovalResult = form.DingTalkApprovalResult };
         NotifyMilestones();
         OrderSummary = $"已绑定 {form.OrderIds.Count} 个订单\n" + string.Join("\n", form.OrderIds);
     }

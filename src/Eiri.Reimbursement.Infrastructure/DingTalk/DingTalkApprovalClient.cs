@@ -6,7 +6,7 @@ namespace Eiri.Reimbursement.Infrastructure.DingTalk;
 
 public sealed class DingTalkApprovalClient(HttpClient httpClient) : IDingTalkApprovalClient, IDingTalkApprovalStatusClient
 {
-    public async Task<string> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default)
+    public async Task<DingTalkApprovalState> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(accessToken);
         ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
@@ -21,12 +21,16 @@ public sealed class DingTalkApprovalClient(HttpClient httpClient) : IDingTalkApp
             using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
             if (json.RootElement.ValueKind == JsonValueKind.Object
                 && json.RootElement.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Object
-                && result.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.String
-                && status.GetString() is "RUNNING" or "TERMINATED" or "COMPLETED")
-                return status.GetString()!;
+                && result.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.String)
+            {
+                string? outcome = status.GetString() == "COMPLETED"
+                    && result.TryGetProperty("result", out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+                DingTalkApprovalState state = new(status.GetString()!, outcome);
+                if (state.IsValid) return state;
+            }
         }
         catch (JsonException) { }
-        throw new InvalidOperationException("钉钉返回的审批流程状态缺失或无法识别，请稍后刷新流程重试。");
+        throw new InvalidOperationException("钉钉返回的审批流程状态或审批结果缺失或无法识别，请稍后刷新流程重试。");
     }
 
     public async Task<string> CreateInstanceAsync(string accessToken, JsonElement request, CancellationToken cancellationToken = default)

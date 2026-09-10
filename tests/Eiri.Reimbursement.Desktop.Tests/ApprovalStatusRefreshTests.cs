@@ -44,8 +44,8 @@ public sealed class ApprovalStatusRefreshTests
             Assert.Same(selected, vm.SelectedReimbursement);
             Assert.Same(editor, vm.ReimbursementEditor);
             Assert.Equal("invalid amount", editor.TotalAmount);
-            Assert.Equal("审批完成", editor.ApprovalStatusDisplay);
-            Assert.Equal("审批完成", selected.Form.ApprovalStatusDisplay);
+            Assert.Equal("已同意", editor.ApprovalStatusDisplay);
+            Assert.Equal("已同意", selected.Form.ApprovalStatusDisplay);
             await vm.RefreshApprovalStatusesAsync();
             Assert.Equal(202, client.Calls);
             Assert.Contains("没有需要刷新", vm.StatusMessage);
@@ -59,12 +59,12 @@ public sealed class ApprovalStatusRefreshTests
         public string Status { get; set; } = "RUNNING";
         public TaskCompletionSource? Gate { get; set; }
         public string? FailureInstance { get; set; }
-        public async Task<string> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default)
+        public async Task<DingTalkApprovalState> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default)
         {
             Calls++;
             if (Gate is not null) await Gate.Task.WaitAsync(cancellationToken);
             if (instanceId == FailureInstance) throw new System.Net.Http.HttpRequestException("private-token");
-            return Status;
+            return new(Status, Status == "COMPLETED" ? "agree" : null);
         }
     }
 

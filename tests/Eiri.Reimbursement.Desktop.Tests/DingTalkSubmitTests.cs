@@ -7,6 +7,53 @@ namespace Eiri.Reimbursement.Desktop.Tests;
 
 public sealed class DingTalkSubmitTests
 {
+    [Theory]
+    [InlineData("COMPLETED", "refuse")]
+    [InlineData("TERMINATED", null)]
+    public async Task RejectedOrWithdrawnApprovalCanSubmitNewInstance(string status, string? result)
+    {
+        using var context = new ApprovalTestContext();
+        await context.Workspace.BeginApprovalSubmissionAsync(context.Id);
+        await context.Workspace.CompleteApprovalSubmissionAsync(context.Id, "old-instance");
+        await context.Workspace.SaveApprovalStatusAsync(context.Id, "old-instance", status, result);
+        var client = new Client();
+        var vm = context.Create(approval: client);
+        await Prepare(vm);
+        Assert.True(vm.CanSubmit);
+        Assert.Empty(vm.InstanceId);
+        await vm.SubmitAsync();
+        Assert.Equal(1, client.Calls);
+        Assert.Equal("instance-test", (await context.Workspace.GetReimbursementAsync(context.Id))!.Form.DingTalkInstanceId);
+        Assert.False(vm.CanSubmit);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FailedResubmissionKeepsOldReceiptAndUnknownOutcomeRequiresVerification(bool rejectedRequest)
+    {
+        using var context = new ApprovalTestContext();
+        await context.Workspace.BeginApprovalSubmissionAsync(context.Id);
+        await context.Workspace.CompleteApprovalSubmissionAsync(context.Id, "old-instance");
+        await context.Workspace.SaveApprovalStatusAsync(context.Id, "old-instance", "COMPLETED", "refuse");
+        var client = new Client { Error = rejectedRequest ? new DingTalkApprovalRejectedException("拒绝请求") : new System.Net.Http.HttpRequestException() };
+        var vm = context.Create(approval: client); await Prepare(vm); await vm.SubmitAsync();
+        Assert.Equal("old-instance", (await context.Workspace.GetReimbursementAsync(context.Id))!.Form.DingTalkInstanceId);
+        Assert.Empty(vm.InstanceId);
+        Assert.False(vm.CanSaveSubmission);
+        Assert.Equal(rejectedRequest, vm.CanSubmit);
+        Assert.Equal(!rejectedRequest, vm.CanResetSubmission);
+        var reopened = context.Create(approval: client); await reopened.LoadAsync();
+        if (!rejectedRequest)
+        {
+            Assert.True(reopened.CanResetSubmission);
+            Assert.False(reopened.CanSubmit);
+            await reopened.ResetSubmissionAfterVerificationAsync();
+        }
+        Assert.True(reopened.CanForecast);
+        Assert.Equal("old-instance", (await context.Workspace.GetApprovalSubmissionAsync(context.Id))!.InstanceId);
+    }
+
     [Fact]
     public async Task AutomaticFlowInitializesRefreshesDirectionAndSubmitsLatestFields()
     {

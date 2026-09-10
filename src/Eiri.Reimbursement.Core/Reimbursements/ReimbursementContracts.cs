@@ -1,4 +1,5 @@
 using Eiri.Reimbursement.Core.Orders;
+using Eiri.Reimbursement.Core.DingTalk;
 
 namespace Eiri.Reimbursement.Core.Reimbursements;
 
@@ -13,15 +14,14 @@ public sealed record ReimbursementForm(
     DateTimeOffset? SubmittedAt = null,
     DateTimeOffset? RefundedAt = null,
     string? DingTalkInstanceId = null,
-    string? DingTalkApprovalStatus = null)
+    string? DingTalkApprovalStatus = null,
+    string? DingTalkApprovalResult = null)
 {
-    public string ApprovalStatusDisplay => SubmittedAt is null ? "未提交" : DingTalkApprovalStatus switch
-    {
-        "RUNNING" => "审批中",
-        "TERMINATED" => "已撤销",
-        "COMPLETED" => "审批完成",
-        _ => string.IsNullOrWhiteSpace(DingTalkInstanceId) ? "无审批实例" : "待获取",
-    };
+    private DingTalkApprovalState ApprovalState => new(DingTalkApprovalStatus ?? "", DingTalkApprovalResult);
+    public bool CanResubmitApproval => !(ExportedAt is not null && SubmittedAt is not null && RefundedAt is not null)
+        && !string.IsNullOrWhiteSpace(DingTalkInstanceId) && ApprovalState.AllowsResubmission;
+    public string ApprovalStatusDisplay => SubmittedAt is null ? "未提交"
+        : string.IsNullOrWhiteSpace(DingTalkInstanceId) ? "无审批实例" : ApprovalState.DisplayName;
     public string ApplicationDateDisplay => ApplicationDate?.ToString("yyyy-MM-dd") ?? "待填写";
     public decimal? TotalAmount => TotalMinorUnits / 100m;
     public string ContentDisplay => string.IsNullOrWhiteSpace(Content) ? "报销内容待填写" : Content;

@@ -168,11 +168,11 @@ public sealed partial class DingTalkApprovalViewModel : ObservableObject
             if (_approvalStore is not null)
             {
                 var submitted = await _approvalStore.GetApprovalSubmissionAsync(_id, cancellationToken);
-                _submissionLocked = submitted is not null || _original.SubmittedAt is not null;
                 _submissionUncertain = submitted is { InstanceId: null };
-                InstanceId = submitted?.InstanceId ?? "";
+                _submissionLocked = _submissionUncertain || !_original.CanResubmitApproval && (submitted is not null || _original.SubmittedAt is not null);
+                InstanceId = _submissionLocked ? submitted?.InstanceId ?? "" : "";
                 SubmissionStatus = _submissionUncertain ? "上次提交结果待核对，请先到钉钉查看审批记录，勿重复提交。"
-                    : _submissionLocked ? "此报销单已提交。" : "";
+                    : _submissionLocked ? "此报销单已提交。" : _original.CanResubmitApproval ? $"上次审批{_original.ApprovalStatusDisplay}，可修改后重新提交。" : "";
             }
             _template = await _forms.GetReimbursementTemplateAsync(_token, cancellationToken);
             var saved = await _prefills.GetFormPrefillAsync(_template.ProcessCode, cancellationToken);
@@ -292,6 +292,7 @@ public sealed partial class DingTalkApprovalViewModel : ObservableObject
                 return;
             }
             started = true; _submissionLocked = true;
+            InstanceId = "";
             InstanceId = await _approvalClient.CreateInstanceAsync(_token, request.RootElement, cancellationToken);
             if (string.IsNullOrWhiteSpace(InstanceId)) throw new InvalidOperationException("审批实例 ID 为空。");
             // Once the remote instance exists, closing or cancellation must not discard its local receipt.

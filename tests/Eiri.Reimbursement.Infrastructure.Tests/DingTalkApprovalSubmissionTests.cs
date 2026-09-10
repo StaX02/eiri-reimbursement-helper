@@ -9,6 +9,67 @@ namespace Eiri.Reimbursement.Infrastructure.Tests;
 
 public sealed class DingTalkApprovalSubmissionTests
 {
+    [Theory]
+    [InlineData("RUNNING", null, false)]
+    [InlineData("COMPLETED", "agree", false)]
+    [InlineData("COMPLETED", "refuse", true)]
+    [InlineData("TERMINATED", null, true)]
+    public async Task RunningAgreedAndArchivedApprovalsCannotResubmit(string status, string? result, bool archived)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "eiri-resubmit-guard", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var workspace = new SqliteReimbursementWorkspace(root); await workspace.InitializeAsync();
+            var id = await workspace.CreateReimbursementAsync([await workspace.CreateOrderAsync(new(OrderPlatform.JD))]);
+            await workspace.BeginApprovalSubmissionAsync(id);
+            await workspace.CompleteApprovalSubmissionAsync(id, "existing");
+            await workspace.SaveApprovalStatusAsync(id, "existing", status, result);
+            if (archived) await workspace.SetReimbursementMilestonesAsync([
+                new(id, Milestone.Exported, DateTimeOffset.UtcNow), new(id, Milestone.Refunded, DateTimeOffset.UtcNow)]);
+            Assert.False((await workspace.GetReimbursementAsync(id))!.Form.CanResubmitApproval);
+            Assert.False(await workspace.BeginApprovalSubmissionAsync(id));
+            Assert.Equal("existing", (await workspace.GetApprovalSubmissionAsync(id))!.InstanceId);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Theory]
+    [InlineData("COMPLETED", "refuse")]
+    [InlineData("TERMINATED", null)]
+    public async Task ResubmissionRetainsOldReceiptUntilSuccessAndLocksConcurrentAttempts(string status, string? result)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "eiri-resubmit", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var workspace = new SqliteReimbursementWorkspace(root); await workspace.InitializeAsync();
+            var id = await workspace.CreateReimbursementAsync([await workspace.CreateOrderAsync(new(OrderPlatform.JD))]);
+            Assert.True(await workspace.BeginApprovalSubmissionAsync(id));
+            await workspace.CompleteApprovalSubmissionAsync(id, "old-instance");
+            await workspace.SaveApprovalStatusAsync(id, "old-instance", status, result);
+            Assert.True((await workspace.GetReimbursementAsync(id))!.Form.CanResubmitApproval);
+            Assert.True(await workspace.BeginApprovalSubmissionAsync(id));
+            Assert.False(await workspace.BeginApprovalSubmissionAsync(id));
+            Assert.Null((await workspace.GetApprovalSubmissionAsync(id))!.InstanceId);
+            Assert.Equal("old-instance", (await workspace.GetReimbursementAsync(id))!.Form.DingTalkInstanceId);
+            Assert.Empty(await workspace.ListApprovalStatusCandidatesAsync());
+            Assert.False(await workspace.SaveApprovalStatusAsync(id, "old-instance", "RUNNING"));
+            var reopened = new SqliteReimbursementWorkspace(root); await reopened.InitializeAsync();
+            Assert.Null((await reopened.GetApprovalSubmissionAsync(id))!.InstanceId);
+            await reopened.ClearPendingApprovalSubmissionAsync(id);
+            Assert.Equal("old-instance", (await reopened.GetApprovalSubmissionAsync(id))!.InstanceId);
+            Assert.True(await reopened.BeginApprovalSubmissionAsync(id));
+            await reopened.CompleteApprovalSubmissionAsync(id, "new-instance");
+            var form = (await reopened.GetReimbursementAsync(id))!.Form;
+            Assert.Equal("new-instance", form.DingTalkInstanceId);
+            Assert.Null(form.DingTalkApprovalStatus);
+            Assert.Null(form.DingTalkApprovalResult);
+            Assert.False(form.CanResubmitApproval);
+            Assert.False(await reopened.BeginApprovalSubmissionAsync(id));
+            Assert.Equal("new-instance", Assert.Single(await reopened.ListApprovalStatusCandidatesAsync()).InstanceId);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
     [Fact]
     public async Task PostsExactRequestAndReadsInstanceIdWithoutLeakingToken()
     {
