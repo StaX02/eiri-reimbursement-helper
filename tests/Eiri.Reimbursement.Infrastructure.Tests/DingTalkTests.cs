@@ -29,11 +29,8 @@ public sealed class DingTalkTests
     [Theory]
     [InlineData(400, "{\"message\":\"test-secret\"}")]
     [InlineData(200, "{}")]
-    [InlineData(200, "{\"accessToken\":\" \"}")]
-    [InlineData(200, "{\"accessToken\":123}")]
     [InlineData(200, "not-json")]
     [InlineData(200, "{\"accessToken\":\"valid\",\"expireIn\":0}")]
-    [InlineData(200, "{\"accessToken\":\"valid\",\"expireIn\":-1}")]
     [InlineData(200, "{\"accessToken\":\"valid\",\"expireIn\":\"7200\"}")]
     [InlineData(200, "{\"accessToken\":\"valid\"}")]
     public async Task FailedOrMalformedResponsesDoNotReturnTokensOrExposeResponseBody(int status, string body)

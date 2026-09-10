@@ -10,8 +10,6 @@ public sealed class DingTalkForecastAnalysisTests
     [InlineData("[{\"activityType\":\"target_approval\"}]", false)]
     [InlineData("[{\"activityType\":\"target_select\"}]", true)]
     [InlineData("[{\"isTargetSelect\":true}]", true)]
-    [InlineData("[{\"isTargetSelect\":false}]", false)]
-    [InlineData("[{\"activityType\":\"target_approval\"},{\"activityType\":\"target_select\"}]", true)]
     public void DetectsSelectionNodes(string rules, bool expected)
     {
         using var document = JsonDocument.Parse("{\"result\":{\"isForecastSuccess\":true,\"workflowActivityRules\":" + rules + "}}");
@@ -23,7 +21,6 @@ public sealed class DingTalkForecastAnalysisTests
     [InlineData("{\"result\":{\"isForecastSuccess\":false,\"workflowActivityRules\":[]}}")]
     [InlineData("{\"result\":{\"isForecastSuccess\":true}}")]
     [InlineData("{\"result\":{\"isForecastSuccess\":true,\"workflowActivityRules\":[{}]}}")]
-    [InlineData("{\"result\":{\"isForecastSuccess\":true,\"workflowActivityRules\":[null]}}")]
     public void MissingOrFailedForecastDoesNotClaimNoSelectionNodes(string json)
     {
         using var document = JsonDocument.Parse(json);

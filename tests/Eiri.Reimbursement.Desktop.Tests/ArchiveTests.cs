@@ -21,6 +21,11 @@ public sealed class ArchiveTests : IDisposable
         var form = await workspace.CreateReimbursementAsync([a, b]);
         await workspace.SetReimbursementMilestonesAsync(Enum.GetValues<Milestone>()
             .Select(m => new SetReimbursementMilestoneCommand(form, m, DateTimeOffset.UtcNow)).ToArray());
+        var mainBeforeRestore = new MainWindowViewModel(workspace);
+        await mainBeforeRestore.LoadAsync();
+        Assert.Empty(mainBeforeRestore.Orders);
+        Assert.Empty(mainBeforeRestore.Reimbursements);
+        Assert.True(mainBeforeRestore.HasOrders);
         var archive = new MainWindowViewModel(workspace, isArchive: true);
         await archive.LoadAsync();
         Assert.Equal(2, archive.Orders.Count);
@@ -46,55 +51,28 @@ public sealed class ArchiveTests : IDisposable
     }
 
     [Fact]
-    public async Task MainWindowHidesOnlyOrdersAndFormsWithAllThreeMilestones()
+    public async Task ArchiveFilteringPrecedesPaging()
     {
         var workspace = new SqliteReimbursementWorkspace(_root);
         await workspace.InitializeAsync();
-        var completed = await workspace.CreateOrderAsync(new(OrderPlatform.JD));
-        var pending = await workspace.CreateOrderAsync(new(OrderPlatform.Taobao));
-        var form = await workspace.CreateReimbursementAsync([completed]);
-        await workspace.SetReimbursementMilestonesAsync([
-            new(form, Milestone.Submitted, DateTimeOffset.UtcNow),
-            new(form, Milestone.Refunded, DateTimeOffset.UtcNow)]);
-        var vm = new MainWindowViewModel(workspace);
-        await vm.LoadAsync();
-        Assert.Equal(2, vm.Orders.Count);
-        Assert.Single(vm.Reimbursements);
-        await workspace.SetReimbursementMilestonesAsync([new(form, Milestone.Exported, DateTimeOffset.UtcNow)]);
-        await vm.LoadAsync();
-        Assert.Equal(pending, Assert.Single(vm.Orders).Id);
-        Assert.Empty(vm.Reimbursements);
-    }
-
-    [Fact]
-    public async Task ArchiveFilteringPrecedesPagingAndLastPageFallsBackAfterRestore()
-    {
-        var workspace = new SqliteReimbursementWorkspace(_root);
-        await workspace.InitializeAsync();
-        for (int i = 0; i < 101; i++)
+        var archivedIds = new List<Guid>();
+        for (int i = 0; i < 3; i++)
         {
             var order = await workspace.CreateOrderAsync(new(OrderPlatform.JD));
             var form = await workspace.CreateReimbursementAsync([order]);
+            archivedIds.Add(form);
             await workspace.SetReimbursementMilestonesAsync(Enum.GetValues<Milestone>()
                 .Select(m => new SetReimbursementMilestoneCommand(form, m, DateTimeOffset.UtcNow)).ToArray());
         }
         var activeOrder = await workspace.CreateOrderAsync(new(OrderPlatform.Taobao));
         var activeForm = await workspace.CreateReimbursementAsync([activeOrder]);
-        var archive = new MainWindowViewModel(workspace, isArchive: true);
-        await archive.LoadAsync();
-        Assert.Equal(100, archive.Reimbursements.Count);
-        Assert.DoesNotContain(archive.Reimbursements, r => r.Id == activeForm);
-        await archive.ReloadReimbursementsAsync(1);
-        Assert.Equal(1, archive.ReimbursementPage);
-        var last = Assert.Single(archive.Reimbursements);
-        await archive.UnarchiveReimbursementsAsync([last.Id]);
-        Assert.Equal(0, archive.ReimbursementPage);
-        Assert.Equal(100, archive.Reimbursements.Count);
-        var main = new MainWindowViewModel(workspace);
-        await main.LoadAsync();
-        Assert.Equal(2, main.Reimbursements.Count);
-        Assert.Contains(main.Reimbursements, r => r.Id == activeForm);
-        Assert.Equal(2, main.Orders.Count);
+        var firstPage = await workspace.ListReimbursementsAsync(limit: 2, archived: true);
+        var lastPage = await workspace.ListReimbursementsAsync(offset: 2, limit: 2, archived: true);
+        Assert.Equal(2, firstPage.Count);
+        Assert.Single(lastPage);
+        Assert.Equal(archivedIds.Order(), firstPage.Concat(lastPage).Select(f => f.Id).Order());
+        Assert.Equal(activeForm, Assert.Single(await workspace.ListReimbursementsAsync(limit: 2, archived: false)).Id);
+        Assert.Equal(activeOrder, Assert.Single(await workspace.SearchOrdersAsync(new(Limit: 2, Archived: false))).Id);
     }
 
     [Fact]
@@ -127,17 +105,4 @@ public sealed class ArchiveTests : IDisposable
         Assert.Equal(completed, Assert.Single(await reopened.ListReimbursementsAsync(archived: true)).Id);
     }
 
-    [Fact]
-    public async Task LibraryWithOnlyArchivedOrdersStillReportsExistingDataBeforeRestore()
-    {
-        var workspace = new SqliteReimbursementWorkspace(_root);
-        await workspace.InitializeAsync();
-        var order = await workspace.CreateOrderAsync(new(OrderPlatform.JD));
-        await workspace.SetMilestonesAsync(Enum.GetValues<Milestone>()
-            .Select(m => new SetMilestoneCommand(order, m, DateTimeOffset.UtcNow)).ToArray());
-        var main = new MainWindowViewModel(workspace);
-        await main.LoadAsync();
-        Assert.Empty(main.Orders);
-        Assert.True(main.HasOrders);
-    }
 }

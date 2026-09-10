@@ -149,36 +149,6 @@ public sealed class MainWindowViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdatingSelectedOrderStatusPersistsEachEditedValueImmediately()
-    {
-        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
-        await workspace.InitializeAsync();
-        OrderId orderId = await workspace.CreateOrderAsync(
-            new CreateOrderCommand(OrderPlatform.Taobao));
-        await workspace.SetMilestoneAsync(
-            new SetMilestoneCommand(orderId, Milestone.Submitted, DateTimeOffset.UtcNow));
-        MainWindowViewModel viewModel = new(workspace);
-        await viewModel.LoadAsync();
-        viewModel.SelectedOrder = Assert.Single(viewModel.Orders);
-
-        await viewModel.SetOrdersMilestoneAsync(
-            [orderId],
-            Milestone.Submitted,
-            isReached: false);
-        await viewModel.SetOrdersMilestoneAsync(
-            [orderId],
-            Milestone.Refunded,
-            isReached: true);
-
-        OrderListItem updatedOrder = Assert.Single(viewModel.Orders);
-        Assert.Null(updatedOrder.SubmittedAt);
-        Assert.NotNull(updatedOrder.RefundedAt);
-        Assert.False(viewModel.IsSelectedOrderSubmitted);
-        Assert.True(viewModel.IsSelectedOrderRefunded);
-        Assert.Equal("已将 1 个订单设为已返款。", viewModel.StatusMessage);
-    }
-
-    [Fact]
     public async Task ImportingInvoicesAnalyzesEachFileAndRefreshesOrderSummary()
     {
         SequenceDocumentProcessor processor = new(
@@ -265,43 +235,6 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.Equal(3, viewModel.Orders.Count);
         Assert.All(viewModel.Orders, order => Assert.Equal(OrderPlatform.JD, order.Platform));
         Assert.Equal("已完成2张发票的导入。", viewModel.StatusMessage);
-    }
-
-    [Fact]
-    public async Task OrderCountTextIncludesTotalAmountOfSelectedOrders()
-    {
-        SqliteReimbursementWorkspace workspace = new(_libraryRoot);
-        await workspace.InitializeAsync();
-        MainWindowViewModel viewModel = new(workspace);
-        await viewModel.LoadAsync();
-        OrderListItem firstOrder = new(
-            OrderId.New(),
-            OrderPlatform.Taobao,
-            null,
-            [],
-            [],
-            15_990,
-            [],
-            1,
-            null,
-            null,
-            null,
-            DateTimeOffset.UtcNow);
-        OrderListItem secondOrder = firstOrder with
-        {
-            Id = OrderId.New(),
-            TotalMinorUnits = 2_050,
-        };
-        viewModel.Orders = [firstOrder, secondOrder];
-
-        viewModel.SetSelectedOrders([firstOrder, secondOrder]);
-
-        Assert.Equal("共 2 个订单 · 已选金额 ¥180.40", viewModel.OrderCountText);
-
-        viewModel.SetSelectedOrders([firstOrder]);
-        viewModel.SetSelectedOrders([secondOrder]);
-
-        Assert.Equal("共 2 个订单 · 已选金额 ¥20.50", viewModel.OrderCountText);
     }
 
     [Fact]

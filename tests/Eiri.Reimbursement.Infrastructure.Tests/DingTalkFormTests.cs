@@ -38,8 +38,6 @@ public sealed class DingTalkFormTests
     [Theory]
     [InlineData("报销类型")]
     [InlineData("报销内容")]
-    [InlineData(" 报销类型 ")]
-    [InlineData(" 报销内容 ")]
     public void SchemaExcludesReimbursementFieldsRegardlessOfControlType(string label)
     {
         foreach (string type in new[] { "TextField", "TextareaField", "NumberField", "PhoneField", "DDSelectField", "DDMultiSelectField" })

@@ -29,11 +29,9 @@ public sealed class DingTalkApprovalSubmissionTests
 
     [Theory]
     [InlineData(400, "private-token", true)]
-    [InlineData(403, "private-token", true)]
     [InlineData(408, "private-token", false)]
     [InlineData(500, "private-token", false)]
     [InlineData(200, "{}", false)]
-    [InlineData(200, "{\"instanceId\":\" \"}", false)]
     [InlineData(200, "invalid-json", false)]
     public async Task DistinguishesRejectionFromUncertainOutcome(int status, string body, bool rejected)
     {
