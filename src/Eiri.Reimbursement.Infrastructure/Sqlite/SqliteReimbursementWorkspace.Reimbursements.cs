@@ -66,7 +66,7 @@ public sealed partial class SqliteReimbursementWorkspace : IReimbursementFormWor
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken);
         await using SqliteCommand sql = connection.CreateCommand();
         sql.Parameters.AddWithValue("$id", id.ToString());
-        sql.CommandText = "SELECT application_date, reimbursement_type, content, total_minor_units, exported_at, submitted_at, refunded_at, (SELECT instance_id FROM dingtalk_approval_submissions WHERE reimbursement_id = $id) FROM reimbursement_forms WHERE id = $id;";
+        sql.CommandText = "SELECT application_date, reimbursement_type, content, total_minor_units, exported_at, submitted_at, refunded_at, (SELECT instance_id FROM dingtalk_approval_submissions WHERE reimbursement_id = $id), (SELECT status FROM dingtalk_approval_submissions WHERE reimbursement_id = $id) FROM reimbursement_forms WHERE id = $id;";
         ReimbursementForm form;
         List<OrderId> orders = [];
         await using (SqliteDataReader reader = await sql.ExecuteReaderAsync(cancellationToken))
@@ -74,7 +74,7 @@ public sealed partial class SqliteReimbursementWorkspace : IReimbursementFormWor
             if (!await reader.ReadAsync(cancellationToken)) return null;
             form = new(id, reader.IsDBNull(0) ? null : DateOnly.ParseExact(reader.GetString(0), "yyyy-MM-dd", CultureInfo.InvariantCulture),
                 reader.GetString(1), reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetInt64(3), orders,
-                ParseNullableTimestamp(reader, 4), ParseNullableTimestamp(reader, 5), ParseNullableTimestamp(reader, 6), reader.IsDBNull(7) ? null : reader.GetString(7));
+                ParseNullableTimestamp(reader, 4), ParseNullableTimestamp(reader, 5), ParseNullableTimestamp(reader, 6), reader.IsDBNull(7) ? null : reader.GetString(7), reader.IsDBNull(8) ? null : reader.GetString(8));
         }
         sql.CommandText = "SELECT id FROM orders WHERE reimbursement_id = $id ORDER BY created_at, id;";
         await using (SqliteDataReader reader = await sql.ExecuteReaderAsync(cancellationToken))

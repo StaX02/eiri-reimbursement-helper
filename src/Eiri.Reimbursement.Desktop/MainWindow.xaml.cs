@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private readonly IDingTalkApprovalClient? _dingTalkApprovalClient;
     public DingTalkConnectionViewModel ConnectionState { get; }
     private readonly CancellationTokenSource _connectionLifetime = new();
+    internal CancellationToken LifetimeCancellationToken => _connectionLifetime.Token;
     private readonly System.Windows.Threading.DispatcherTimer _connectionTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
     public MainWindow(MainWindowViewModel viewModel, IDingTalkAccessTokenClient? dingTalkClient = null, IDingTalkConnectionStore? dingTalkStore = null,
@@ -48,7 +49,7 @@ public partial class MainWindow : Window
         _dingTalkApprovalClient = dingTalkApprovalClient;
         _connectionTimer.Tick += (_, _) => ConnectionState.CheckExpiration();
         Loaded += async (_, _) => { await ConnectionState.InitializeAsync(_connectionLifetime.Token); if (!_connectionLifetime.IsCancellationRequested) _connectionTimer.Start(); };
-        Closed += (_, _) => { _connectionTimer.Stop(); _connectionLifetime.Cancel(); };
+        Closed += (_, _) => { _connectionTimer.Stop(); _connectionLifetime.Cancel(); viewModel.RefreshApprovalStatusesCommand.Cancel(); };
         viewModel.OrderRowsUpdated += RestoreOrderSelection;
         Closed += (_, _) => viewModel.OrderRowsUpdated -= RestoreOrderSelection;
         Closing += MainWindow_OnClosing;

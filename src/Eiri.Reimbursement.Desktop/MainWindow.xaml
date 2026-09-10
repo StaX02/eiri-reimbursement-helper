@@ -287,9 +287,11 @@
                              Margin="0,0,10,0"
                              VerticalAlignment="Center"
                              Fill="{DynamicResource PrimaryBrush}" />
-                    <TextBlock VerticalAlignment="Center"
+                    <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                Text="{Binding StatusMessage}" />
+                    </ScrollViewer>
                 </DockPanel>
             </Border>
 
@@ -507,10 +509,16 @@
                     <Border Grid.Row="2" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <StackPanel Margin="16,12" MinHeight="36" Orientation="Horizontal" VerticalAlignment="Center">
+                            <DockPanel Margin="16,12" MinHeight="36" VerticalAlignment="Center">
+                                <Button x:Name="RefreshApprovalStatusesButton" DockPanel.Dock="Right" Width="96" Height="32" Margin="8,0,0,0"
+                                        Content="刷新流程" Command="{Binding RefreshApprovalStatusesCommand}"
+                                        Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        ToolTip="刷新所有已提交、有审批实例且尚未审批完成的未归档报销单"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="报销单" FontFamily="Segoe UI Variable Display, Microsoft YaHei UI" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                 <TextBlock Text="报销信息与关联订单汇总" Margin="10,0,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"/>
-                            </StackPanel>
+                                </StackPanel>
+                            </DockPanel>
                             <DataGrid x:Name="ReimbursementsGrid" Grid.Row="1" ItemsSource="{Binding Reimbursements}" SelectedItem="{Binding SelectedReimbursement}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Extended" SelectionUnit="FullRow" HeadersVisibility="Column" RowHeaderWidth="0" PreviewMouseRightButtonDown="ReimbursementsGrid_OnPreviewMouseRightButtonDown" SelectionChanged="ReimbursementsGrid_OnSelectionChanged" BorderThickness="0" AutomationProperties.Name="报销单列表"
                                       EnableColumnVirtualization="False" GridLinesVisibility="Horizontal"
                                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -533,6 +541,7 @@
                                     <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="总金额" Binding="{Binding TotalAmount, StringFormat={}{0:N2}}" Width="110"/>
                                     <DataGridTextColumn ElementStyle="{StaticResource DataTextStyle}" Header="已导出" Binding="{Binding Form.ExportedAt, TargetNullValue=未导出, StringFormat={}{0:yyyy-MM-dd}}" Width="104"/>
                                     <DataGridTextColumn ElementStyle="{StaticResource DataTextStyle}" Header="已提交" Binding="{Binding Form.SubmittedAt, TargetNullValue=未提交, StringFormat={}{0:yyyy-MM-dd}}" Width="104"/>
+                                    <DataGridTextColumn ElementStyle="{StaticResource ReimbursementCellTextStyle}" Header="流程" Binding="{Binding Form.ApprovalStatusDisplay}" Width="104"/>
                                     <DataGridTextColumn ElementStyle="{StaticResource DataTextStyle}" Header="已返款" Binding="{Binding Form.RefundedAt, TargetNullValue=未返款, StringFormat={}{0:yyyy-MM-dd}}" Width="104"/>
                                 </DataGrid.Columns>
                             </DataGrid>

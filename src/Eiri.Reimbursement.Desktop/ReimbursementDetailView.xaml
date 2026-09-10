@@ -16,6 +16,9 @@
                     IsEnabled="{Binding CanEdit}" Click="DingTalkApproval_OnClick">
                 <TextBlock Foreground="{DynamicResource PrimaryButtonTextBrush}" Text="钉钉提审"/>
             </Button>
+            <Button x:Name="RefreshApprovalStatusesButton" Width="90" Height="32" Margin="0,0,8,0" Content="刷新流程"
+                    Command="{Binding DataContext.RefreshApprovalStatusesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    ToolTip="刷新所有已提交、有审批实例且尚未审批完成的未归档报销单"/>
             <Button Width="84" Height="32" Content="添加文件" IsEnabled="{Binding CanEdit}" Click="AddFiles_OnClick"/>
         </StackPanel>
 
@@ -101,7 +104,10 @@
                                  Text="{Binding TotalAmount, UpdateSourceTrigger=PropertyChanged}" />
                         <Label Content="钉钉审批实例 ID" Style="{StaticResource DetailFieldLabelStyle}" Target="{Binding ElementName=DingTalkInstanceIdOutput}"/>
                         <TextBox x:Name="DingTalkInstanceIdOutput" Text="{Binding DingTalkInstanceId, Mode=OneWay}" IsReadOnly="True"
-                                 TextWrapping="Wrap" AutomationProperties.Name="钉钉审批实例 ID"/>
+                                 TextWrapping="Wrap" AutomationProperties.Name="钉钉审批实例 ID" Margin="0,0,0,12"/>
+                        <Label Content="审批流程状态" Style="{StaticResource DetailFieldLabelStyle}" Target="{Binding ElementName=ApprovalStatusOutput}"/>
+                        <TextBox x:Name="ApprovalStatusOutput" Text="{Binding ApprovalStatusDisplay, Mode=OneWay}" IsReadOnly="True"
+                                 AutomationProperties.Name="审批流程状态"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

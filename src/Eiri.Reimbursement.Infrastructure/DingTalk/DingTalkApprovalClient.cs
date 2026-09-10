@@ -4,8 +4,31 @@ using Eiri.Reimbursement.Core.DingTalk;
 
 namespace Eiri.Reimbursement.Infrastructure.DingTalk;
 
-public sealed class DingTalkApprovalClient(HttpClient httpClient) : IDingTalkApprovalClient
+public sealed class DingTalkApprovalClient(HttpClient httpClient) : IDingTalkApprovalClient, IDingTalkApprovalStatusClient
 {
+    public async Task<string> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accessToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
+        using HttpRequestMessage message = new(HttpMethod.Get,
+            "https://api.dingtalk.com/v1.0/workflow/processInstances?processInstanceId=" + Uri.EscapeDataString(instanceId));
+        message.Headers.Add("x-acs-dingtalk-access-token", accessToken);
+        using var response = await httpClient.SendAsync(message, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException($"获取审批流程失败（HTTP {(int)response.StatusCode}），请检查钉钉连接及工作流实例读权限后重试。");
+        try
+        {
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            if (json.RootElement.ValueKind == JsonValueKind.Object
+                && json.RootElement.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Object
+                && result.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.String
+                && status.GetString() is "RUNNING" or "TERMINATED" or "COMPLETED")
+                return status.GetString()!;
+        }
+        catch (JsonException) { }
+        throw new InvalidOperationException("钉钉返回的审批流程状态缺失或无法识别，请稍后刷新流程重试。");
+    }
+
     public async Task<string> CreateInstanceAsync(string accessToken, JsonElement request, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(accessToken);

@@ -85,7 +85,7 @@ public sealed class DingTalkTests
             {
                 await db.OpenAsync();
                 await using SqliteCommand sql = db.CreateCommand();
-                sql.CommandText = "DROP TABLE dingtalk_connection; PRAGMA user_version = 5;";
+                sql.CommandText = "DROP TABLE dingtalk_approval_submissions; DROP TABLE dingtalk_form_prefill; DROP TABLE dingtalk_submission_info; DROP TABLE dingtalk_connection; PRAGMA user_version = 5;";
                 await sql.ExecuteNonQueryAsync();
             }
             await workspace.InitializeAsync();

@@ -46,15 +46,16 @@ public partial class App : Application
                 ? new ReimbursementBatchExporter(workspace, pdfPageRenderer)
                 : null;
             WholeLibraryBackupService backupPackageService = new(libraryRoot);
-            MainWindowViewModel viewModel = new(workspace, batchExporter, backupPackageService);
+            DingTalkApprovalClient approvalClient = new(_dingTalkHttpClient);
+            MainWindowViewModel viewModel = new(workspace, batchExporter, backupPackageService, approvalStatusClient: approvalClient);
             MainWindow window = new(viewModel, new DingTalkAccessTokenClient(_dingTalkHttpClient), workspace,
                 new DingTalkDirectoryClient(_dingTalkHttpClient), workspace, new DingTalkFormClient(_dingTalkHttpClient), workspace,
                 new DingTalkInvoiceImagePreparer(workspace, documentProcessor as IPdfPageRenderer),
                 new DingTalkMediaUploadClient(_dingTalkHttpClient, new DingTalkImageMetadataReader()), new DingTalkForecastClient(_dingTalkHttpClient),
-                new DingTalkApprovalClient(_dingTalkHttpClient));
+                approvalClient);
             MainWindow = window;
             window.Show();
-            await viewModel.LoadAsync();
+            await viewModel.LoadAsync(window.LifetimeCancellationToken);
             window.RefreshOrdersList();
         }
         catch (Exception exception)

@@ -822,7 +822,12 @@ public sealed partial class SqliteReimbursementWorkspace(
             await ExecuteNonQueryAsync(connection, Schema.Version9, cancellationToken);
             version = 9;
         }
-        if (version == 9) await ExecuteNonQueryAsync(connection, Schema.Version10, cancellationToken);
+        if (version == 9)
+        {
+            await ExecuteNonQueryAsync(connection, Schema.Version10, cancellationToken);
+            version = 10;
+        }
+        if (version == 10) await ExecuteNonQueryAsync(connection, Schema.Version11, cancellationToken);
     }
 
     private static async Task CopyFileAsync(

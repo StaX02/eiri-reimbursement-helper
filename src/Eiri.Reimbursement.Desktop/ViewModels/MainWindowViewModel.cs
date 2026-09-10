@@ -10,6 +10,7 @@ using Eiri.Reimbursement.Core.Export;
 using Eiri.Reimbursement.Core.Invoices;
 using Eiri.Reimbursement.Core.Materials;
 using Eiri.Reimbursement.Core.Orders;
+using Eiri.Reimbursement.Core.DingTalk;
 
 namespace Eiri.Reimbursement.Desktop.ViewModels;
 
@@ -30,6 +31,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly IReimbursementWorkspace _workspace;
     private readonly IReimbursementBatchExporter? _batchExporter;
     private readonly IWholeLibraryBackupService? _backupPackageService;
+    private readonly IDingTalkApprovalStatusClient? _approvalStatusClient;
     private int _selectionVersion;
     private long _selectedOrderTotalMinorUnits;
 
@@ -37,12 +39,14 @@ public partial class MainWindowViewModel : ObservableObject
         IReimbursementWorkspace workspace,
         IReimbursementBatchExporter? batchExporter = null,
         IWholeLibraryBackupService? backupPackageService = null,
-        bool isArchive = false)
+        bool isArchive = false,
+        IDingTalkApprovalStatusClient? approvalStatusClient = null)
     {
         IsArchive = isArchive;
         _workspace = workspace;
         _batchExporter = batchExporter;
         _backupPackageService = backupPackageService;
+        _approvalStatusClient = approvalStatusClient;
     }
 
     public bool IsArchive { get; }
@@ -111,6 +115,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CreateOrderCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshApprovalStatusesCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveInvoiceCommand))]
     [NotifyCanExecuteChangedFor(nameof(AnalyzeInvoiceCommand))]
     [NotifyPropertyChangedFor(nameof(CanImport))]
@@ -162,7 +167,12 @@ public partial class MainWindowViewModel : ObservableObject
         ? $"已返款 · {refundedAt.ToLocalTime():yyyy-MM-dd HH:mm}"
         : "未返款";
 
-    public Task LoadAsync() => RefreshAsync();
+    public async Task LoadAsync(CancellationToken cancellationToken = default)
+    {
+        await RefreshAsync();
+        if (!IsArchive && _approvalStatusClient is not null)
+            await RefreshApprovalStatusesAsync(cancellationToken);
+    }
 
     public void SetSelectedOrders(IReadOnlyCollection<OrderListItem> orders)
     {

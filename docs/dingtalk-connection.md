@@ -57,3 +57,13 @@
 数据库及受管资料库目录禁止上传 GitHub。`.gitignore` 排除 SQLite 数据库及边车文件、`EiriReimbursementHelper`、`originals`、`staging`、`cache` 目录和 `.eirbackup` / `.zip` 备份包。自定义资料库应放在仓库外；不使用 `git add -f` 绕过规则。
 
 自动验证使用虚构凭据及模拟 HTTP 响应，不连接真实钉钉应用。真实连通性由用户在弹窗中使用自己的企业内部应用凭据验证。
+
+## 审批流程状态
+
+使用[获取单个审批实例详情](https://open.dingtalk.com/document/development/obtains-the-details-of-a-single-approval-instance-pop)接口：GET `https://api.dingtalk.com/v1.0/workflow/processInstances`，查询参数 `processInstanceId` 为已保存的实例 ID，请求头 `x-acs-dingtalk-access-token` 使用当前连接令牌。应用需要工作流实例读权限。直接读取 `result.status`：`RUNNING` 显示“审批中”、`TERMINATED` 显示“已撤销”、`COMPLETED` 显示“审批完成”；审批结果 `result.result` 不参与此映射。
+
+数据库版本 11 在 `dingtalk_approval_submissions` 中增加可空的 `status`，保存最近一次成功查询的原始值，随整库备份恢复。报销单未提交时显示“未提交”；已提交但缺少实例 ID 显示“无审批实例”，有实例但未查询成功显示“待获取”。
+
+软件启动及两个“刷新流程”按钮均查询全库符合条件的报销单：未归档、已提交、具有实例 ID、尚未审批完成，包含当前页之外的记录。已撤销仍参与刷新。保存前重新检查候选条件与实例 ID，避免迟到响应更新已经归档或取消提交的记录。刷新不改变已提交、已返款等里程碑。
+
+刷新过程中禁用重复操作，关闭窗口取消请求；单项失败保留上次状态并继续其他条目，结果在主窗口状态区显示成功、失败和跳过数量及失败条目。令牌缺失、过期或无到期时间时提示先通过“钉钉 → 连接接口”更新连接。验证使用隔离 SQLite、模拟 HTTP 响应和 WPF 窗口，尚未使用真实审批实例联调。

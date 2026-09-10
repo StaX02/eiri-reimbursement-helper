@@ -33,17 +33,24 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         SqliteReimbursementWorkspace workspace = new(_libraryRoot);
         await workspace.InitializeAsync();
         OrderId orderId = await workspace.CreateOrderAsync(new CreateOrderCommand(OrderPlatform.JD, "schema-regression"));
+        Guid formId = await workspace.CreateReimbursementAsync([orderId]);
+        await workspace.BeginApprovalSubmissionAsync(formId);
+        await workspace.CompleteApprovalSubmissionAsync(formId, "existing-instance");
         await using (SqliteConnection connection = new($"Data Source={Path.Combine(_libraryRoot, "library.db")};Pooling=False"))
         {
             await connection.OpenAsync();
             await using SqliteCommand sql = connection.CreateCommand();
-            sql.CommandText = "PRAGMA user_version = 10;";
+            sql.CommandText = "ALTER TABLE dingtalk_approval_submissions DROP COLUMN status; PRAGMA user_version = 10;";
             await sql.ExecuteNonQueryAsync();
         }
 
         SqliteReimbursementWorkspace reopened = new(_libraryRoot);
         await reopened.InitializeAsync();
         Assert.Equal(orderId, Assert.Single(await reopened.SearchOrdersAsync(new OrderQuery())).Id);
+        Assert.Equal("existing-instance", (await reopened.GetReimbursementAsync(formId))!.Form.DingTalkInstanceId);
+        Assert.Null((await reopened.GetReimbursementAsync(formId))!.Form.DingTalkApprovalStatus);
+        Assert.True(await reopened.SaveApprovalStatusAsync(formId, "existing-instance", "RUNNING"));
+        Assert.Equal("审批中", (await reopened.GetReimbursementAsync(formId))!.Form.ApprovalStatusDisplay);
     }
 
     [Fact]

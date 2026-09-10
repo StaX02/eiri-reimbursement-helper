@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Core.Reimbursements;
 using Eiri.Reimbursement.Desktop;
@@ -31,12 +33,50 @@ public sealed class MainWindowRenderingTests
                 var a = workspace.CreateOrderAsync(new(OrderPlatform.JD)).GetAwaiter().GetResult();
                 workspace.CreateOrderAsync(new(OrderPlatform.Taobao)).GetAwaiter().GetResult();
                 var id = workspace.CreateReimbursementAsync([a]).GetAwaiter().GetResult();
-                var vm = new MainWindowViewModel(workspace);
+                var vm = new MainWindowViewModel(workspace, approvalStatusClient: new RenderStatusClient());
                 vm.LoadAsync().GetAwaiter().GetResult();
                 main = new MainWindow(vm);
                 main.Show();
                 main.UpdateLayout();
                 AssertMaximizeRespectsWorkAreaAndRestores(main);
+                var refresh = Assert.IsType<Button>(main.FindName("RefreshApprovalStatusesButton"));
+                Assert.Same(vm.RefreshApprovalStatusesCommand, refresh.Command);
+                var reimbursementGrid = (DataGrid)main.FindName("ReimbursementsGrid");
+                var headers = reimbursementGrid.Columns.Select(c => c.Header?.ToString()).ToList();
+                Assert.Equal("流程", headers[headers.IndexOf("已提交") + 1]);
+                reimbursementGrid.SelectedItem = vm.Reimbursements[0];
+                main.UpdateLayout();
+                var mainDetail = (ReimbursementDetailView)main.FindName("ReimbursementDetailFields");
+                var detailRefresh = Assert.IsType<Button>(mainDetail.FindName("RefreshApprovalStatusesButton"));
+                Assert.Same(refresh.Command, detailRefresh.Command);
+                ((TabControl)mainDetail.FindName("ReimbursementDetailTabs")).SelectedIndex = 1;
+                main.UpdateLayout();
+                var status = Assert.IsType<TextBox>(mainDetail.FindName("ApprovalStatusOutput"));
+                Assert.True(status.IsReadOnly);
+                Assert.Equal("未提交", status.Text);
+                Assert.True(refresh.IsEnabled);
+                Assert.True(detailRefresh.IsEnabled);
+                status.BringIntoView();
+                main.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                CaptureIfRequested(main, "approval-status-light");
+                workspace.BeginApprovalSubmissionAsync(id).GetAwaiter().GetResult();
+                workspace.CompleteApprovalSubmissionAsync(id, "preview-instance").GetAwaiter().GetResult();
+                workspace.SaveApprovalStatusAsync(id, "preview-instance", "RUNNING").GetAwaiter().GetResult();
+                vm.ReloadReimbursementsAsync().GetAwaiter().GetResult();
+                ThemeManager.Toggle(application.Resources);
+                main.Width = main.MinWidth;
+                main.UpdateLayout();
+                Assert.Equal("审批中", status.Text);
+                reimbursementGrid.ScrollIntoView(vm.Reimbursements[0], reimbursementGrid.Columns[6]);
+                status.BringIntoView();
+                main.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                CaptureIfRequested(main, "approval-status-dark-narrow");
+                vm.IsBusy = true;
+                main.UpdateLayout();
+                Assert.False(refresh.IsEnabled);
+                Assert.False(detailRefresh.IsEnabled);
+                vm.IsBusy = false;
+                ThemeManager.ApplyLightTheme(application.Resources);
                 var menu = (Menu)main.FindName("TopMenuBar");
                 Assert.Equal("归档", ((MenuItem)menu.Items[1]).Header);
                 var orders = (DataGrid)main.FindName("OrdersGrid");
@@ -64,6 +104,8 @@ public sealed class MainWindowRenderingTests
                 archive.UpdateLayout();
                 Assert.True(((TextBox)detail.FindName("ContentInput")).IsReadOnly);
                 Assert.False(((FrameworkElement)detail.FindName("ReimbursementDropZone")).IsVisible);
+                Assert.False(((Button)archive.FindName("RefreshApprovalStatusesButton")).IsVisible);
+                Assert.False(((Button)detail.FindName("RefreshApprovalStatusesButton")).IsVisible);
                 Assert.False(((Button)archive.FindName("CreateOrderButton")).IsVisible);
                 Assert.Equal("取消归档", ((MenuItem)Assert.Single(forms.ContextMenu!.Items.Cast<object>())).Header);
             }
@@ -79,6 +121,25 @@ public sealed class MainWindowRenderingTests
         thread.Start();
         Assert.True(thread.Join(TimeSpan.FromSeconds(15)), "Window smoke test did not finish.");
         Assert.Null(failure);
+    }
+
+    private sealed class RenderStatusClient : Eiri.Reimbursement.Core.DingTalk.IDingTalkApprovalStatusClient
+    {
+        public Task<string> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default) => Task.FromResult("RUNNING");
+    }
+
+    private static void CaptureIfRequested(Window window, string name)
+    {
+        string? directory = Environment.GetEnvironmentVariable("EIRI_UI_CAPTURE_DIRECTORY");
+        if (string.IsNullOrWhiteSpace(directory)) return;
+        Directory.CreateDirectory(directory);
+        window.UpdateLayout();
+        RenderTargetBitmap bitmap = new((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(window);
+        PngBitmapEncoder encoder = new();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var file = File.Create(Path.Combine(directory, name + ".png"));
+        encoder.Save(file);
     }
 
     private static void AssertMaximizeRespectsWorkAreaAndRestores(Window window)
