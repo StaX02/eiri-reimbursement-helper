@@ -8,10 +8,11 @@ from typing import Any
 import pypdfium2 as pdfium
 
 from eiri_document_worker import __version__
+from eiri_document_worker.invoice_products import extract_product_column
 
 
 PROTOCOL_VERSION = 1
-PARSER_VERSION = "cn-einvoice-semantic-0.5"
+PARSER_VERSION = "cn-einvoice-semantic-0.6"
 INVOICE_NUMBER_PATTERN = re.compile(r"(?<!\d)\d{20}(?!\d)")
 LABELED_INVOICE_NUMBER_PATTERN = re.compile(
     r"发\s*票\s*号\s*码\s*[:：]?\s*(\d{20})(?!\d)"
@@ -198,6 +199,7 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
 
     text_blocks: list[dict[str, Any]] = []
     seller_regions: list[dict[str, Any]] = []
+    product_columns: dict[int, dict[str, Any]] = {}
     document = pdfium.PdfDocument(file_path)
     try:
         for page_index in range(len(document)):
@@ -207,6 +209,9 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
                 text_page = page.get_textpage()
                 try:
                     text = text_page.get_text_range().strip()
+                    column = extract_product_column(text_page, float(height))
+                    if column is not None:
+                        product_columns[page_index + 1] = column
                     seller_text = text_page.get_text_bounded(
                         left=width / 2,
                         bottom=0,
@@ -344,7 +349,9 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
             break
 
     for page in semantic_pages:
-        for product_name in find_product_names(page["text"]):
+        column = product_columns.get(page["page"])
+        names = column["names"] if column is not None else find_product_names(page["text"])
+        for product_name in names:
             candidates.append(
                 {
                     "field": "product_name",
@@ -352,7 +359,7 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
                     "confidence": 0.90 if page["source"] == "ocr" else 0.98,
                     "source": "invoice-profile",
                     "page": page["page"],
-                    "bounds": page["bounds"],
+                    "bounds": column["bounds"] if column is not None else page["bounds"],
                 }
             )
 

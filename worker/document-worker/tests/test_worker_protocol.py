@@ -240,6 +240,43 @@ class WorkerProtocolTests(unittest.TestCase):
                 ]
                 self.assertEqual(expected, actual)
 
+    def test_product_column_uses_headers_at_different_page_sizes(self) -> None:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.pdfgen.canvas import Canvas
+        import os
+
+        pdfmetrics.registerFont(TTFont("TestSimSun", str(Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts/simsun.ttc"), subfontIndex=0))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "columns.pdf"
+            canvas = Canvas(str(path))
+            for scale in (1, 1.5):
+                canvas.setPageSize((600 * scale, 400 * scale))
+                canvas.saveState()
+                canvas.scale(scale, scale)
+                canvas.setFont("TestSimSun", 10)
+                canvas.drawString(60, 330, "项目名称")
+                canvas.drawString(170, 330, "规格型号")
+                canvas.drawString(290, 330, "数量")
+                canvas.drawString(400, 330, "金额")
+                canvas.drawString(20, 300, "*电子元件*测试器件")
+                canvas.drawString(20, 286, "第二行（含附件）")
+                canvas.drawString(150, 300, "型号-128GB")
+                canvas.drawString(400, 300, "317.99")
+                canvas.drawString(20, 272, "*电子元")
+                canvas.drawString(20, 260, "件*测试器件")
+                canvas.drawString(20, 246, "第二行（含附件）")
+                canvas.drawString(400, 260, "-0.88")
+                canvas.drawString(45, 100, "合计")
+                canvas.drawString(20, 60, "备注：这里不属于商品名称")
+                canvas.restoreState()
+                canvas.showPage()
+            canvas.save()
+            analysis = analyze_document(path)
+            products = [c for c in analysis["candidates"] if c["field"] == "product_name"]
+            self.assertEqual(["*电子元件*测试器件第二行（含附件）"] * 4, [c["value"] for c in products])
+            self.assertEqual([1, 1, 2, 2], [c["page"] for c in products])
+
     def test_image_only_invoice_uses_ocr_to_extract_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             pdf_path = Path(temporary_directory) / "image-only-invoice.pdf"
