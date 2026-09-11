@@ -45,6 +45,10 @@ public sealed class ApprovalStatusRefreshTests
             Assert.Same(editor, vm.ReimbursementEditor);
             Assert.Equal("invalid amount", editor.TotalAmount);
             Assert.Equal("已同意", editor.ApprovalStatusDisplay);
+            Assert.Equal("202609110001", editor.DingTalkBusinessId);
+            var reopened = new SqliteReimbursementWorkspace(root);
+            await reopened.InitializeAsync();
+            Assert.Equal("202609110001", (await reopened.GetReimbursementAsync(selected.Form.Id))!.Form.DingTalkBusinessId);
             Assert.Equal("已同意", selected.Form.ApprovalStatusDisplay);
             await vm.RefreshApprovalStatusesAsync();
             Assert.Equal(202, client.Calls);
@@ -64,7 +68,7 @@ public sealed class ApprovalStatusRefreshTests
             Calls++;
             if (Gate is not null) await Gate.Task.WaitAsync(cancellationToken);
             if (instanceId == FailureInstance) throw new System.Net.Http.HttpRequestException("private-token");
-            return new(Status, Status == "COMPLETED" ? "agree" : null);
+            return new(Status, Status == "COMPLETED" ? "agree" : null, "202609110001");
         }
     }
 

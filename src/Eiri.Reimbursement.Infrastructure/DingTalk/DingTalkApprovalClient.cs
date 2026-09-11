@@ -25,7 +25,9 @@ public sealed class DingTalkApprovalClient(HttpClient httpClient) : IDingTalkApp
             {
                 string? outcome = status.GetString() == "COMPLETED"
                     && result.TryGetProperty("result", out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
-                DingTalkApprovalState state = new(status.GetString()!, outcome);
+                string? businessId = result.TryGetProperty("businessId", out var number) && number.ValueKind == JsonValueKind.String
+                    ? number.GetString() : null;
+                DingTalkApprovalState state = new(status.GetString()!, outcome, businessId);
                 if (state.IsValid) return state;
             }
         }

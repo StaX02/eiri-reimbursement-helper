@@ -41,7 +41,7 @@ public sealed partial class SqliteReimbursementWorkspace : IDingTalkApprovalStor
         await using var transaction = connection.BeginTransaction();
         await using var sql = connection.CreateCommand();
         sql.Transaction = transaction;
-        sql.CommandText = "UPDATE dingtalk_approval_submissions SET instance_id = $instance, status = NULL, result = NULL, pending = 0 WHERE reimbursement_id = $id AND (pending = 1 OR instance_id IS NULL);";
+        sql.CommandText = "UPDATE dingtalk_approval_submissions SET instance_id = $instance, status = NULL, result = NULL, business_id = NULL, pending = 0 WHERE reimbursement_id = $id AND (pending = 1 OR instance_id IS NULL);";
         sql.Parameters.AddWithValue("$id", id.ToString());
         sql.Parameters.AddWithValue("$instance", instanceId);
         if (await sql.ExecuteNonQueryAsync(cancellationToken) != 1) throw new InvalidOperationException("无法保存审批实例记录。");

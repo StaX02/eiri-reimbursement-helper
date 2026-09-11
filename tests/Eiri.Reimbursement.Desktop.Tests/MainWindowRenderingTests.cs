@@ -53,6 +53,9 @@ public sealed class MainWindowRenderingTests
                 main.UpdateLayout();
                 var status = Assert.IsType<TextBox>(mainDetail.FindName("ApprovalStatusOutput"));
                 Assert.True(status.IsReadOnly);
+                var businessId = Assert.IsType<TextBox>(mainDetail.FindName("DingTalkBusinessIdOutput"));
+                Assert.True(businessId.IsReadOnly);
+                Assert.Empty(businessId.Text);
                 Assert.Equal("未提交", status.Text);
                 Assert.True(refresh.IsEnabled);
                 Assert.True(detailRefresh.IsEnabled);
@@ -61,12 +64,13 @@ public sealed class MainWindowRenderingTests
                 CaptureIfRequested(main, "approval-status-light");
                 workspace.BeginApprovalSubmissionAsync(id).GetAwaiter().GetResult();
                 workspace.CompleteApprovalSubmissionAsync(id, "preview-instance").GetAwaiter().GetResult();
-                workspace.SaveApprovalStatusAsync(id, "preview-instance", "RUNNING").GetAwaiter().GetResult();
+                workspace.SaveApprovalStatusAsync(id, "preview-instance", "RUNNING", businessId: "202609110001").GetAwaiter().GetResult();
                 vm.ReloadReimbursementsAsync().GetAwaiter().GetResult();
                 ThemeManager.Toggle(application.Resources);
                 main.Width = main.MinWidth;
                 main.UpdateLayout();
                 Assert.Equal("审批中", status.Text);
+                Assert.Equal("202609110001", businessId.Text);
                 reimbursementGrid.ScrollIntoView(vm.Reimbursements[0], reimbursementGrid.Columns[6]);
                 status.BringIntoView();
                 main.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);

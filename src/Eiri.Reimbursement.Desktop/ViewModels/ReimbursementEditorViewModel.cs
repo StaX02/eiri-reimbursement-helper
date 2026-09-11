@@ -9,6 +9,7 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
 {
     public Guid Id => id;
     public string DingTalkInstanceId => _original?.DingTalkInstanceId ?? "";
+    public string DingTalkBusinessId => _original?.DingTalkBusinessId ?? "";
     public string ApprovalStatusDisplay => _original?.ApprovalStatusDisplay ?? "未提交";
     public bool IsExported => _original?.ExportedAt is not null;
     public bool IsSubmitted => _original?.SubmittedAt is not null;
@@ -20,6 +21,7 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
     private void NotifyMilestones()
     {
         OnPropertyChanged(nameof(DingTalkInstanceId));
+        OnPropertyChanged(nameof(DingTalkBusinessId));
         OnPropertyChanged(nameof(ApprovalStatusDisplay));
         foreach (string property in new[] { nameof(IsExported), nameof(IsSubmitted), nameof(IsRefunded), nameof(ExportedDisplay), nameof(SubmittedDisplay), nameof(RefundedDisplay) }) OnPropertyChanged(property);
     }
@@ -133,7 +135,7 @@ public partial class ReimbursementEditorViewModel(IReimbursementFormWorkspace wo
 
     public void RefreshOrderSummary(ReimbursementForm form)
     {
-        if (_original is not null) _original = _original with { OrderIds = form.OrderIds, ExportedAt = form.ExportedAt, SubmittedAt = form.SubmittedAt, RefundedAt = form.RefundedAt, DingTalkInstanceId = form.DingTalkInstanceId, DingTalkApprovalStatus = form.DingTalkApprovalStatus, DingTalkApprovalResult = form.DingTalkApprovalResult };
+        if (_original is not null) _original = _original with { OrderIds = form.OrderIds, ExportedAt = form.ExportedAt, SubmittedAt = form.SubmittedAt, RefundedAt = form.RefundedAt, DingTalkInstanceId = form.DingTalkInstanceId, DingTalkApprovalStatus = form.DingTalkApprovalStatus, DingTalkApprovalResult = form.DingTalkApprovalResult, DingTalkBusinessId = form.DingTalkBusinessId };
         NotifyMilestones();
         OrderSummary = $"已绑定 {form.OrderIds.Count} 个订单\n" + string.Join("\n", form.OrderIds);
     }

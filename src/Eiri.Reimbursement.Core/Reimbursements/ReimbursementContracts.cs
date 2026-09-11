@@ -15,7 +15,8 @@ public sealed record ReimbursementForm(
     DateTimeOffset? RefundedAt = null,
     string? DingTalkInstanceId = null,
     string? DingTalkApprovalStatus = null,
-    string? DingTalkApprovalResult = null)
+    string? DingTalkApprovalResult = null,
+    string? DingTalkBusinessId = null)
 {
     private DingTalkApprovalState ApprovalState => new(DingTalkApprovalStatus ?? "", DingTalkApprovalResult);
     public bool CanResubmitApproval => !(ExportedAt is not null && SubmittedAt is not null && RefundedAt is not null)

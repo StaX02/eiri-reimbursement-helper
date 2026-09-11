@@ -25,7 +25,7 @@ public sealed class DingTalkApprovalStatusTests
             {
                 await db.OpenAsync();
                 await using var sql = db.CreateCommand();
-                sql.CommandText = "ALTER TABLE dingtalk_approval_submissions DROP COLUMN result; ALTER TABLE dingtalk_approval_submissions DROP COLUMN pending; PRAGMA user_version = 11;";
+                sql.CommandText = "ALTER TABLE dingtalk_approval_submissions DROP COLUMN result; ALTER TABLE dingtalk_approval_submissions DROP COLUMN pending; ALTER TABLE dingtalk_approval_submissions DROP COLUMN business_id; PRAGMA user_version = 11;";
                 await sql.ExecuteNonQueryAsync();
             }
             var reopened = new SqliteReimbursementWorkspace(root); await reopened.InitializeAsync();
@@ -93,10 +93,10 @@ public sealed class DingTalkApprovalStatusTests
             Assert.Equal(HttpMethod.Get, request.Method);
             Assert.Equal("https://api.dingtalk.com/v1.0/workflow/processInstances?processInstanceId=instance%26one", request.RequestUri!.AbsoluteUri);
             Assert.Equal("token", Assert.Single(request.Headers.GetValues("x-acs-dingtalk-access-token")));
-            return new(HttpStatusCode.OK) { Content = new StringContent($$$"""{"status":"wrong","result":{"status":"{{{status}}}","result":"{{{result}}}"}}""") };
+            return new(HttpStatusCode.OK) { Content = new StringContent($$$"""{"status":"wrong","result":{"businessId":"202609110001","status":"{{{status}}}","result":"{{{result}}}"}}""") };
         }));
         var actual = await new DingTalkApprovalClient(http).GetInstanceStatusAsync("token", "instance&one");
-        Assert.Equal(new DingTalkApprovalState(status, status == "COMPLETED" ? result : null), actual);
+        Assert.Equal(new DingTalkApprovalState(status, status == "COMPLETED" ? result : null, "202609110001"), actual);
         Assert.Equal(display, actual.DisplayName);
     }
 

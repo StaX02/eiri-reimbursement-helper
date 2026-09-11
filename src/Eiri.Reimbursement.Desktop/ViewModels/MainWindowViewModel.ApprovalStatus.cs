@@ -34,7 +34,7 @@ public partial class MainWindowViewModel
                 try
                 {
                     var state = await _approvalStatusClient!.GetInstanceStatusAsync(connection.AccessToken, candidate.InstanceId, cancellationToken);
-                    if (await store.SaveApprovalStatusAsync(candidate.Id, candidate.InstanceId, state.Status, state.Result, cancellationToken)) refreshed++;
+                    if (await store.SaveApprovalStatusAsync(candidate.Id, candidate.InstanceId, state.Status, state.Result, cancellationToken, businessId: state.BusinessId)) refreshed++;
                     else skipped++;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }

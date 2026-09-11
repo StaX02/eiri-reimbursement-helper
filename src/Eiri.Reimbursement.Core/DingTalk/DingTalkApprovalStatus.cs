@@ -5,7 +5,7 @@ public interface IDingTalkApprovalStatusClient
     Task<DingTalkApprovalState> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default);
 }
 
-public sealed record DingTalkApprovalState(string Status, string? Result = null)
+public sealed record DingTalkApprovalState(string Status, string? Result = null, string? BusinessId = null)
 {
     public bool IsValid => Status is "RUNNING" or "TERMINATED" || Status == "COMPLETED" && Result is "agree" or "refuse";
     public bool AllowsResubmission => Status == "TERMINATED" || Status == "COMPLETED" && Result == "refuse";
@@ -23,5 +23,5 @@ public sealed record DingTalkApprovalStatusCandidate(Guid Id, string InstanceId,
 public interface IDingTalkApprovalStatusStore
 {
     Task<IReadOnlyList<DingTalkApprovalStatusCandidate>> ListApprovalStatusCandidatesAsync(CancellationToken cancellationToken = default);
-    Task<bool> SaveApprovalStatusAsync(Guid id, string instanceId, string status, string? result = null, CancellationToken cancellationToken = default);
+    Task<bool> SaveApprovalStatusAsync(Guid id, string instanceId, string status, string? result = null, CancellationToken cancellationToken = default, string? businessId = null);
 }

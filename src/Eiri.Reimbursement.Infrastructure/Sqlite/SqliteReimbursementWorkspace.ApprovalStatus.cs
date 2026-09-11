@@ -29,14 +29,14 @@ public sealed partial class SqliteReimbursementWorkspace : IDingTalkApprovalStat
         return candidates;
     }
 
-    public async Task<bool> SaveApprovalStatusAsync(Guid id, string instanceId, string status, string? result = null, CancellationToken cancellationToken = default)
+    public async Task<bool> SaveApprovalStatusAsync(Guid id, string instanceId, string status, string? result = null, CancellationToken cancellationToken = default, string? businessId = null)
     {
         if (!new DingTalkApprovalState(status, result).IsValid)
             throw new ArgumentException("审批流程状态或结果无法识别。", nameof(status));
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var sql = connection.CreateCommand();
         sql.CommandText = $"""
-            UPDATE dingtalk_approval_submissions AS s SET status = $status, result = $result
+            UPDATE dingtalk_approval_submissions AS s SET status = $status, result = $result, business_id = COALESCE($businessId, business_id)
             WHERE s.reimbursement_id = $id AND s.instance_id = $instance
             AND EXISTS (SELECT 1 FROM reimbursement_forms f WHERE f.id = s.reimbursement_id
                 AND {ApprovalStatusCandidatePredicate});
@@ -44,6 +44,7 @@ public sealed partial class SqliteReimbursementWorkspace : IDingTalkApprovalStat
         sql.Parameters.AddWithValue("$id", id.ToString());
         sql.Parameters.AddWithValue("$instance", instanceId);
         sql.Parameters.AddWithValue("$status", status);
+        sql.Parameters.AddWithValue("$businessId", string.IsNullOrWhiteSpace(businessId) ? DBNull.Value : (object)businessId);
         sql.Parameters.AddWithValue("$result", status == "COMPLETED" ? (object?)result ?? DBNull.Value : DBNull.Value);
         return await sql.ExecuteNonQueryAsync(cancellationToken) == 1;
     }

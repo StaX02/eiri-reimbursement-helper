@@ -105,6 +105,9 @@
                         <Label Content="钉钉审批实例 ID" Style="{StaticResource DetailFieldLabelStyle}" Target="{Binding ElementName=DingTalkInstanceIdOutput}"/>
                         <TextBox x:Name="DingTalkInstanceIdOutput" Text="{Binding DingTalkInstanceId, Mode=OneWay}" IsReadOnly="True"
                                  TextWrapping="Wrap" AutomationProperties.Name="钉钉审批实例 ID" Margin="0,0,0,12"/>
+                        <Label Content="审批编号" Style="{StaticResource DetailFieldLabelStyle}" Target="{Binding ElementName=DingTalkBusinessIdOutput}"/>
+                        <TextBox x:Name="DingTalkBusinessIdOutput" Text="{Binding DingTalkBusinessId, Mode=OneWay}" IsReadOnly="True"
+                                 TextWrapping="Wrap" AutomationProperties.Name="审批编号" Margin="0,0,0,12"/>
                         <Label Content="审批流程状态" Style="{StaticResource DetailFieldLabelStyle}" Target="{Binding ElementName=ApprovalStatusOutput}"/>
                         <TextBox x:Name="ApprovalStatusOutput" Text="{Binding ApprovalStatusDisplay, Mode=OneWay}" IsReadOnly="True"
                                  AutomationProperties.Name="审批流程状态"/>

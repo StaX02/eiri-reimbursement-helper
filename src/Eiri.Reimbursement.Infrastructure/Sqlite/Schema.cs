@@ -2,7 +2,15 @@ namespace Eiri.Reimbursement.Infrastructure.Sqlite;
 
 internal static class Schema
 {
-    internal const int CurrentVersion = 12;
+    internal const int CurrentVersion = 13;
+
+    internal const string Version13 =
+        """
+        BEGIN;
+        ALTER TABLE dingtalk_approval_submissions ADD COLUMN business_id TEXT NULL;
+        PRAGMA user_version = 13;
+        COMMIT;
+        """;
 
     internal const string Version12 =
         """

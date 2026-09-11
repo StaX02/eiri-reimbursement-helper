@@ -45,7 +45,7 @@ public sealed class DingTalkApprovalSubmissionTests
             var id = await workspace.CreateReimbursementAsync([await workspace.CreateOrderAsync(new(OrderPlatform.JD))]);
             Assert.True(await workspace.BeginApprovalSubmissionAsync(id));
             await workspace.CompleteApprovalSubmissionAsync(id, "old-instance");
-            await workspace.SaveApprovalStatusAsync(id, "old-instance", status, result);
+            await workspace.SaveApprovalStatusAsync(id, "old-instance", status, result, businessId: "202609110001");
             Assert.True((await workspace.GetReimbursementAsync(id))!.Form.CanResubmitApproval);
             Assert.True(await workspace.BeginApprovalSubmissionAsync(id));
             Assert.False(await workspace.BeginApprovalSubmissionAsync(id));
@@ -57,12 +57,14 @@ public sealed class DingTalkApprovalSubmissionTests
             Assert.Null((await reopened.GetApprovalSubmissionAsync(id))!.InstanceId);
             await reopened.ClearPendingApprovalSubmissionAsync(id);
             Assert.Equal("old-instance", (await reopened.GetApprovalSubmissionAsync(id))!.InstanceId);
+            Assert.Equal("202609110001", (await reopened.GetReimbursementAsync(id))!.Form.DingTalkBusinessId);
             Assert.True(await reopened.BeginApprovalSubmissionAsync(id));
             await reopened.CompleteApprovalSubmissionAsync(id, "new-instance");
             var form = (await reopened.GetReimbursementAsync(id))!.Form;
             Assert.Equal("new-instance", form.DingTalkInstanceId);
             Assert.Null(form.DingTalkApprovalStatus);
             Assert.Null(form.DingTalkApprovalResult);
+            Assert.Null(form.DingTalkBusinessId);
             Assert.False(form.CanResubmitApproval);
             Assert.False(await reopened.BeginApprovalSubmissionAsync(id));
             Assert.Equal("new-instance", Assert.Single(await reopened.ListApprovalStatusCandidatesAsync()).InstanceId);
