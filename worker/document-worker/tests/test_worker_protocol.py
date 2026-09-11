@@ -150,7 +150,7 @@ class WorkerProtocolTests(unittest.TestCase):
             candidate["field"]: candidate["value"]
             for candidate in analysis["candidates"]
         }
-        self.assertEqual("25952000000269819544", candidates["invoice_number"])
+        self.assertEqual("26952000002119699861", candidates["invoice_number"])
 
     def test_real_invoice_returns_sales_merchant_candidate(self) -> None:
         analysis = analyze_document(INVOICE_EXAMPLES / "example1.pdf")
@@ -158,7 +158,7 @@ class WorkerProtocolTests(unittest.TestCase):
             candidate["field"]: candidate["value"]
             for candidate in analysis["candidates"]
         }
-        self.assertEqual("深圳德诺嘉电子有限公司", candidates["merchant_name"])
+        self.assertEqual("深圳市绿联科技股份有限公司", candidates["merchant_name"])
 
     def test_real_invoice_returns_price_tax_total_candidate(self) -> None:
         analysis = analyze_document(INVOICE_EXAMPLES / "example1.pdf")
@@ -166,16 +166,19 @@ class WorkerProtocolTests(unittest.TestCase):
             candidate["field"]: candidate["value"]
             for candidate in analysis["candidates"]
         }
-        self.assertEqual("778800", candidates["total_minor_units"])
+        self.assertEqual("2890", candidates["total_minor_units"])
 
     def test_all_invoice_examples_return_complete_high_confidence_fields(self) -> None:
+        # Values checked against the current local invoice pages, not extractor output.
         examples = {
-            "example1.pdf": ("25952000000269819544", "778800"),
-            "example2.pdf": ("25952000000270675013", "155324"),
-            "example3.pdf": ("25952000000269826712", "210000"),
+            "example1.pdf": ("26952000002119699861", "深圳市绿联科技股份有限公司", "2890"),
+            "example2.pdf": ("26952000002209547536", "深圳市威达智创科技有限公司", "37600"),
+            "example3.pdf": ("26502000000978396151", "重庆嘉佰诺科技有限公司", "32117"),
+            "example4.pdf": ("26952000002130925711", "深圳市元创时代科技有限公司", "20838"),
+            "example5.pdf": ("26442000005719445011", "广州天河奥芮贸易商行", "15890"),
         }
 
-        for file_name, (invoice_number, total_minor_units) in examples.items():
+        for file_name, (invoice_number, merchant_name, total_minor_units) in examples.items():
             with self.subTest(file_name=file_name):
                 analysis = analyze_document(INVOICE_EXAMPLES / file_name)
                 candidates_by_field = {
@@ -183,7 +186,7 @@ class WorkerProtocolTests(unittest.TestCase):
                     for candidate in analysis["candidates"]
                 }
                 self.assertEqual(
-                    "深圳德诺嘉电子有限公司",
+                    merchant_name,
                     candidates_by_field["merchant_name"]["value"],
                 )
                 self.assertEqual(invoice_number, candidates_by_field["invoice_number"]["value"])
@@ -205,23 +208,25 @@ class WorkerProtocolTests(unittest.TestCase):
             for candidate in analysis["candidates"]
         }
 
-        self.assertEqual("深圳嘉立创科技集团股份有限公司", candidates["merchant_name"])
-        self.assertEqual("26957000000051824928", candidates["invoice_number"])
-        self.assertEqual("507874", candidates["total_minor_units"])
+        self.assertEqual("深圳市元创时代科技有限公司", candidates["merchant_name"])
+        self.assertEqual("26952000002130925711", candidates["invoice_number"])
+        self.assertEqual("20838", candidates["total_minor_units"])
         self.assertFalse(analysis["needsReview"])
 
     def test_real_invoices_return_project_names_in_document_order(self) -> None:
+        # Preserve both the sale and discount rows; amounts and specifications
+        # belong to separate columns and must not become part of a product name.
         expected_product_names = {
-            "example1.pdf": ["*电子元件*BGA164-0.5-12*12-1.5合金翻盖旋钮老化座"],
-            "example2.pdf": ["*电子元件*BGA164合金翻盖旋钮测试座"],
-            "example3.pdf": [
-                "*电子元件*BGA164-0.5-12*12-1.5-1A针板整套",
-                "*电子元件*BGA164-0.5-12*12-1.5-2A针板整套",
+            "example1.pdf": [
+                "*计算机配套产品*绿联usb无线网卡台式机wifi6接收发射器",
+                "*计算机配套产品*绿联usb无线网卡台式机wifi6接收发射器",
             ],
-            "example4.pdf": [
-                "*印制电路板*PCBA-线路板",
-                "*印制电路板*PCBA-元器件",
-                "*印制电路板*PCBA-SMT贴片",
+            "example2.pdf": ["*计算机外部设备*便携显示器"],
+            "example3.pdf": ["*计算机外部设备*机械硬盘"],
+            "example4.pdf": ["*计算机外部设备*固态硬盘"],
+            "example5.pdf": [
+                "*计算机外部设备*3.5寸外置硬盘盒",
+                "*计算机外部设备*4口USB3.0集线器",
             ],
         }
 
@@ -248,9 +253,9 @@ class WorkerProtocolTests(unittest.TestCase):
 
             self.assertTrue(analysis["textBlocks"])
             self.assertTrue(all(block["source"] == "ocr" for block in analysis["textBlocks"]))
-            self.assertEqual("深圳德诺嘉电子有限公司", candidates["merchant_name"])
-            self.assertEqual("25952000000269819544", candidates["invoice_number"])
-            self.assertEqual("778800", candidates["total_minor_units"])
+            self.assertEqual("深圳市绿联科技股份有限公司", candidates["merchant_name"])
+            self.assertEqual("26952000002119699861", candidates["invoice_number"])
+            self.assertEqual("2890", candidates["total_minor_units"])
             self.assertFalse(analysis["needsReview"])
 
 
