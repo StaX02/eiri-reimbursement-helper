@@ -30,6 +30,7 @@ public partial class MainWindowViewModel : ObservableObject
     ];
     private readonly IReimbursementWorkspace _workspace;
     private readonly IReimbursementBatchExporter? _batchExporter;
+    private readonly IApprovedReimbursementExporter? _approvedExporter;
     private readonly IWholeLibraryBackupService? _backupPackageService;
     private readonly IDingTalkApprovalStatusClient? _approvalStatusClient;
     private int _selectionVersion;
@@ -40,13 +41,15 @@ public partial class MainWindowViewModel : ObservableObject
         IReimbursementBatchExporter? batchExporter = null,
         IWholeLibraryBackupService? backupPackageService = null,
         bool isArchive = false,
-        IDingTalkApprovalStatusClient? approvalStatusClient = null)
+        IDingTalkApprovalStatusClient? approvalStatusClient = null,
+        IApprovedReimbursementExporter? approvedExporter = null)
     {
         IsArchive = isArchive;
         _workspace = workspace;
         _batchExporter = batchExporter;
         _backupPackageService = backupPackageService;
         _approvalStatusClient = approvalStatusClient;
+        _approvedExporter = approvedExporter;
     }
 
     public bool IsArchive { get; }

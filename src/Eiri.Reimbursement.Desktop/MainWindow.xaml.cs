@@ -217,27 +217,50 @@ public partial class MainWindow : Window
             return;
         }
 
-        OpenFolderDialog dialog = new()
+        if (viewModel.IsBusy) return;
+        var approvedForms = viewModel.Reimbursements.Where(item => formIds.Contains(item.Form.Id)
+            && item.Form.SubmittedAt is not null && item.Form.DingTalkApprovalStatus == "COMPLETED" && item.Form.DingTalkApprovalResult == "agree").ToArray();
+        string? exportDirectory = null;
+        if (formIds.Length > 1 && approvedForms.Length > 0)
         {
-            Title = "选择报销资料导出位置",
-            Multiselect = false,
-        };
-        if (dialog.ShowDialog(this) != true)
+            OpenFolderDialog folder = new() { Title = "选择报销资料导出位置", Multiselect = false };
+            if (folder.ShowDialog(this) != true) return;
+            exportDirectory = folder.FolderName;
+            if (!await viewModel.ExportApprovedReimbursementsAsync(approvedForms.Select(item => item.Form.Id).ToArray(), exportDirectory)) return;
+        }
+        else if (approvedForms.Length == 1)
         {
-            return;
+            var item = approvedForms[0];
+            SaveFileDialog pdfDialog = new()
+            {
+                Title = $"导出审批 PDF：{item.Form.ContentDisplay}",
+                Filter = "PDF 文件 (*.pdf)|*.pdf", DefaultExt = ".pdf", AddExtension = true, OverwritePrompt = true,
+                FileName = "报销审批-" + item.Form.Id.ToString("N") + ".pdf",
+            };
+            if (pdfDialog.ShowDialog(this) != true) return;
+            if (!await viewModel.ExportApprovedReimbursementAsync(item.Form.Id, pdfDialog.FileName)) return;
+        }
+        formIds = formIds.Except(approvedForms.Select(item => item.Form.Id)).ToArray();
+        if (formIds.Length == 0 && orderIds.Length == 0) return;
+
+        if (exportDirectory is null)
+        {
+            OpenFolderDialog dialog = new() { Title = "选择报销资料导出位置", Multiselect = false };
+            if (dialog.ShowDialog(this) != true) return;
+            exportDirectory = dialog.FolderName;
         }
 
         MessageBoxResult confirmation = MessageBox.Show(
             this,
-            $"将在以下位置新建“报销材料导出-总金额-导出时间”文件夹，保存现有导出资料及“打印材料”图片：\n\n{dialog.FolderName}\n\n确认继续吗？",
+            $"将在以下位置新建“报销材料导出-总金额-导出时间”文件夹，保存现有导出资料及“打印材料”图片：\n\n{exportDirectory}\n\n确认继续吗？",
             "确认报销资料导出位置",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question,
             MessageBoxResult.Yes);
         if (confirmation == MessageBoxResult.Yes)
         {
-            if (formIds.Length > 0) await viewModel.ExportReimbursementsAsync(formIds, dialog.FolderName);
-            else await viewModel.ExportOrdersAsync(orderIds, dialog.FolderName);
+            if (formIds.Length > 0) await viewModel.ExportReimbursementsAsync(formIds, exportDirectory);
+            else await viewModel.ExportOrdersAsync(orderIds, exportDirectory);
         }
     }
 

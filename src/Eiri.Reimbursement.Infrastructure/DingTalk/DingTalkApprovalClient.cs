@@ -4,9 +4,21 @@ using Eiri.Reimbursement.Core.DingTalk;
 
 namespace Eiri.Reimbursement.Infrastructure.DingTalk;
 
-public sealed class DingTalkApprovalClient(HttpClient httpClient) : IDingTalkApprovalClient, IDingTalkApprovalStatusClient
+public sealed partial class DingTalkApprovalClient(HttpClient httpClient) : IDingTalkApprovalClient, IDingTalkApprovalStatusClient
 {
     public async Task<DingTalkApprovalState> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default)
+    {
+        var result = await GetInstanceResultAsync(accessToken, instanceId, cancellationToken);
+        if (result.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.String)
+        {
+            string? outcome = ReadString(result, "result");
+            var state = new DingTalkApprovalState(status.GetString()!, status.GetString() == "COMPLETED" ? outcome : null, ReadString(result, "businessId"));
+            if (state.IsValid) return state;
+        }
+        throw new InvalidOperationException("钉钉返回的审批流程状态或审批结果缺失或无法识别，请稍后刷新流程重试。");
+    }
+
+    private async Task<JsonElement> GetInstanceResultAsync(string accessToken, string instanceId, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(accessToken);
         ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
@@ -20,16 +32,8 @@ public sealed class DingTalkApprovalClient(HttpClient httpClient) : IDingTalkApp
         {
             using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
             if (json.RootElement.ValueKind == JsonValueKind.Object
-                && json.RootElement.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Object
-                && result.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.String)
-            {
-                string? outcome = status.GetString() == "COMPLETED"
-                    && result.TryGetProperty("result", out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
-                string? businessId = result.TryGetProperty("businessId", out var number) && number.ValueKind == JsonValueKind.String
-                    ? number.GetString() : null;
-                DingTalkApprovalState state = new(status.GetString()!, outcome, businessId);
-                if (state.IsValid) return state;
-            }
+                && json.RootElement.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Object)
+                return result.Clone();
         }
         catch (JsonException) { }
         throw new InvalidOperationException("钉钉返回的审批流程状态或审批结果缺失或无法识别，请稍后刷新流程重试。");

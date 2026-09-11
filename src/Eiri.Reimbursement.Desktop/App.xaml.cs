@@ -47,7 +47,8 @@ public partial class App : Application
                 : null;
             WholeLibraryBackupService backupPackageService = new(libraryRoot);
             DingTalkApprovalClient approvalClient = new(_dingTalkHttpClient);
-            MainWindowViewModel viewModel = new(workspace, batchExporter, backupPackageService, approvalStatusClient: approvalClient);
+            MainWindowViewModel viewModel = new(workspace, batchExporter, backupPackageService, approvalStatusClient: approvalClient,
+                approvedExporter: documentProcessor is IReimbursementPdfWriter pdfWriter ? new ApprovedReimbursementExporter(workspace, approvalClient, pdfWriter, libraryRoot) : null);
             MainWindow window = new(viewModel, new DingTalkAccessTokenClient(_dingTalkHttpClient), workspace,
                 new DingTalkDirectoryClient(_dingTalkHttpClient), workspace, new DingTalkFormClient(_dingTalkHttpClient), workspace,
                 new DingTalkInvoiceImagePreparer(workspace, documentProcessor as IPdfPageRenderer),

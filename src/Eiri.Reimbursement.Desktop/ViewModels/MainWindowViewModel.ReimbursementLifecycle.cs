@@ -1,3 +1,4 @@
+using System.IO;
 using Eiri.Reimbursement.Core.Export;
 using Eiri.Reimbursement.Core.Orders;
 using Eiri.Reimbursement.Core.Reimbursements;
@@ -24,6 +25,51 @@ public partial class MainWindowViewModel
             new SetReimbursementMilestoneCommand(id, Milestone.Submitted, null),
             new SetReimbursementMilestoneCommand(id, Milestone.Refunded, null) }).ToArray()), "已清除报销单及关联订单的提交、返款状态。");
 
+    public Task<bool> ExportApprovedReimbursementsAsync(IReadOnlyList<Guid> ids, string destinationDirectory) =>
+        RunReimbursementActionAsync(async workspace =>
+        {
+            if (_approvedExporter is null) throw new InvalidOperationException("PDF 导出功能不可用，请使用包含文档处理程序的完整安装包。");
+            int succeeded = 0;
+            List<string> errors = [];
+            foreach (var id in ids.Distinct())
+            {
+                var form = (await workspace.GetReimbursementAsync(id))?.Form;
+                string label = form?.ContentDisplay ?? id.ToString();
+                string name = $"报销审批-{form?.DingTalkBusinessId ?? id.ToString("N")}-{label}";
+                foreach (char invalid in Path.GetInvalidFileNameChars()) name = name.Replace(invalid, '_');
+                name = name[..Math.Min(name.Length, 100)].TrimEnd(' ', '.');
+                string path = Path.Combine(destinationDirectory, name + ".pdf");
+                for (int suffix = 2; File.Exists(path) || Directory.Exists(path); suffix++)
+                    path = Path.Combine(destinationDirectory, $"{name}-{suffix}.pdf");
+                try
+                {
+                    await _approvedExporter.ExportAsync(id, path);
+                    succeeded++;
+                    await MarkPdfExportedAsync(workspace, id);
+                }
+                catch (Exception exception) { errors.Add($"{label}：{exception.Message}"); }
+            }
+            if (errors.Count > 0)
+            {
+                await ReloadOrdersAsync(SelectedOrder?.Id);
+                throw new InvalidOperationException($"审批 PDF 已生成 {succeeded} 份，{errors.Count} 份处理出现问题。\n" + string.Join("\n", errors));
+            }
+        }, $"已导出 {ids.Distinct().Count()} 份审批 PDF，并同步已导出状态。");
+
+    public Task<bool> ExportApprovedReimbursementAsync(Guid id, string destinationPath) =>
+        RunReimbursementActionAsync(async workspace =>
+        {
+            if (_approvedExporter is null) throw new InvalidOperationException("PDF 导出功能不可用，请使用包含文档处理程序的完整安装包。");
+            await _approvedExporter.ExportAsync(id, destinationPath, overwrite: true);
+            await MarkPdfExportedAsync(workspace, id);
+        }, "已导出审批 PDF，并同步报销单及关联订单的已导出状态。");
+
+    private static async Task MarkPdfExportedAsync(IReimbursementFormWorkspace workspace, Guid id)
+    {
+        try { await workspace.SetReimbursementMilestonesAsync([new SetReimbursementMilestoneCommand(id, Milestone.Exported, DateTimeOffset.UtcNow)]); }
+        catch (Exception exception) { throw new InvalidOperationException("PDF 文件已生成、状态未更新，请手动设置已导出。", exception); }
+    }
+
     public Task ExportReimbursementsAsync(IReadOnlyList<Guid> ids, string destinationDirectory) =>
         RunReimbursementActionAsync(async workspace =>
         {
@@ -42,9 +88,9 @@ public partial class MainWindowViewModel
             await SetSelectedReimbursementsAsync([]);
         }, "已删除报销单及其附件，关联订单已解绑。", discardDraftIds: ids);
 
-    private async Task RunReimbursementActionAsync(Func<IReimbursementFormWorkspace, Task> action, string success, IReadOnlyList<Guid>? discardDraftIds = null, bool allowArchive = false)
+    private async Task<bool> RunReimbursementActionAsync(Func<IReimbursementFormWorkspace, Task> action, string success, IReadOnlyList<Guid>? discardDraftIds = null, bool allowArchive = false)
     {
-        if ((IsArchive && !allowArchive) || IsBusy || ReimbursementWorkspace is not { } workspace) return;
+        if ((IsArchive && !allowArchive) || IsBusy || ReimbursementWorkspace is not { } workspace) return false;
         IsBusy = true;
         try
         {
@@ -59,8 +105,9 @@ public partial class MainWindowViewModel
             await action(workspace);
             await ReloadOrdersAsync(SelectedOrder?.Id);
             StatusMessage = success;
+            return true;
         }
-        catch (Exception exception) { StatusMessage = $"操作失败：{exception.Message}"; }
+        catch (Exception exception) { StatusMessage = $"操作失败：{exception.Message}"; return false; }
         finally { IsBusy = false; }
     }
 }

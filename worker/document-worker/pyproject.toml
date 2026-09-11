@@ -11,6 +11,9 @@ dependencies = [
     "onnxruntime==1.29.0",
     "pypdfium2==5.13.0",
     "rapidocr==3.9.2",
+    "reportlab==4.4.9",
+    "pypdf==6.10.0",
+    "Pillow==12.3.0",
 ]
 
 [project.optional-dependencies]

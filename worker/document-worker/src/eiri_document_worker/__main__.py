@@ -471,6 +471,10 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
     job = request.get("job")
     if not isinstance(job, dict):
         raise ValueError("Request does not contain a document job.")
+    if request.get("operation") == "exportApprovedReimbursement":
+        from eiri_document_worker.approved_export import export_approved_reimbursement
+        export_approved_reimbursement(job)
+        return {"protocolVersion": PROTOCOL_VERSION, "written": True}
     if request.get("operation") == "render":
         rendered_files = render_pdf(
             Path(job["filePath"]).resolve(),

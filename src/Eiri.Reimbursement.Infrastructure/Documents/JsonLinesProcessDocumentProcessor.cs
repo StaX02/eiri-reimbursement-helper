@@ -1,11 +1,13 @@
 using System.Diagnostics;
+using System.Text.Json;
+using Eiri.Reimbursement.Core.Export;
 using Eiri.Reimbursement.Core.Documents;
 
 namespace Eiri.Reimbursement.Infrastructure.Documents;
 
 public sealed class JsonLinesProcessDocumentProcessor(
     string executablePath,
-    IReadOnlyList<string> arguments) : IDocumentProcessor, IPdfPageRenderer
+    IReadOnlyList<string> arguments) : IDocumentProcessor, IPdfPageRenderer, IReimbursementPdfWriter
 {
     private readonly string _executablePath = executablePath;
     private readonly IReadOnlyList<string> _arguments = arguments;
@@ -63,6 +65,18 @@ public sealed class JsonLinesProcessDocumentProcessor(
         return renderedFiles.Select(Path.GetFullPath).ToArray();
     }
 
+    public async Task WriteAsync(string destinationPath, ApprovedReimbursementPrintData data, IReadOnlyList<string> supportingMaterialPaths, CancellationToken cancellationToken = default)
+    {
+        string request = JsonSerializer.Serialize(new { protocolVersion = JsonLinesDocumentProtocol.CurrentVersion,
+            operation = "exportApprovedReimbursement", job = new { destinationPath = Path.GetFullPath(destinationPath),
+                reimburser = data.Reimburser, fields = data.Fields.Select(f => new { name = f.Name, value = f.Value }),
+                supportingMaterialPaths, fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "simsun.ttc") } });
+        using var response = JsonDocument.Parse(await ExecuteAsync(request, TimeSpan.FromMinutes(5), cancellationToken));
+        if (response.RootElement.GetProperty("protocolVersion").GetInt32() != JsonLinesDocumentProtocol.CurrentVersion
+            || !response.RootElement.GetProperty("written").GetBoolean() || !File.Exists(destinationPath))
+            throw new InvalidDataException("报销单 PDF 生成失败，请重试。");
+    }
+
     private async Task<string> ExecuteAsync(
         string request,
         TimeSpan timeoutDuration,
@@ -77,6 +91,7 @@ public sealed class JsonLinesProcessDocumentProcessor(
             RedirectStandardError = true,
             CreateNoWindow = true,
         };
+        startInfo.Environment["PYTHONIOENCODING"] = "utf-8";
         foreach (string argument in _arguments)
         {
             startInfo.ArgumentList.Add(argument);

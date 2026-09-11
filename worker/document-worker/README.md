@@ -28,3 +28,5 @@ To build only the standalone worker:
 ```powershell
 .\build-worker.ps1 -OutputDirectory ..\..\artifacts\document-worker
 ```
+
+Approved reimbursement export uses the `exportApprovedReimbursement` JSON Lines operation. ReportLab embeds the local Windows SimSun font for the A4 cover; pypdf appends original supporting PDF pages, and Pillow handles image orientation. The bundled worker includes these dependencies. A cover that cannot fit on one page at the requested font sizes fails without truncation.
