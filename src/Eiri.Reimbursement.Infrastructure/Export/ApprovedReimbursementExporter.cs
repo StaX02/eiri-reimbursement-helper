@@ -30,7 +30,7 @@ public sealed class ApprovedReimbursementExporter(
             throw new InvalidOperationException("仅流程为“已同意”的报销单可以导出审批 PDF。");
         var connection = await connections.GetDingTalkConnectionAsync(cancellationToken);
         if (connection is null || string.IsNullOrWhiteSpace(connection.AccessToken) || connection.ExpiresAt is not { } expiry || expiry <= DateTimeOffset.UtcNow)
-            throw new InvalidOperationException("请先通过“钉钉 → 连接接口”更新连接，再导出审批 PDF。");
+            throw new InvalidOperationException("请先通过“选项 → 设置 → 钉钉 → 连接接口”更新连接，再导出审批 PDF。");
         var data = await detailsClient.GetApprovedPrintDataAsync(connection.AccessToken, form.DingTalkInstanceId, cancellationToken);
         List<string> paths = [];
         foreach (var orderId in form.OrderIds)

@@ -6,6 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Eiri.Reimbursement.Core.Orders;
+using Eiri.Reimbursement.Core.DingTalk;
 using Eiri.Reimbursement.Core.Reimbursements;
 using Eiri.Reimbursement.Desktop;
 using Eiri.Reimbursement.Desktop.ViewModels;
@@ -35,7 +36,9 @@ public sealed class MainWindowRenderingTests
                 var id = workspace.CreateReimbursementAsync([a]).GetAwaiter().GetResult();
                 var vm = new MainWindowViewModel(workspace, approvalStatusClient: new RenderStatusClient());
                 vm.LoadAsync().GetAwaiter().GetResult();
-                main = new MainWindow(vm);
+                var settingsClient = new SettingsClient();
+                main = new MainWindow(vm, dingTalkClient: settingsClient, dingTalkStore: workspace, dingTalkDirectory: settingsClient,
+                    submissionInfoStore: workspace, dingTalkFormClient: settingsClient, dingTalkFormStore: workspace);
                 main.Show();
                 main.UpdateLayout();
                 AssertMaximizeRespectsWorkAreaAndRestores(main);
@@ -82,7 +85,10 @@ public sealed class MainWindowRenderingTests
                 vm.IsBusy = false;
                 ThemeManager.ApplyLightTheme(application.Resources);
                 var menu = (Menu)main.FindName("TopMenuBar");
-                Assert.Equal("归档", ((MenuItem)menu.Items[1]).Header);
+                Assert.Equal("归档", ((MenuItem)menu.Items[0]).Header);
+                Assert.Null(main.FindName("DingTalkMenu"));
+                Assert.Equal("设置", ((MenuItem)main.FindName("SettingsMenuItem")).Header);
+                VerifySettings(main, root, application, workspace, settingsClient);
                 var orders = (DataGrid)main.FindName("OrdersGrid");
                 orders.SelectedItem = vm.Orders[0];
                 main.UpdateLayout();
@@ -130,6 +136,128 @@ public sealed class MainWindowRenderingTests
     private sealed class RenderStatusClient : Eiri.Reimbursement.Core.DingTalk.IDingTalkApprovalStatusClient
     {
         public Task<Eiri.Reimbursement.Core.DingTalk.DingTalkApprovalState> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default) => Task.FromResult(new Eiri.Reimbursement.Core.DingTalk.DingTalkApprovalState("RUNNING"));
+    }
+
+    private static void VerifySettings(MainWindow main, string root, App application, SqliteReimbursementWorkspace workspace, SettingsClient client)
+    {
+        var preferences = new ExportPreferences(Path.Combine(root, "export-settings.json"));
+        preferences.SaveDirectory(root);
+        var settings = new SettingsWindow(main, preferences) { Owner = main };
+        try
+        {
+            settings.Show();
+            settings.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            settings.UpdateLayout();
+            var categories = (ListBox)settings.FindName("Categories");
+            var dingTalk = (Grid)settings.FindName("DingTalkPanel");
+            var export = (ScrollViewer)settings.FindName("ExportPanel");
+            Assert.True(dingTalk.IsVisible);
+            Assert.False(export.IsVisible);
+            Assert.True(dingTalk.ActualWidth > categories.ActualWidth);
+            Assert.Equal("尚无连接凭据", ((TextBox)settings.FindName("CredentialOutput")).Text);
+            CaptureIfRequested(settings, "settings-dingtalk-light");
+            categories.SelectedIndex = 1;
+            settings.UpdateLayout();
+            Assert.False(dingTalk.IsVisible);
+            Assert.True(export.IsVisible);
+            Assert.Equal(root, ((TextBox)settings.FindName("ExportDirectoryOutput")).Text);
+            CaptureIfRequested(settings, "settings-export-light");
+            ThemeManager.Toggle(application.Resources);
+            settings.Width = settings.MinWidth;
+            settings.Height = settings.MinHeight;
+            categories.SelectedIndex = 0;
+            settings.UpdateLayout();
+            Assert.True(dingTalk.ActualWidth > categories.ActualWidth);
+            CaptureIfRequested(settings, "settings-dingtalk-dark-narrow");
+            categories.SelectedIndex = 1;
+            settings.UpdateLayout();
+            CaptureIfRequested(settings, "settings-export-dark-narrow");
+        }
+        finally
+        {
+            settings.Close();
+            settings.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            ThemeManager.ApplyLightTheme(application.Resources);
+        }
+        Assert.False(settings.IsVisible);
+        workspace.SaveDingTalkConnectionAsync(new("test-client", "test-secret", "test-token", DateTimeOffset.UtcNow.AddHours(1))).GetAwaiter().GetResult();
+        main.ConnectionState.InitializeAsync().GetAwaiter().GetResult();
+        settings = new SettingsWindow(main, preferences) { Owner = main };
+        try
+        {
+            settings.Show();
+            settings.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            var editor = Assert.IsType<DingTalkSubmissionInfoView>(((ContentControl)settings.FindName("SubmissionContent")).Content);
+            Assert.Equal(8, editor.ViewModel.FormFields.Count);
+            Assert.DoesNotContain("test-token", ((TextBox)settings.FindName("CredentialOutput")).Text);
+            editor.ViewModel.FormFields[0].Text = "测试默认值";
+            var categories = (ListBox)settings.FindName("Categories");
+            categories.SelectedIndex = 1;
+            categories.SelectedIndex = 0;
+            Assert.Equal("测试默认值", editor.ViewModel.FormFields[0].Text);
+            settings.UpdateLayout();
+            CaptureIfRequested(settings, "settings-connected-light");
+            settings.Width = settings.MinWidth;
+            settings.Height = settings.MinHeight;
+            ThemeManager.Toggle(application.Resources);
+            settings.UpdateLayout();
+            var scroll = (ScrollViewer)editor.FindName("PrefillScroll");
+            Assert.True(scroll.ScrollableHeight > 0);
+            Assert.True(scroll.ViewportHeight > 100);
+            ((ScrollViewer)settings.FindName("DingTalkScroll")).ScrollToEnd();
+            scroll.ScrollToEnd();
+            settings.UpdateLayout();
+            CaptureIfRequested(settings, "settings-connected-dark-narrow");
+        }
+        finally
+        {
+            settings.Close();
+            settings.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            ThemeManager.ApplyLightTheme(application.Resources);
+        }
+        Assert.False(settings.IsVisible);
+        Assert.Equal("测试默认值", workspace.GetFormPrefillAsync("test-template").GetAwaiter().GetResult()["field-0"].Values[0]);
+        foreach (bool reconnect in new[] { false, true })
+        {
+            client.PauseTemplate = !reconnect;
+            client.CancellationObserved = false;
+            settings = new SettingsWindow(main, preferences) { Owner = main };
+            settings.Show();
+            settings.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            if (reconnect)
+            {
+                client.PauseTemplate = true;
+                ((Button)settings.FindName("ConnectButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
+            settings.Close();
+            for (int i = 0; i < 20 && settings.IsVisible; i++)
+                settings.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            Assert.True(client.CancellationObserved);
+            Assert.False(settings.IsVisible);
+        }
+    }
+
+    private sealed class SettingsClient : IDingTalkDirectoryClient, IDingTalkFormClient, IDingTalkAccessTokenClient
+    {
+        public Task<DingTalkAccessToken> GetAccessTokenAsync(string clientId, string clientSecret, CancellationToken cancellationToken = default)
+            => Task.FromResult(new DingTalkAccessToken("test-refreshed-token", 3600));
+        public bool PauseTemplate;
+        public bool CancellationObserved;
+        public Task<IReadOnlyList<DingTalkDepartment>> GetDepartmentsAsync(string accessToken, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<DingTalkDepartment>>([]);
+        public Task<IReadOnlyList<DingTalkUser>> GetUsersAsync(string accessToken, long deptId, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<DingTalkUser>>([]);
+        public Task<DingTalkFormTemplate> GetReimbursementTemplateAsync(string accessToken, CancellationToken cancellationToken = default)
+        {
+            if (PauseTemplate)
+            {
+                var pending = new TaskCompletionSource<DingTalkFormTemplate>();
+                cancellationToken.Register(() => { CancellationObserved = true; pending.TrySetCanceled(cancellationToken); });
+                return pending.Task;
+            }
+            return Task.FromResult(new DingTalkFormTemplate("test-template", Enumerable.Range(0, 8)
+                .Select(i => new DingTalkFormField($"field-{i}", $"测试字段 {i + 1}", "TextField", [])).ToArray(), null));
+        }
     }
 
     private static void CaptureIfRequested(Window window, string name)

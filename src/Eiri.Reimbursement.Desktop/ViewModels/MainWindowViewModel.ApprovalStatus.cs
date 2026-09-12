@@ -21,9 +21,9 @@ public partial class MainWindowViewModel
             if (candidates.Count == 0) { StatusMessage = "没有需要刷新流程的报销单。"; return; }
             var connection = await connectionStore.GetDingTalkConnectionAsync(cancellationToken);
             if (connection is null || string.IsNullOrWhiteSpace(connection.AccessToken))
-                throw new InvalidOperationException("请先通过“钉钉 → 连接接口”连接应用，再刷新流程。");
+                throw new InvalidOperationException("请先通过“选项 → 设置 → 钉钉 → 连接接口”连接应用，再刷新流程。");
             if (connection.ExpiresAt is not { } expiry || expiry <= DateTimeOffset.UtcNow)
-                throw new InvalidOperationException("钉钉连接已过期，请通过“钉钉 → 连接接口”更新连接，再刷新流程。");
+                throw new InvalidOperationException("钉钉连接已过期，请通过“选项 → 设置 → 钉钉 → 连接接口”更新连接，再刷新流程。");
 
             int refreshed = 0, skipped = 0;
             List<string> errors = [];

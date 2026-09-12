@@ -170,15 +170,13 @@
                 <Menu x:Name="TopMenuBar"
                       HorizontalAlignment="Left"
                       VerticalAlignment="Center">
-                    <MenuItem x:Name="DingTalkMenu" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}" Header="钉钉" IsEnabled="{Binding CanConnectDingTalk}">
-                        <MenuItem Header="连接接口" Click="ConnectDingTalk_OnClick" />
-                        <MenuItem Header="报销提审信息" Click="DingTalkSubmissionInfo_OnClick" />
-                        <MenuItem Header="清除连接记录" Click="ClearDingTalk_OnClick" />
-                    </MenuItem>
                     <MenuItem x:Name="ArchiveMenu" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}" Header="归档" IsEnabled="{Binding CanOpenArchive}">
                         <MenuItem Header="查看归档" Click="ViewArchive_OnClick" />
                     </MenuItem>
                     <MenuItem x:Name="OptionsMenu" Header="选项">
+                        <MenuItem x:Name="SettingsMenuItem" Header="设置" Click="Settings_OnClick"
+                                  Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                  IsEnabled="{Binding CanConnectDingTalk}"/>
                         <MenuItem x:Name="ImportDataMenuItem" Visibility="{Binding IsEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
                                   Header="导入数据"
                                   IsEnabled="{Binding CanManageData}"

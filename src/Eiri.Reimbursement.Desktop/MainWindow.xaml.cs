@@ -57,6 +57,13 @@ public partial class MainWindow : Window
 
     }
 
+    private readonly ExportPreferences _exportPreferences = new();
+
+    private void Settings_OnClick(object sender, RoutedEventArgs e)
+    {
+        new SettingsWindow(this, _exportPreferences) { Owner = this }.ShowDialog();
+    }
+
     private bool _closingAfterSave;
     private bool _waitingToClose;
 
@@ -220,12 +227,26 @@ public partial class MainWindow : Window
         if (viewModel.IsBusy) return;
         var approvedForms = viewModel.Reimbursements.Where(item => formIds.Contains(item.Form.Id)
             && item.Form.SubmittedAt is not null && item.Form.DingTalkApprovalStatus == "COMPLETED" && item.Form.DingTalkApprovalResult == "agree").ToArray();
-        string? exportDirectory = null;
-        if (formIds.Length > 1 && approvedForms.Length > 0)
+        string? exportDirectory;
+        try { exportDirectory = _exportPreferences.LoadDirectory(); }
+        catch (Exception)
         {
-            OpenFolderDialog folder = new() { Title = "选择报销资料导出位置", Multiselect = false };
-            if (folder.ShowDialog(this) != true) return;
-            exportDirectory = folder.FolderName;
+            viewModel.StatusMessage = "读取默认导出位置失败，请在“选项 → 设置 → 导出”中重新设置。";
+            return;
+        }
+        if (exportDirectory is not null && !Directory.Exists(exportDirectory))
+        {
+            viewModel.StatusMessage = "默认导出文件夹不可用，请连接对应磁盘，或在“选项 → 设置 → 导出”中重新选择。";
+            return;
+        }
+        if (approvedForms.Length > 0 && (formIds.Length > 1 || exportDirectory is not null))
+        {
+            if (exportDirectory is null)
+            {
+                OpenFolderDialog folder = new() { Title = "选择报销资料导出位置", Multiselect = false };
+                if (folder.ShowDialog(this) != true) return;
+                exportDirectory = folder.FolderName;
+            }
             if (!await viewModel.ExportApprovedReimbursementsAsync(approvedForms.Select(item => item.Form.Id).ToArray(), exportDirectory)) return;
         }
         else if (approvedForms.Length == 1)
