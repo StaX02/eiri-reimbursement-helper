@@ -40,7 +40,7 @@ public sealed class SqliteReimbursementWorkspaceTests : IAsyncLifetime
         {
             await connection.OpenAsync();
             await using SqliteCommand sql = connection.CreateCommand();
-            sql.CommandText = "ALTER TABLE dingtalk_approval_submissions DROP COLUMN status; ALTER TABLE dingtalk_approval_submissions DROP COLUMN result; ALTER TABLE dingtalk_approval_submissions DROP COLUMN pending; ALTER TABLE dingtalk_approval_submissions DROP COLUMN business_id; PRAGMA user_version = 10;";
+            sql.CommandText = "ALTER TABLE dingtalk_approval_submissions DROP COLUMN status; ALTER TABLE dingtalk_approval_submissions DROP COLUMN result; ALTER TABLE dingtalk_approval_submissions DROP COLUMN pending; ALTER TABLE dingtalk_approval_submissions DROP COLUMN business_id; ALTER TABLE dingtalk_connection DROP COLUMN last_connection_failed; PRAGMA user_version = 10;";
             await sql.ExecuteNonQueryAsync();
         }
 

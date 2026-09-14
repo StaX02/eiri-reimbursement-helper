@@ -9,8 +9,11 @@ public partial class MainWindowViewModel
 
     [RelayCommand(CanExecute = nameof(CanRefreshApprovalStatuses))]
     public async Task RefreshApprovalStatusesAsync(CancellationToken cancellationToken = default)
+        => await RefreshApprovalStatusesCoreAsync(cancellationToken);
+
+    private async Task<bool> RefreshApprovalStatusesCoreAsync(CancellationToken cancellationToken)
     {
-        if (!CanRefreshApprovalStatuses()) return;
+        if (!CanRefreshApprovalStatuses()) return false;
         IsBusy = true;
         StatusMessage = "正在刷新审批流程…";
         try
@@ -18,7 +21,7 @@ public partial class MainWindowViewModel
             if (_workspace is not IDingTalkApprovalStatusStore store || _workspace is not IDingTalkConnectionStore connectionStore)
                 throw new InvalidOperationException("审批流程服务不可用，请重启完整安装的软件。");
             var candidates = await store.ListApprovalStatusCandidatesAsync(cancellationToken);
-            if (candidates.Count == 0) { StatusMessage = "没有需要刷新流程的报销单。"; return; }
+            if (candidates.Count == 0) { StatusMessage = "没有需要刷新流程的报销单。"; return true; }
             var connection = await connectionStore.GetDingTalkConnectionAsync(cancellationToken);
             if (connection is null || string.IsNullOrWhiteSpace(connection.AccessToken))
                 throw new InvalidOperationException("请先通过“选项 → 设置 → 钉钉 → 连接接口”连接应用，再刷新流程。");
@@ -55,11 +58,13 @@ public partial class MainWindowViewModel
             await ReloadReimbursementsAsync();
             StatusMessage = $"流程刷新结束：成功 {refreshed} 个，失败 {errors.Count} 个，跳过 {skipped} 个。"
                 + (errors.Count == 0 ? "" : "失败条目保留上次状态。\n" + string.Join("\n", errors));
+            return errors.Count == 0;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         { StatusMessage = "流程刷新已取消，已保存的状态将保留。"; }
         catch (InvalidOperationException exception) { StatusMessage = $"刷新流程失败：{exception.Message}"; }
         catch (Exception) { StatusMessage = "刷新流程失败，请检查资料库访问权限后重试。"; }
         finally { IsBusy = false; }
+        return false;
     }
 }

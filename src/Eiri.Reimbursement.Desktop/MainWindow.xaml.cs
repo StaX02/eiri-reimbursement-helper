@@ -48,7 +48,7 @@ public partial class MainWindow : Window
         _dingTalkForecastClient = dingTalkForecastClient;
         _dingTalkApprovalClient = dingTalkApprovalClient;
         _connectionTimer.Tick += (_, _) => ConnectionState.CheckExpiration();
-        Loaded += async (_, _) => { await ConnectionState.InitializeAsync(_connectionLifetime.Token); if (!_connectionLifetime.IsCancellationRequested) _connectionTimer.Start(); };
+        Loaded += (_, _) => { if (!_connectionLifetime.IsCancellationRequested) _connectionTimer.Start(); };
         Closed += (_, _) => { _connectionTimer.Stop(); _connectionLifetime.Cancel(); viewModel.RefreshApprovalStatusesCommand.Cancel(); };
         viewModel.OrderRowsUpdated += RestoreOrderSelection;
         Closed += (_, _) => viewModel.OrderRowsUpdated -= RestoreOrderSelection;

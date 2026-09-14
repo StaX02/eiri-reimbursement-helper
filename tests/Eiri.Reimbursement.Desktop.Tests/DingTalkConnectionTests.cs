@@ -6,6 +6,32 @@ namespace Eiri.Reimbursement.Desktop.Tests;
 public sealed class DingTalkConnectionTests
 {
     [Fact]
+    public async Task StartupWithoutSavedCredentialsDoesNotConnect()
+    {
+        var client = new Client();
+        var vm = new DingTalkConnectionViewModel(client, new Store());
+        Assert.True(await vm.PrepareForStartupAsync());
+        Assert.Equal(0, client.Calls);
+        Assert.Equal(DingTalkConnectionState.Disconnected, vm.State);
+    }
+
+    [Fact]
+    public async Task FailedFirstConnectionRetainsCredentialsForNextStartup()
+    {
+        var store = new Store();
+        var client = new Client { Fail = true };
+        var vm = new DingTalkConnectionViewModel(client, store);
+        Assert.False(await vm.ConnectAsync(_ => Task.FromResult<DingTalkCredentials?>(new("key", "secret"))));
+        Assert.True(store.Record!.LastConnectionFailed);
+        client.Fail = false;
+        var reopened = new DingTalkConnectionViewModel(client, store);
+        Assert.True(await reopened.PrepareForStartupAsync());
+        Assert.Equal(2, client.Calls);
+        Assert.False(store.Record.LastConnectionFailed);
+        Assert.Equal(DingTalkConnectionState.Connected, reopened.State);
+    }
+
+    [Fact]
     public async Task ConcurrentClicksDoNotOpenTwoImportsOrIssueTwoRequests()
     {
         var store = new Store(); var client = new Client(); var vm = new DingTalkConnectionViewModel(client, store);
@@ -43,10 +69,10 @@ public sealed class DingTalkConnectionTests
         var store = new Store { Record = saved }; var client = new Client { Fail = true };
         var vm = new DingTalkConnectionViewModel(client, store); await vm.InitializeAsync();
         Assert.False(await vm.ConnectAsync(_ => throw new InvalidOperationException("Unexpected picker")));
-        Assert.Equal(DingTalkConnectionState.Error, vm.State); Assert.True(vm.HasError); Assert.Equal(saved, store.Record);
+        Assert.Equal(DingTalkConnectionState.Error, vm.State); Assert.True(vm.HasError); Assert.Equal(saved with { LastConnectionFailed = true }, store.Record);
         vm.CheckExpiration(); Assert.Equal(DingTalkConnectionState.Error, vm.State);
         Assert.False(await vm.ConnectAsync(_ => Task.FromResult<DingTalkCredentials?>(null), true));
-        Assert.Equal(saved, store.Record);
+        Assert.Equal(saved with { LastConnectionFailed = true }, store.Record);
         client.Fail = false;
         Assert.True(await vm.ConnectAsync(_ => Task.FromResult<DingTalkCredentials?>(new("new", "new-secret")), true));
         Assert.Equal("new", store.Record!.ClientId); Assert.Equal(DingTalkConnectionState.Connected, vm.State);

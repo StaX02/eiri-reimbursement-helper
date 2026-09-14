@@ -227,7 +227,8 @@ public sealed class MainWindowRenderingTests
             if (reconnect)
             {
                 client.PauseTemplate = true;
-                ((Button)settings.FindName("ConnectButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                settings.Dispatcher.Invoke(() =>
+                    ((Button)settings.FindName("ConnectButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)));
             }
             settings.Close();
             for (int i = 0; i < 20 && settings.IsVisible; i++)

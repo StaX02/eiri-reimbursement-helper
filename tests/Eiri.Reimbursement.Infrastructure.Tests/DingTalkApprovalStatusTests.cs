@@ -25,7 +25,7 @@ public sealed class DingTalkApprovalStatusTests
             {
                 await db.OpenAsync();
                 await using var sql = db.CreateCommand();
-                sql.CommandText = "ALTER TABLE dingtalk_approval_submissions DROP COLUMN result; ALTER TABLE dingtalk_approval_submissions DROP COLUMN pending; ALTER TABLE dingtalk_approval_submissions DROP COLUMN business_id; PRAGMA user_version = 11;";
+                sql.CommandText = "ALTER TABLE dingtalk_approval_submissions DROP COLUMN result; ALTER TABLE dingtalk_approval_submissions DROP COLUMN pending; ALTER TABLE dingtalk_approval_submissions DROP COLUMN business_id; ALTER TABLE dingtalk_connection DROP COLUMN last_connection_failed; PRAGMA user_version = 11;";
                 await sql.ExecuteNonQueryAsync();
             }
             var reopened = new SqliteReimbursementWorkspace(root); await reopened.InitializeAsync();

@@ -9,17 +9,17 @@ public sealed partial class SqliteReimbursementWorkspace : IDingTalkConnectionSt
     {
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken);
         await using SqliteCommand sql = connection.CreateCommand();
-        sql.CommandText = "SELECT client_id, client_secret, access_token, expires_at FROM dingtalk_connection WHERE id = 1;";
+        sql.CommandText = "SELECT client_id, client_secret, access_token, expires_at, last_connection_failed FROM dingtalk_connection WHERE id = 1;";
         await using SqliteDataReader reader = await sql.ExecuteReaderAsync(cancellationToken);
         return await reader.ReadAsync(cancellationToken)
-            ? new(reader.GetString(0), reader.GetString(1), reader.GetString(2), ParseNullableTimestamp(reader, 3)) : null;
+            ? new(reader.GetString(0), reader.GetString(1), reader.GetString(2), ParseNullableTimestamp(reader, 3), reader.GetBoolean(4)) : null;
     }
 
     public async Task SaveDingTalkConnectionAsync(DingTalkConnection record, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(record.ClientId);
         ArgumentException.ThrowIfNullOrWhiteSpace(record.ClientSecret);
-        ArgumentException.ThrowIfNullOrWhiteSpace(record.AccessToken);
+        if (!record.LastConnectionFailed) ArgumentException.ThrowIfNullOrWhiteSpace(record.AccessToken);
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken);
         await using SqliteCommand sql = connection.CreateCommand();
         sql.CommandText = """
@@ -28,15 +28,17 @@ public sealed partial class SqliteReimbursementWorkspace : IDingTalkConnectionSt
                 (SELECT 1 FROM dingtalk_connection WHERE client_id <> $clientId);
             DELETE FROM dingtalk_submission_info WHERE EXISTS
                 (SELECT 1 FROM dingtalk_connection WHERE client_id <> $clientId);
-            INSERT INTO dingtalk_connection (id, client_id, client_secret, access_token, expires_at)
-            VALUES (1, $clientId, $clientSecret, $accessToken, $expiresAt)
+            INSERT INTO dingtalk_connection (id, client_id, client_secret, access_token, expires_at, last_connection_failed)
+            VALUES (1, $clientId, $clientSecret, $accessToken, $expiresAt, $lastConnectionFailed)
             ON CONFLICT(id) DO UPDATE SET client_id = excluded.client_id,
-                client_secret = excluded.client_secret, access_token = excluded.access_token, expires_at = excluded.expires_at;
+                client_secret = excluded.client_secret, access_token = excluded.access_token, expires_at = excluded.expires_at,
+                last_connection_failed = excluded.last_connection_failed;
             COMMIT;
             """;
         sql.Parameters.AddWithValue("$clientId", record.ClientId);
         sql.Parameters.AddWithValue("$clientSecret", record.ClientSecret);
         sql.Parameters.AddWithValue("$accessToken", record.AccessToken);
+        sql.Parameters.AddWithValue("$lastConnectionFailed", record.LastConnectionFailed);
         sql.Parameters.AddWithValue("$expiresAt", record.ExpiresAt is { } expiresAt ? Format(expiresAt) : DBNull.Value);
         await sql.ExecuteNonQueryAsync(cancellationToken);
     }

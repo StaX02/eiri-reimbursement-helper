@@ -1,6 +1,7 @@
 namespace Eiri.Reimbursement.Core.DingTalk;
 
-public sealed record DingTalkConnection(string ClientId, string ClientSecret, string AccessToken, DateTimeOffset? ExpiresAt = null)
+public sealed record DingTalkConnection(string ClientId, string ClientSecret, string AccessToken, DateTimeOffset? ExpiresAt = null,
+    bool LastConnectionFailed = false)
 {
     public override string ToString() => "DingTalkConnection { [redacted] }";
 }

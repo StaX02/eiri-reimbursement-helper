@@ -56,7 +56,7 @@ public partial class App : Application
                 approvalClient);
             MainWindow = window;
             window.Show();
-            await viewModel.LoadAsync(window.LifetimeCancellationToken);
+            await viewModel.LoadAsync(window.LifetimeCancellationToken, window.ConnectionState);
             window.RefreshOrdersList();
         }
         catch (Exception exception)

@@ -30,7 +30,12 @@ public sealed partial class DingTalkConnectionViewModel(
     {
         if (IsBusy || store is null) return;
         IsBusy = true;
-        try { _connection = await store.GetDingTalkConnectionAsync(cancellationToken); ErrorMessage = ""; UpdateState(); }
+        try
+        {
+            _connection = await store.GetDingTalkConnectionAsync(cancellationToken);
+            ErrorMessage = _connection?.LastConnectionFailed == true ? "上次钉钉连接失败，请重新连接。" : "";
+            UpdateState();
+        }
         catch (Exception) { Fail("无法读取钉钉连接记录，请检查资料库访问权限。"); }
         finally { IsBusy = false; NotifyConnection(); }
     }
@@ -39,10 +44,22 @@ public sealed partial class DingTalkConnectionViewModel(
     {
         if (!IsBusy && State is not DingTalkConnectionState.Error) UpdateState();
     }
-    private void UpdateState() => State = _connection is null || string.IsNullOrWhiteSpace(_connection.AccessToken)
+    private void UpdateState() => State = _connection?.LastConnectionFailed == true ? DingTalkConnectionState.Error
+        : _connection is null || string.IsNullOrWhiteSpace(_connection.AccessToken)
         || string.IsNullOrWhiteSpace(_connection.ClientId) || string.IsNullOrWhiteSpace(_connection.ClientSecret)
         ? DingTalkConnectionState.Disconnected
         : _connection.ExpiresAt is not { } expires || expires <= _now() ? DingTalkConnectionState.Expired : DingTalkConnectionState.Connected;
+
+    public async Task<bool> PrepareForStartupAsync(CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(cancellationToken);
+        if (cancellationToken.IsCancellationRequested) return false;
+        if (_connection is { } saved && !string.IsNullOrWhiteSpace(saved.ClientId)
+            && !string.IsNullOrWhiteSpace(saved.ClientSecret)
+            && State is DingTalkConnectionState.Expired or DingTalkConnectionState.Error or DingTalkConnectionState.Disconnected)
+            return await ConnectAsync(_ => Task.FromResult<DingTalkCredentials?>(null), cancellationToken: cancellationToken);
+        return !HasError;
+    }
 
     public async Task<bool> ConnectAsync(Func<CancellationToken, Task<DingTalkCredentials?>> import,
         bool forceImport = false, CancellationToken cancellationToken = default)
@@ -50,15 +67,18 @@ public sealed partial class DingTalkConnectionViewModel(
         if (IsBusy || client is null || store is null) return false;
         IsBusy = true;
         var previousState = State;
+        DingTalkConnection? saved = null;
+        DingTalkCredentials? attemptedCredentials = null;
         try
         {
-            var saved = await store.GetDingTalkConnectionAsync(cancellationToken);
+            saved = await store.GetDingTalkConnectionAsync(cancellationToken);
             DingTalkCredentials? credentials;
             if (forceImport || saved is null || string.IsNullOrWhiteSpace(saved.ClientId) || string.IsNullOrWhiteSpace(saved.ClientSecret))
                 credentials = await import(cancellationToken);
             else credentials = new(saved.ClientId, saved.ClientSecret);
             if (credentials is null) { ErrorMessage = ""; State = previousState; return false; }
             ErrorMessage = ""; State = DingTalkConnectionState.Connecting;
+            attemptedCredentials = credentials;
             var token = await client.GetAccessTokenAsync(credentials.AppKey, credentials.AppSecret, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(token.AccessToken) || token.ExpireIn is <= 0 or > int.MaxValue)
@@ -70,7 +90,21 @@ public sealed partial class DingTalkConnectionViewModel(
         catch (OperationCanceledException) { if (!cancellationToken.IsCancellationRequested) Fail("连接超时，请检查网络后重试。"); else State = previousState; }
         catch (InvalidOperationException ex) { Fail(ex.Message); }
         catch (Exception) { Fail("连接或导入凭据失败，请检查 JSON 文件、网络及资料库访问权限。"); }
-        finally { IsBusy = false; NotifyConnection(); }
+        finally
+        {
+            if (HasError && attemptedCredentials is not null && !cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    var failed = (saved ?? new DingTalkConnection(attemptedCredentials.AppKey, attemptedCredentials.AppSecret, ""))
+                        with { LastConnectionFailed = true };
+                    await store.SaveDingTalkConnectionAsync(failed, cancellationToken);
+                    _connection = failed;
+                }
+                catch (Exception) { ErrorMessage += " 无法保存连接失败记录，请检查资料库访问权限。"; }
+            }
+            IsBusy = false; NotifyConnection();
+        }
         return false;
     }
     private void Fail(string message) { ErrorMessage = message; State = DingTalkConnectionState.Error; }

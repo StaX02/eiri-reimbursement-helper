@@ -170,11 +170,30 @@ public partial class MainWindowViewModel : ObservableObject
         ? $"已返款 · {refundedAt.ToLocalTime():yyyy-MM-dd HH:mm}"
         : "未返款";
 
-    public async Task LoadAsync(CancellationToken cancellationToken = default)
+    public async Task LoadAsync(CancellationToken cancellationToken = default, DingTalkConnectionViewModel? connectionState = null)
     {
-        await RefreshAsync();
+        if (!await RefreshAsync()) return;
+        string welcomeMessage = StatusMessage;
+        if (!IsArchive && connectionState is not null)
+        {
+            IsBusy = true;
+            StatusMessage = "正在检查钉钉连接…";
+            try
+            {
+                if (!await connectionState.PrepareForStartupAsync(cancellationToken))
+                {
+                    StatusMessage = cancellationToken.IsCancellationRequested ? "初始化已取消。"
+                        : $"钉钉连接失败：{connectionState.ErrorMessage} 请通过“选项 → 设置 → 钉钉 → 连接接口”重试。";
+                    return;
+                }
+            }
+            finally { IsBusy = false; }
+        }
         if (!IsArchive && _approvalStatusClient is not null)
-            await RefreshApprovalStatusesAsync(cancellationToken);
+        {
+            if (!await RefreshApprovalStatusesCoreAsync(cancellationToken)) return;
+        }
+        StatusMessage = welcomeMessage;
     }
 
     public void SetSelectedOrders(IReadOnlyCollection<OrderListItem> orders)
@@ -555,7 +574,7 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanRunCommand))]
-    private async Task RefreshAsync()
+    private async Task<bool> RefreshAsync()
     {
         IsBusy = true;
         StatusMessage = "正在加载订单…";
@@ -568,10 +587,12 @@ public partial class MainWindowViewModel : ObservableObject
                 : Orders.Count == 0
                 ? "还没有订单。点击“新建订单”开始整理报销材料。"
                 : "订单列表已更新。";
+            return true;
         }
         catch (Exception exception)
         {
             StatusMessage = $"加载订单失败：{exception.Message}";
+            return false;
         }
         finally
         {

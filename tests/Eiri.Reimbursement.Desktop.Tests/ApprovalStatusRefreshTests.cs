@@ -8,6 +8,56 @@ namespace Eiri.Reimbursement.Desktop.Tests;
 
 public sealed class ApprovalStatusRefreshTests
 {
+    [Theory]
+    [InlineData(true, false, false, 1)]
+    [InlineData(false, true, false, 1)]
+    [InlineData(false, false, false, 0)]
+    [InlineData(true, false, true, 1)]
+    public async Task StartupPreparesConnectionBeforeRefreshing(bool expired, bool previouslyFailed, bool fail, int expectedConnections)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "eiri-startup", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var workspace = new SqliteReimbursementWorkspace(root);
+            await workspace.InitializeAsync();
+            await workspace.SaveDingTalkConnectionAsync(new("client", "secret", "old-token",
+                DateTimeOffset.UtcNow.AddHours(expired ? -1 : 1), previouslyFailed));
+            var id = await workspace.CreateReimbursementAsync([await workspace.CreateOrderAsync(new(OrderPlatform.JD))]);
+            await workspace.BeginApprovalSubmissionAsync(id);
+            await workspace.CompleteApprovalSubmissionAsync(id, "instance");
+            var tokenClient = new StartupTokenClient { Fail = fail };
+            var statusClient = new StatusClient();
+            var vm = new MainWindowViewModel(workspace, approvalStatusClient: statusClient);
+            await vm.LoadAsync(connectionState: new(tokenClient, workspace));
+            Assert.Equal(expectedConnections, tokenClient.Calls);
+            Assert.Equal(fail ? 0 : 1, statusClient.Calls);
+            if (fail)
+            {
+                Assert.Contains("钉钉连接失败", vm.StatusMessage);
+                Assert.True((await workspace.GetDingTalkConnectionAsync())!.LastConnectionFailed);
+            }
+            else
+            {
+                Assert.Equal(expectedConnections == 0 ? "old-token" : "renewed-token", statusClient.LastAccessToken);
+                Assert.Equal("订单列表已更新。", vm.StatusMessage);
+                Assert.False((await workspace.GetDingTalkConnectionAsync())!.LastConnectionFailed);
+            }
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private sealed class StartupTokenClient : IDingTalkAccessTokenClient
+    {
+        public bool Fail { get; init; }
+        public int Calls { get; private set; }
+        public Task<DingTalkAccessToken> GetAccessTokenAsync(string clientId, string clientSecret, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            if (Fail) throw new InvalidOperationException("连接失败");
+            return Task.FromResult(new DingTalkAccessToken("renewed-token", 7200));
+        }
+    }
+
     [Fact]
     public async Task StartupRefreshesAllCandidatesAndManualRefreshPreservesSelectionAndInvalidInput()
     {
@@ -27,6 +77,7 @@ public sealed class ApprovalStatusRefreshTests
             var vm = new MainWindowViewModel(workspace, approvalStatusClient: client);
             await vm.LoadAsync();
             Assert.Equal(101, client.Calls);
+            Assert.Equal("订单列表已更新。", vm.StatusMessage);
             Assert.All(await workspace.ListReimbursementsAsync(limit: 500), f => Assert.Equal("审批中", f.ApprovalStatusDisplay));
             var selected = vm.Reimbursements[0];
             await vm.SetSelectedReimbursementsAsync([selected]);
@@ -59,6 +110,7 @@ public sealed class ApprovalStatusRefreshTests
 
     private sealed class StatusClient : IDingTalkApprovalStatusClient
     {
+        public string? LastAccessToken { get; private set; }
         public int Calls { get; private set; }
         public string Status { get; set; } = "RUNNING";
         public TaskCompletionSource? Gate { get; set; }
@@ -66,6 +118,7 @@ public sealed class ApprovalStatusRefreshTests
         public async Task<DingTalkApprovalState> GetInstanceStatusAsync(string accessToken, string instanceId, CancellationToken cancellationToken = default)
         {
             Calls++;
+            LastAccessToken = accessToken;
             if (Gate is not null) await Gate.Task.WaitAsync(cancellationToken);
             if (instanceId == FailureInstance) throw new System.Net.Http.HttpRequestException("private-token");
             return new(Status, Status == "COMPLETED" ? "agree" : null, "202609110001");
