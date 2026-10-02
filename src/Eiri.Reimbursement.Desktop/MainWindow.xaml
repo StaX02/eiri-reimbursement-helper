@@ -646,25 +646,6 @@
                                     Content="删除" />
                         </Grid>
 
-                        <StackPanel x:Name="OrderDetailActions"
-                                    Grid.Row="1"
-                                    Margin="18,0,18,12"
-                                    HorizontalAlignment="Right"
-                                    Visibility="{Binding IsEditableOrderSelected, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                    Orientation="Horizontal">
-                            <Button Width="84"
-                                    Height="32"
-                                    Margin="0,0,8,0"
-                                    IsEnabled="{Binding CanImport}"
-                                    Click="SelectInvoiceFilesButton_OnClick"
-                                    Content="添加发票" />
-                            <Button Width="110"
-                                    Height="32"
-                                    IsEnabled="{Binding CanImport}"
-                                    Click="SelectSupportingFilesButton_OnClick"
-                                    Content="添加辅助材料" />
-                        </StackPanel>
-
                         <Grid x:Name="MaterialDropZones"
                               Grid.Row="2"
                               Margin="18,0,18,14"
@@ -675,14 +656,17 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <Border x:Name="InvoiceDropZone"
+                            <Button x:Name="InvoiceDropZone"
                                     MinHeight="70"
                                     Padding="10"
                                     AllowDrop="True"
                                     Background="{DynamicResource InvoiceDropBrush}"
                                     BorderBrush="{DynamicResource PrimaryBrush}"
                                     BorderThickness="1"
-                                    CornerRadius="6"
+                                    Height="Auto"
+                                    IsEnabled="{Binding CanImport}"
+                                    Click="SelectInvoiceFilesButton_OnClick"
+                                    AutomationProperties.Name="添加发票 PDF"
                                     DragOver="DropZone_OnDragOver"
                                     Drop="InvoiceDropZone_OnDrop">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -694,11 +678,11 @@
                                                HorizontalAlignment="Center"
                                                FontSize="12"
                                                Foreground="{DynamicResource SecondaryTextBrush}"
-                                               Text="拖入后自动解析" />
+                                               Text="点击选择或拖入&#10;自动解析" TextAlignment="Center" />
                                 </StackPanel>
-                            </Border>
+                            </Button>
 
-                            <Border x:Name="SupportingDropZone"
+                            <Button x:Name="SupportingDropZone"
                                     Grid.Column="2"
                                     MinHeight="70"
                                     Padding="10"
@@ -706,7 +690,10 @@
                                     Background="{DynamicResource SupportingDropBrush}"
                                     BorderBrush="{DynamicResource BorderBrush}"
                                     BorderThickness="1"
-                                    CornerRadius="6"
+                                    Height="Auto"
+                                    IsEnabled="{Binding CanImport}"
+                                    Click="SelectSupportingFilesButton_OnClick"
+                                    AutomationProperties.Name="添加订单截图等辅助材料"
                                     DragOver="DropZone_OnDragOver"
                                     Drop="SupportingDropZone_OnDrop">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -717,9 +704,9 @@
                                                HorizontalAlignment="Center"
                                                FontSize="12"
                                                Foreground="{DynamicResource SecondaryTextBrush}"
-                                               Text="仅保存，不解析" />
+                                               Text="点击选择或拖入&#10;仅保存，不解析" TextAlignment="Center" />
                                 </StackPanel>
-                            </Border>
+                            </Button>
                         </Grid>
 
                         <TabControl x:Name="OrderDetailTabs"

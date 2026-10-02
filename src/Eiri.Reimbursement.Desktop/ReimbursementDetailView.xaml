@@ -16,28 +16,28 @@
                     IsEnabled="{Binding CanEdit}" Click="DingTalkApproval_OnClick">
                 <TextBlock Foreground="{DynamicResource PrimaryButtonTextBrush}" Text="钉钉提审"/>
             </Button>
-            <Button x:Name="RefreshApprovalStatusesButton" Width="90" Height="32" Margin="0,0,8,0" Content="刷新流程"
+            <Button x:Name="RefreshApprovalStatusesButton" Width="90" Height="32" Content="刷新流程"
                     Command="{Binding DataContext.RefreshApprovalStatusesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                     ToolTip="刷新已提交且有审批实例的未归档报销单；已取得同意或拒绝结果的实例不重复查询"/>
-            <Button Width="84" Height="32" Content="添加文件" IsEnabled="{Binding CanEdit}" Click="AddFiles_OnClick"/>
         </StackPanel>
 
-        <Border Visibility="{Binding IsEditable, Converter={StaticResource ArchiveVisibilityConverter}}" x:Name="ReimbursementDropZone" Grid.Row="1"
+        <Button Visibility="{Binding IsEditable, Converter={StaticResource ArchiveVisibilityConverter}}" x:Name="ReimbursementDropZone" Grid.Row="1"
                 Margin="18,0,18,14" MinHeight="70" Padding="10"
                 AllowDrop="True" IsEnabled="{Binding CanEdit}"
                 Background="{DynamicResource InvoiceDropBrush}"
                 BorderBrush="{DynamicResource PrimaryBrush}"
-                BorderThickness="1" CornerRadius="6"
+                BorderThickness="1" Height="Auto"
+                Click="AddFiles_OnClick" AutomationProperties.Name="添加报销单文件"
                 DragOver="Files_OnDragOver" Drop="Files_OnDrop"
                 ToolTip="PDF 自动识别第 1 页；再次添加只补充空字段。">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="报销单文件" HorizontalAlignment="Center"
                            FontWeight="SemiBold" Foreground="{DynamicResource PrimaryBrush}" />
-                <TextBlock Text="拖入 PDF 后自动解析首页" Margin="0,4,0,0"
+                <TextBlock Text="点击选择或拖入文件，PDF 自动解析首页" Margin="0,4,0,0"
                            HorizontalAlignment="Center" FontSize="12"
                            Foreground="{DynamicResource SecondaryTextBrush}" />
             </StackPanel>
-        </Border>
+        </Button>
 
         <TabControl x:Name="ReimbursementDetailTabs" Grid.Row="2" Margin="12,0,12,0"
                     Style="{StaticResource DetailTabControlStyle}"
