@@ -1,6 +1,7 @@
 import json
 import re
 import sys
+import unicodedata
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,8 @@ from eiri_document_worker.invoice_products import extract_product_column
 
 
 PROTOCOL_VERSION = 1
-PARSER_VERSION = "cn-einvoice-semantic-0.6"
+PARSER_VERSION = "cn-einvoice-semantic-0.7"
+REQUIRED_INVOICE_FIELDS = {"merchant_name", "invoice_number", "total_minor_units", "product_name"}
 INVOICE_NUMBER_PATTERN = re.compile(r"(?<!\d)\d{20}(?!\d)")
 LABELED_INVOICE_NUMBER_PATTERN = re.compile(
     r"发\s*票\s*号\s*码\s*[:：]?\s*(\d{20})(?!\d)"
@@ -201,6 +203,7 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
     seller_regions: list[dict[str, Any]] = []
     product_columns: dict[int, dict[str, Any]] = {}
     document = pdfium.PdfDocument(file_path)
+    page_count = len(document)
     try:
         for page_index in range(len(document)):
             page = document[page_index]
@@ -254,9 +257,85 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
     finally:
         document.close()
 
-    if not text_blocks:
-        text_blocks, page_sizes = extract_ocr_text_blocks(file_path)
-        seller_regions = build_ocr_seller_regions(text_blocks, page_sizes)
+    native = analyze_invoice_text(text_blocks, seller_regions, product_columns)
+    weak_pages = {
+        page_number for page_number in range(1, page_count + 1)
+        if not usable_invoice_text("\n".join(
+            block["text"] for block in text_blocks if block["page"] == page_number
+        ))
+    }
+    if not weak_pages and not native["needsReview"]:
+        return native
+
+    try:
+        ocr_blocks, page_sizes = extract_ocr_text_blocks(file_path)
+        ocr = analyze_invoice_text(ocr_blocks, build_ocr_seller_regions(ocr_blocks, page_sizes), {})
+    except Exception:
+        # Keep recoverable native fields when OCR cannot run. The caller still
+        # receives an editable invoice instead of losing the partial analysis.
+        native["needsReview"] = True
+        return native
+
+    return merge_invoice_analyses(native, ocr, weak_pages)
+
+
+def usable_invoice_text(text: str) -> bool:
+    characters = [character for character in text if not character.isspace()]
+    if len(characters) < 40:
+        return False
+    damaged = sum(
+        character == "\ufffd" or unicodedata.category(character) in {"Cc", "Co", "Cs", "Cn"}
+        for character in characters
+    )
+    return damaged / len(characters) <= 0.02
+
+
+def complete_invoice_candidates(candidates: list[dict[str, Any]]) -> bool:
+    return REQUIRED_INVOICE_FIELDS <= {candidate["field"] for candidate in candidates} and all(
+        candidate["confidence"] >= 0.90 for candidate in candidates
+    )
+
+
+def merge_invoice_analyses(native: dict[str, Any], ocr: dict[str, Any], weak_pages: set[int]) -> dict[str, Any]:
+    selected: list[dict[str, Any]] = []
+    conflict = False
+    unresolved = False
+    for field in sorted(REQUIRED_INVOICE_FIELDS):
+        native_fields = [candidate for candidate in native["candidates"] if candidate["field"] == field]
+        ocr_fields = [candidate for candidate in ocr["candidates"] if candidate["field"] == field]
+        # Product rows belong to individual pages; comparing whole-document
+        # lists would duplicate native rows and lose scanned continuation pages.
+        pages = sorted({candidate["page"] for candidate in native_fields + ocr_fields}) if field == "product_name" else [None]
+        for page in pages:
+            original = [candidate for candidate in native_fields if page is None or candidate["page"] == page]
+            fallback = [candidate for candidate in ocr_fields if page is None or candidate["page"] == page]
+            trusted = original and all(candidate["page"] not in weak_pages and candidate["confidence"] >= 0.90 for candidate in original)
+            if trusted:
+                selected.extend(original)
+                # Native column extraction is more precise for product names.
+                if field != "product_name" and fallback and all(candidate["confidence"] >= 0.90 for candidate in fallback):
+                    conflict |= [candidate["value"] for candidate in original] != [candidate["value"] for candidate in fallback]
+            else:
+                selected.extend(fallback or original)
+                unresolved |= bool(original) and not fallback
+
+    ocr_usable_pages = {
+        page["page"] for page in build_semantic_pages(ocr["textBlocks"])
+        if usable_invoice_text(page["text"])
+    }
+    return {
+        **native,
+        "textBlocks": native["textBlocks"] + ocr["textBlocks"],
+        "candidates": selected,
+        "needsReview": conflict or unresolved or bool(weak_pages - ocr_usable_pages) or not complete_invoice_candidates(selected),
+    }
+
+
+def analyze_invoice_text(
+    text_blocks: list[dict[str, Any]],
+    seller_regions: list[dict[str, Any]],
+    product_columns: dict[int, dict[str, Any]],
+) -> dict[str, Any]:
 
     semantic_pages = build_semantic_pages(text_blocks)
     candidates: list[dict[str, Any]] = []
@@ -363,19 +442,27 @@ def analyze_pdf(file_path: Path) -> dict[str, Any]:
                 }
             )
 
-    required_fields = {"merchant_name", "invoice_number", "total_minor_units", "product_name"}
-    candidates_by_field = {candidate["field"]: candidate for candidate in candidates}
-    complete_high_confidence_result = all(
-        field in candidates_by_field and candidates_by_field[field]["confidence"] >= 0.90
-        for field in required_fields
-    )
+    # OCR's actual recognition scores must constrain the profile's confidence.
+    # A valid-looking number alone does not make a weak OCR read trustworthy.
+    for candidate in candidates:
+        blocks = [block for block in text_blocks
+                  if block["page"] == candidate["page"] and block["source"] == "ocr"]
+        value = "".join(character for character in candidate["value"] if character.isalnum())
+        evidence = []
+        for block in blocks:
+            text = "".join(character for character in block["text"] if character.isalnum())
+            if value in text or (len(text) >= 2 and text in value):
+                evidence.append(block)
+        scores = [block["confidence"] for block in evidence or blocks]
+        if scores:
+            candidate["confidence"] = min(candidate["confidence"], min(scores))
 
     return {
         "workerVersion": __version__,
         "parserVersion": PARSER_VERSION,
         "textBlocks": text_blocks,
         "candidates": candidates,
-        "needsReview": not complete_high_confidence_result,
+        "needsReview": not complete_invoice_candidates(candidates),
     }
 
 

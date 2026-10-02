@@ -4,9 +4,17 @@ This directory contains the isolated Python process described by
 [`docs/architecture.md`](../../docs/architecture.md). The .NET side of the versioned JSON Lines
 protocol is implemented by `JsonLinesProcessDocumentProcessor`.
 
-The worker extracts the native text layer with `pypdfium2`. When a PDF has no text layer, it renders
-each page at 300 DPI and runs the models bundled with RapidOCR 3.9.2 through ONNX Runtime 1.29.0.
-Both paths return invoice number, sales-merchant name and price-tax total candidates.
+The worker extracts the native text layer with `pypdfium2`. Invoice analysis falls back to 300 DPI
+RapidOCR 3.9.2 / ONNX Runtime 1.29.0 when any page has fewer than 40 non-whitespace characters,
+more than 2% damaged characters (replacement, control, private-use, surrogate or unassigned),
+or the native analysis lacks a confident invoice number, sales-merchant name, price-tax total or
+product name. These are conservative heuristics, not measured accuracy guarantees.
+
+Native and OCR text are parsed separately. Usable native fields and native product-column order
+are preserved; OCR fills missing fields and scanned continuation pages. Conflicting scalar fields,
+low-confidence OCR evidence, unresolved weak pages and OCR failures require manual review.
+OCR failure preserves the partial native analysis. Both text sources remain in the worker response;
+the .NET workspace continues to protect fields the user has already corrected.
 
 The desktop publish target builds this worker with PyInstaller and copies the complete standalone
 worker directory into the application. End users do not need Python or a virtual environment.
