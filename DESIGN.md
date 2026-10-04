@@ -45,7 +45,7 @@ spacing:
 components:
   button: { height: "2.25rem" }
   input: { height: "2.25rem" }
-  table: { height: "3rem" }
+  table: { height: "1.75rem" }
   panel: { rounded: "0.625rem" }
 ---
 
@@ -71,7 +71,7 @@ components:
 
 ## Colors
 
-浅色主题使用 `canvas` 承托白色工作面，`border` 划分层级。`primary` 用于主操作与焦点，`accent` 用于标题账册脊线。选择使用低饱和薄荷绿底，`success` 独立表示连接成功，品牌橘橙不承担成功语义。正文使用 `text-primary`，说明文字使用 `text-secondary`。危险操作使用 `danger` 并保持与安全主操作分离。深色主题保留同一语义层级，高对比模式交由系统颜色与原生 WPF 控件能力处理。
+浅色主题使用 `canvas` 承托白色工作面，`border` 划分层级。`primary` 用于主操作与焦点，`accent` 用于标题账册脊线。选择使用低饱和薄荷绿底，`success` 独立表示连接成功，品牌橘橙不承担成功语义。正文使用 `text-primary`，说明文字使用 `text-secondary`。危险操作使用 `danger` 并保持与安全主操作分离。深色主题保留同一语义层级。当前主题会覆盖部分系统颜色资源，高对比模式的适配与验证列入后续工作。
 
 ### Reference and theme mapping
 

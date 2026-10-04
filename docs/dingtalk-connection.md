@@ -38,6 +38,8 @@
 
 自动验证使用隔离数据库及模拟 API，覆盖媒体上传 multipart 请求、错误响应、20 MB 限制、ID 前缀清理、原始尺寸与 URL、添加即上传、删除与取消、失败后重新添加、流程复用 URL，以及完整表单和 WPF 渲染。真实流程已由用户验收。
 
+## 部门与报销人
+
 通过“选项 → 设置 → 钉钉 → 提审信息”选择报销部门与报销人，选择后立即保存到同一数据库，供钉钉提审预填读取。部门保存 `dept_id` 与名称，报销人保存 `user_id` 与名称。
 
 - [部门列表](https://open.dingtalk.com/document/development/obtain-the-department-list-v2)：POST `/topapi/v2/department/listsub`，从 `dept_id=1` 开始逐级获取全部可访问子部门。该 API 每次仅返回下一级部门。
@@ -45,6 +47,8 @@
 - [用户详情](https://open.dingtalk.com/document/development/query-user-details)：对每个不同的用户 ID 调用 POST `/topapi/v2/user/get`，请求字段 `userid`，显示 `result.name`。同名用户仍按独立 ID 保存。
 
 通讯录接口使用现有 AccessToken；令牌失效时通过“连接接口”重新获取。应用需开通部门与成员信息读权限。加载失败不会保存部分查询结果；重新展开可重试。切换部门清空已选报销人，切换应用 Client ID 或清除连接记录会清除提审信息；同一应用刷新 Token 保留提审信息。数据库版本 7 新增 `dingtalk_submission_info`，随整库备份迁移，并受现有 Git 忽略规则保护。
+
+## 凭据、连接与启动重连
 
 依据[钉钉官方文档及 C# 示例](https://open.dingtalk.com/document/development/obtain-the-access-token-of-an-internal-app)，客户端把 Client ID / Client Secret 映射为 `appKey` / `appSecret`，POST 到 `https://api.dingtalk.com/v1.0/oauth2/accessToken`，输出 `accessToken`。网络层使用 .NET HttpClient 实现同一请求契约，支持取消和 30 秒超时，禁用重定向，不记录请求或响应正文。
 
@@ -70,8 +74,8 @@
 
 数据库版本 12 增加 result 与 pending。已拒绝或已撤销的未归档报销单允许重新提审；进入提交时原子设置 pending，保留旧实例和结果，阻止并发提审及状态刷新。新审批创建成功后更新实例 ID、提交时间并清空旧状态和结果；钉钉明确拒绝请求时解除 pending 并保留旧记录，结果不明时必须先核对。
 
+审批编号 `businessId` 自数据库版本 13 保存，在实例 ID 后显示；刷新未返回编号时保留已有值，重新提审成功后清空旧编号。
+
 ## 默认导出目录与审批 PDF
 
 “选项 → 设置 → 导出”可选择或清除默认导出目录，选择后自动保存。普通报销资料和审批 PDF 共用此设置。已同意报销单导出审批 PDF 时从钉钉取得已提交表单，首页之后拼接关联订单的辅助材料，要求连接令牌有效。无默认目录时，单选选择 PDF 文件路径、多选选择一次目录；有默认目录时直接使用并对同名文件追加序号。
-
-审批编号 `businessId` 自数据库版本 13 保存，在实例 ID 后显示；刷新未返回编号时保留已有值，重新提审成功后清空旧编号。

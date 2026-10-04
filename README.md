@@ -1,73 +1,35 @@
 # Eiri Reimbursement Helper
 
-为了方便在清华大学直流研究中心完成报销流程，编写了这个本地发票报销助手。Vibe出来的东西还有不少问题，打算慢慢改了。
+面向清华大学直流研究中心报销流程的 Windows 本地发票报销助手，以订单和报销单整理材料、跟踪提交与返款进度。
 
-应用支持订单与报销单管理、发票识别和人工校正、报销里程碑与归档、钉钉提审及审批流程刷新、报销资料导出和整库备份恢复。导入材料复制到受管资料库，通过 SHA-256 去重并校验文件签名。
+应用支持发票 PDF 识别与人工校正、订单和报销单管理、报销里程碑与归档、钉钉提审及审批流程刷新、报销资料和审批 PDF 导出，以及整库备份恢复。导入材料复制到受管资料库，通过 SHA-256 去重并校验文件签名；发票先提取文本，必要时使用本地 OCR。
 
-发票优先提取 PDF 文本；无文本层或文本质量不足时使用本地 OCR，缺失、冲突和低置信度结果保留人工核对。普通导出包含 CSV 汇总、发票图片和原始材料；已同意的报销单可导出审批 PDF。默认导出目录及钉钉连接、提审信息在“选项 → 设置”中管理。
+## 安装与使用
 
-本文描述当前源码。v0.5.0 之后增加的设置、启动重连及低质量文本层 OCR 回退不应据此视为已进入该版本安装包；已发布内容见 [v0.5.0 发布记录](./docs/release-notes/v0.5.0.md)。
+Windows 10/11 x64 用户可从 [GitHub Releases](https://github.com/StaX02/eiri-reimbursement-helper/releases) 获取 MSI 或免安装 ZIP。发布包包含 .NET、Python、PDF 和 OCR 依赖及模型。
 
-## Requirements
+MSI 支持选择安装目录、当前用户资料库目录和桌面快捷方式。默认资料库位于 `%LOCALAPPDATA%\EiriReimbursementHelper`；升级保留已有目录及资料，卸载默认保留资料。迁移资料库使用应用内的整库备份与恢复。
 
-- .NET SDK 10.0.400 or a compatible 10.0 patch
-- Windows 10/11 x64
+钉钉连接、提审信息和默认导出目录在“选项 → 设置”中管理。钉钉提审会上传图片和表单数据；连接凭据保存在本地数据库，随整库备份迁移。配置与故障处理见 [钉钉连接说明](docs/dingtalk-connection.md)。
 
-## Build and test
+本文描述当前源码。本地最新发布标签为 v0.5.0；其后新增内容见 [未发布变更](docs/release-notes/unreleased.md)，安装包内容与历史验证结果见 [v0.5.0 发布记录](docs/release-notes/v0.5.0.md)。
+
+## 开发入口
+
+开发环境为 Windows x64，.NET SDK 按 [global.json](global.json) 安装。开发模式运行文档识别、转图或相关测试前，需要准备 [Python worker](worker/document-worker/README.md)。
 
 ```powershell
 dotnet restore Eiri.ReimbursementHelper.sln
 dotnet build Eiri.ReimbursementHelper.sln --no-restore
 dotnet test Eiri.ReimbursementHelper.sln --no-build
-```
-
-.NET 测试保留关键检查点：金额换算、材料导入与去重、人工校正保护、订单与报销单状态同步、归档与恢复、导出成败、备份完整性、数据库迁移、worker 通信，以及钉钉请求校验、防重复提审和故障恢复。相同分支仅保留代表性输入；分页使用小型夹具。桌面测试只做窗口加载、选择状态和归档只读绑定的冒烟检查，不反复打开业务弹窗或自动生成截图。文案、颜色、尺寸、主题和附件打开通过人工验收。
-
-## Run
-
-```powershell
 dotnet run --project src/Eiri.Reimbursement.Desktop/Eiri.Reimbursement.Desktop.csproj
 ```
 
-开发模式可使用仓库内 worker 虚拟环境；运行文档识别、转图或相关测试前，若没有可用的打包 worker，先创建环境并安装依赖：
+环境准备、验证范围、打包命令、安装参数和发布检查见 [开发与交付指南](docs/development.md)。
 
-```powershell
-python -m venv worker/document-worker/.venv
-worker/document-worker/.venv/Scripts/python.exe -m pip install -e worker/document-worker
-worker/document-worker/.venv/Scripts/python.exe -m unittest discover -s worker/document-worker/tests -v
-```
+## 项目文档
 
-## Publish
-
-发布会自动把 Python 运行时、PDFium、OCR 依赖和模型打包到应用目录。最终用户无需安装 Python 或执行初始化命令：
-
-```powershell
-dotnet publish src/Eiri.Reimbursement.Desktop/Eiri.Reimbursement.Desktop.csproj -c Release -r win-x64 --self-contained true
-```
-
-完整产物位于 `src/Eiri.Reimbursement.Desktop/bin/Release/net10.0-windows/win-x64/publish`。
-
-生成包含完整应用、开始菜单快捷方式和卸载注册信息的 MSI：
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File installer/Build-Msi.ps1
-```
-
-MSI 产物位于 `artifacts/release/Eiri-Reimbursement-Helper-v<version>-win-x64.msi`。构建脚本从桌面项目读取版本，使用 WiX Toolset 6，并将 `icon.ico` 用作应用、快捷方式和“已安装的应用”图标。构建结束时会自动校验图标、内嵌 CAB、升级规则和完整 payload。
-
-双击 MSI 后可选择应用安装位置、当前 Windows 用户的数据保存位置，以及是否添加桌面快捷方式。开始菜单快捷方式自动添加。应用默认安装在 Program Files，数据默认保存在 `%LOCALAPPDATA%\EiriReimbursementHelper`；选择其他磁盘时，数据保存在所选位置下的 `EiriReimbursementHelper` 专用文件夹。安装需要管理员权限，数据目录需允许当前用户写入。
-
-升级和修复沿用已有目录，保留资料库。更换数据位置不会自动搬移原数据；迁移请先在应用内导出备份包，再在新资料库中恢复。数据位置按 Windows 用户保存，其他用户首次启动使用各自的默认资料库。
-
-从 Windows“已安装的应用”卸载时，可选择保留或永久删除当前用户的应用数据，默认保留。删除范围包含数据库、原始材料、缓存、暂存和日志；外部导出、外部备份、其他用户的数据及资料库内无关文件会保留。清理失败会提示手动处理，并将详情写入 MSI 日志。
-
-无人值守安装与卸载也支持显式参数（静默卸载默认保留数据）。以下以 v0.5.0 为例，请替换为实际安装包文件名：
-
-```powershell
-msiexec /i Eiri-Reimbursement-Helper-v0.5.0-win-x64.msi /qn INSTALLFOLDER="D:\Apps\Eiri" DATADIRECTORY="D:\Documents\EiriReimbursementHelper" ADDDESKTOPSHORTCUT=1
-msiexec /x Eiri-Reimbursement-Helper-v0.5.0-win-x64.msi /qn DELETEAPPDATA=1
-```
-
-安装动作使用 Windows 10/11 自带的 .NET Framework 4.8。发布前运行 `installer/tests/Verify-InstallerOptions.ps1` 和 `installer/tests/Test-MsiLifecycle.ps1`；后者仅允许在未安装本产品的环境运行，并使用临时测试数据。
-
-开发前先阅读 [领域词汇](./CONTEXT.md) 和 [当前架构](./docs/architecture.md)。
+- [文档导航](docs/README.md)：按任务查找文档，说明各文档的维护职责。
+- [领域词汇](CONTEXT.md)与[当前架构](docs/architecture.md)：理解业务概念、模块边界和现有行为。
+- [开发计划](docs/development-plan.md)：下一阶段的优先级、依赖与验收条件。
+- [界面规范](DESIGN.md)：视觉、交互和状态约定。
