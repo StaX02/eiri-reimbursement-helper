@@ -10,7 +10,7 @@
 | 了解当前实现 | [架构](architecture.md) | 模块、数据模型、资料库和业务流程 |
 | 配置环境、验证与发布 | [开发与交付](development.md) | 开发命令、测试边界、打包、安装和升级验证 |
 | 选择下一项工作 | [开发计划](development-plan.md) | 现状证据、优先级、依赖、范围和验收条件 |
-| 确定版本包含什么 | [未发布变更](release-notes/unreleased.md)、[v0.5.0](release-notes/v0.5.0.md)、[v0.4.0](release-notes/v0.4.0.md) | 当前增量与各次发布时的验证记录 |
+| 确定版本包含什么 | [未发布变更](release-notes/unreleased.md)、[v0.6.0](release-notes/v0.6.0.md)、[v0.5.0](release-notes/v0.5.0.md)、[v0.4.0](release-notes/v0.4.0.md) | 当前增量与各次发布时的验证记录 |
 | 修改界面 | [DESIGN.md](../DESIGN.md) | 视觉意图、共享样式和交互约定 |
 | 接入或排查钉钉 | [钉钉连接](dingtalk-connection.md) | 凭据、模板、通讯录、提审、防重复提交和审批查询 |
 | 修改识别或文档处理 | [worker README](../worker/document-worker/README.md) | 文档算法、协议、模型及独立运行方式 |

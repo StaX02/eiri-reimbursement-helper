@@ -12,7 +12,7 @@ MSI 支持选择安装目录、当前用户资料库目录和桌面快捷方式�
 
 钉钉连接、提审信息和默认导出目录在“选项 → 设置”中管理。钉钉提审会上传图片和表单数据；连接凭据保存在本地数据库，随整库备份迁移。配置与故障处理见 [钉钉连接说明](docs/dingtalk-connection.md)。
 
-本文描述当前源码。本地最新发布标签为 v0.5.0；其后新增内容见 [未发布变更](docs/release-notes/unreleased.md)，安装包内容与历史验证结果见 [v0.5.0 发布记录](docs/release-notes/v0.5.0.md)。
+本文描述当前源码。v0.6.0 的功能、交付产物和验证范围见 [v0.6.0 发布记录](docs/release-notes/v0.6.0.md)，后续增量见 [未发布变更](docs/release-notes/unreleased.md)。
 
 ## 开发入口
 
